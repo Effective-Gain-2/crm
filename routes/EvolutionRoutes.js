@@ -5,4 +5,18 @@ const { createInstanceController, fetchInstanceController } = require('../contro
 router.post('/instance', createInstanceController)
 router.get('/fetchInstances', fetchInstanceController)
 
+router.post('/webhook', (req, res) => {
+    const data = req.body;
+    
+    if (data.type === 'message') {
+        const { from, body, timestamp, instance } = data;
+        
+        console.log(`[${instance}] Mensagem de ${from}: ${body}`);
+        
+        
+    }
+    
+    res.sendStatus(200);
+});
+
 module.exports = router
