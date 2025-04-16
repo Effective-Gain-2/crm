@@ -1,7 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
-const { createInstance, fetchInstanceEvo } = require('../requests/evolution');
+const { createInstance, fetchInstanceEvo, sendTextMessage } = require('../requests/evolution');
 const Connections = require('../entities/Connection');
-const { createConnection, fetchInstance } = require('../services/ConnectionService');
+const { createConnection, fetchInstance, searchConnById } = require('../services/ConnectionService');
 
 const createInstanceController = async(req, res)=>{
     try{
@@ -13,7 +13,8 @@ const createInstanceController = async(req, res)=>{
             instanceName: instanceName,
             number:number
           });
-          const conn = new Connections(uuidv4(), instanceName, number)
+          
+          const conn = new Connections(result.instance.instanceId, instanceName, number)
           await createConnection(conn, schema)
           
 
@@ -46,6 +47,21 @@ const fetchInstanceController = async (req, res) => {
     }
   };
 
+const sendTextMessageController = async(req, res)=>{
+  try{
+    const body = req.body
+    console.log(req.body)
+    const schema = req.body.schema || 'crm'
+    const instance = await searchConnById(schema, body.connectionId)
+    console.log(instance)
+    const result = await sendTextMessage(instance.name, body.text, body.number)
+    res.status(200).json({ result });
+  } catch (error) {
+    console.error('Erro ao enviar mensagem:', error.message);
+    res.status(500).json({ error: 'Erro ao enviar mensagem' });
+  }
+}
+
 module.exports = {
-    createInstanceController, fetchInstanceController
+    createInstanceController, fetchInstanceController, sendTextMessageController
 }

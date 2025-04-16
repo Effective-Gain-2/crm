@@ -3,7 +3,6 @@ require('dotenv').config();
 const createInstance = async ({ instanceName, number }) => {
   const payload = {
     instanceName,
-    token: instanceName,
     number,
     integration: "WHATSAPP-BAILEYS",
     qrcode: true
@@ -47,7 +46,30 @@ const fetchInstanceEvo = async(instanceName)=>{
   }
 
 }
+const sendTextMessage = async(instanceId, text, number)=>{
+  const payload = {
+    text,
+    number
+  };
+  const options = {
+    method: 'POST',
+    headers: {
+      apikey: process.env.EVOLUTION_API_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  };
+  try {
+    const response = await fetch(`${process.env.EVOLUTION_SERVER_URL}/message/sendText/${instanceId}`, options);
+    const result = await response.json();
+    console.log(result)
+    
+    return result;
+  } catch (err) {
+    console.error('Erro ao enviar mensagem:', err);
+  }
+}
 
 
 
-module.exports = { createInstance, fetchInstanceEvo};
+module.exports = { createInstance, fetchInstanceEvo, sendTextMessage};

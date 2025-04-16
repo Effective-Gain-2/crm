@@ -21,11 +21,17 @@ const createConnection = async(connection, schema)=>{
 const fetchInstance = async(schema)=>{
     const result = await pool.query(
         `SELECT * FROM ${schema}.connections`
-
     )
     return result.rows
 }
+const searchConnById = async(schema, id)=>{
+    const result = await pool.query(
+        `SELECT * FROM ${schema}.connections WHERE id=$1`,[id]
+    )
+    return result.rows[0]
+}
 module.exports = {
     createConnection,
-    fetchInstance
+    fetchInstance,
+    searchConnById
 }
