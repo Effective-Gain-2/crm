@@ -337,6 +337,9 @@ const createCompany = async (company, schema) => {
             created_at TIMESTAMPTZ DEFAULT now()
             );
             `)
+            await pool.query(`
+            create table${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
+            `)
 
 
     const superAdmin = new Users(
@@ -633,7 +636,10 @@ const updateSchema = async (schema) => {
             proxima_etapa TEXT NOT NULL
             );
         `)
-
+        await pool.query(`
+            create table ${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
+            `)
+            
         await pool.query(`alter table ${schema}.messages add column user_id uuid`)
 
         return { message: "Schema atualizado com sucesso! Todas as tabelas foram criadas/verificadas." };
