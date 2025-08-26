@@ -1,5 +1,6 @@
 import axios from 'axios';
 import React, { useState, useEffect } from 'react';
+import * as bootstrap from 'bootstrap';
 
 function EditQueueModal({ theme, fila }) {
   const [title, setTitle] = useState('');
@@ -34,7 +35,6 @@ function EditQueueModal({ theme, fila }) {
 
   const handleSave = async () => {
     if (!title || !superUser) {
-      console.error('Preencha todos os campos obrigatórios.');
       return;
     }
 
@@ -50,6 +50,12 @@ function EditQueueModal({ theme, fila }) {
       });
 
       if (response.data.success) {
+        // Fechar o modal
+        const modal = document.getElementById('EditQueueModal');
+        const bootstrapModal = bootstrap.Modal.getInstance(modal);
+        if (bootstrapModal) {
+          bootstrapModal.hide();
+        }
         // Recarregar a página para atualizar os dados
         window.location.reload();
       }

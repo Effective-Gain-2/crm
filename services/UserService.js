@@ -1,4 +1,4 @@
-const pool = require('../db/queries')
+  const pool = require('../db/queries')
 const { hash, compare } = require('bcrypt');
 
 const createUser = async (user, schema) => {

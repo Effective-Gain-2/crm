@@ -1,6 +1,6 @@
     const Queue = require("../entities/Queue");
 const { v4: uuidv4 } = require('uuid');
-const { createQueue, addUserinQueue, getUserQueues, getAllQueues, deleteQueue, getQueueById, transferQueue, updateUserQueues, toggleWebhookStatus, updateWebhookUrl, getUsersInQueue } = require("../services/QueueService");
+const { createQueue, addUserinQueue, getUserQueues, getAllQueues, deleteQueue, getQueueById, transferQueue, updateUserQueues, toggleWebhookStatus, updateWebhookUrl, getUsersInQueue, updateQueue } = require("../services/QueueService");
 const { setUserChat } = require("../services/ChatService");
 const { getUserById } = require("../services/UserService");
 
@@ -214,6 +214,31 @@ const getUsersInQueueController = async (req, res) => {
     }
 };
 
+const updateQueueController = async (req, res) => {
+    try {
+        const { queueId, name, super_user, distribution, schema } = req.body;
+        
+        if (!queueId || !name || !super_user || !schema) {
+            return res.status(400).json({ 
+                error: 'queueId, name, super_user e schema são obrigatórios' 
+            });
+        }
+        
+        const result = await updateQueue(queueId, name, null, super_user, distribution, schema);
+        
+        if (result) {
+            // Emitir evento para atualização em tempo real
+            global.socketIoServer.to(`schema_${schema}`).emit('queue_updated', result);
+            res.status(200).json({ success: true, result });
+        } else {
+            res.status(404).json({ error: 'Fila não encontrada' });
+        }
+    } catch (error) {
+        console.error("Erro ao atualizar fila:", error.message);
+        res.status(500).json({ error: 'Erro ao atualizar fila' });
+    }
+};
+
 module.exports = {
     createQueueController,
     addUserinQueueController,
@@ -225,5 +250,6 @@ module.exports = {
     updateUserQueuesController,
     updateWebhookUrlController,
     toggleWebhookStatusController,
-    getUsersInQueueController
-}
+    getUsersInQueueController,
+    updateQueueController
+};
