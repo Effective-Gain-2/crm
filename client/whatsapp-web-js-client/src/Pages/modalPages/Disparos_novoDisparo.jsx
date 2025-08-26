@@ -795,7 +795,7 @@ const limparBase64 = (base64ComPrefixo) => {
                         >
                           <option value="">Selecione um canal</option>
                           {conexao.filter(conn => conn.id === canalId || !canais.includes(conn.id)).map(conn => (
-                            <option key={conn.id} value={conn.id}>{conn.name}</option>
+                            <option key={conn.id} value={conn.id}>{conn.label || conn.name}</option>
                           ))}
                         </select>
                         {canais.length > 1 && (
