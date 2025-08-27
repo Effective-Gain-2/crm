@@ -8,7 +8,7 @@ const { Queue, Worker } = require('bullmq');
 const { saveMessage } = require('./MessageService');
 const { Message } = require('../entities/Message');
 const { getCurrentTimestamp, parseLocalDateTime } = require('./getCurrentTimestamp');
-const { updateChatConnection, createNewChat } = require('./ChatService');
+const { updateChatConnection, createNewChat, updateQueue } = require('./ChatService');
 const { fetchInstance } = require('./ConnectionService');
 
 const bullConn = createRedisConnection();
@@ -18,8 +18,6 @@ const worker = new Worker(
   'Campanha',
   async (job) => {
     try {
-      console.log(`Processando job ${job.id} para número ${job.data}`);
-
       const status = await fetchInstanceEvo()
       
       if(job.data.image){
@@ -42,6 +40,10 @@ const worker = new Worker(
       }
       if(job.data.stage){
         await updateContactInKanban(job.data.number, job.data.stage, job.data.schema);
+      }
+      if(job.data.queue){
+        console.log('entrou if')
+        await updateQueue(job.data.schema, job.data.chat_id, job.data.queue);
       }
       await insertCampaingChatTable(job.data.chat_id, job.data.campaing_id, job.data.schema);
       console.log(`Job ${job.id} processado com sucesso`);
@@ -183,7 +185,7 @@ const createCampaing = async (campaing_id, campName, sector, kanbanStage, connec
   }
 };
 
-const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_stage) => {
+const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_stage, queue_id) => {
   try { 
     const startDate = Number(campaing.start_date);
     const now = Date.now();
@@ -320,6 +322,7 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
         image: message.image,
         schema: schema,
         stage: new_stage || null,
+        queue: queue_id || null
       }, { 
         delay: messageDelay, 
         attempts: 1,
