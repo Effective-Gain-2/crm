@@ -252,6 +252,7 @@ const getMessages = async(chat_Id, schema)=>{
       `SELECT * FROM ${schema}.messages WHERE chat_id=$1 ORDER BY created_at ASC`,
       [chat_Id]
     );
+    console.log('Mensagens retornadas:', result.rows);
     return result.rows
 }
 
@@ -456,16 +457,26 @@ const getChatById = async (chatId, connection_id, schema) => {
   }
 }
 
-const saveMediaMessage = async (id,fromMe, chat_id, createdAt, message_type, audioBase64, schema) => {
+const saveMediaMessage = async (id, fromMe, chat_id, createdAt, message_type, audioBase64, schema, filename = null, mimetype = null) => {
   try {
-    const result = await pool.query(
-      `INSERT INTO ${schema}.messages (id, from_me, chat_id, created_at, message_type, base64) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [id, fromMe, chat_id, createdAt, message_type, audioBase64]
-    );
+    let query, params;
+    
+    if (filename && mimetype) {
+      // Para documentos, salvar também filename e mimetype
+      query = `INSERT INTO ${schema}.messages (id, from_me, chat_id, created_at, message_type, base64, filename, mimetype) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
+      params = [id, fromMe, chat_id, createdAt, message_type, audioBase64, filename, mimetype];
+    } else {
+      // Para outros tipos de mídia
+      query = `INSERT INTO ${schema}.messages (id, from_me, chat_id, created_at, message_type, base64) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
+      params = [id, fromMe, chat_id, createdAt, message_type, audioBase64];
+    }
+    
+    const result = await pool.query(query, params);
+    console.log('Mensagem salva:', result.rows[0]);
     return result.rows[0];
   } catch (error) {
-    console.error('Erro ao salvar mensagem de áudio:', error.message);
-    throw new Error('Erro ao salvar mensagem de áudio');
+    console.error('Erro ao salvar mensagem de mídia:', error.message);
+    throw new Error('Erro ao salvar mensagem de mídia');
   }
 };
 

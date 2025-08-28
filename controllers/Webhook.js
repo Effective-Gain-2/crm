@@ -373,16 +373,18 @@ module.exports = (broadcastMessage) => {
             user_id: baseChat.assigned_user,
             status: baseChat.status
           };
-      //   if(baseChat.isboton==='on' || baseChat.isboton===true || baseChat.botchating===true){
-      //     if(!baseChat.thread_id){
-      //       await createThread(payload.body, 'asst_baus9UgM0ByVi3v2fICzDsu9', baseChat.id, schema)
-      //     }else{
-      //       const resposta = await getAssistantReply(baseChat.thread_id, payload.body)
-      //       if(resposta){
-      //         await sendTextMessage(result.instance, resposta, baseChat.contact_phone)
-      //       }
-      //     }
-      // }
+        if(baseChat.isboton==='on' || baseChat.isboton===true || baseChat.botchating===true){
+          if(!baseChat.thread_id){
+            await createThread(payload.body, 'asst_baus9UgM0ByVi3v2fICzDsu9', baseChat.id, schema)
+          }else{
+            const resposta = await getAssistantReply(baseChat.thread_id, payload.body)
+            if(resposta){
+              await sendTextMessage(result.instance, resposta, baseChat.contact_phone)
+              await saveMessage(baseChat.id, new Message(uuidv4(), resposta, true, baseChat.id, getCurrentTimestamp()), schema, null)
+            }
+          }
+      }
+     
       
         if (serverTest.io) {
           // Emitir chats atualizados baseado no status
@@ -427,6 +429,31 @@ module.exports = (broadcastMessage) => {
       }
       if (!chat || !result.instance) {
         throw new Error('Dados obrigatórios ausentes para createChat');
+      }
+
+      console.log('Webhook data:', JSON.stringify(result.data, null, 2));
+      
+      if(result.data.message.messageType === 'documentMessage' || result.data.message.documentMessage || result.data.messageType === 'documentMessage' || result.data.messageType === 'document'){
+        console.log('mensagem de documento')
+        let documentBase64 = null
+        let documentInfo = null
+        const base64Formatado = await getBase64FromMediaMessage(result.instance, result.data.key.id)
+        documentBase64 = base64Formatado.base64;
+        documentInfo = base64Formatado;
+        
+        console.log('Documento info:', JSON.stringify(documentInfo, null, 2));
+
+        if(documentBase64){
+          // Extrair informações do documento
+          const filename = documentInfo.fileName || documentInfo.filename || documentInfo.name || 'documento';
+          const mimetype = documentInfo.mimetype || documentInfo.mimeType || documentInfo.type || 'application/octet-stream';
+          
+          console.log('Filename:', filename, 'Mimetype:', mimetype);
+          
+          // Salvar com informações adicionais
+          console.log('Salvando documento:', { id: result.data.key.id, filename, mimetype, message_type: 'document' });
+          await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, 'document', documentBase64, schema, filename, mimetype);
+        }
       }
 
       const existingMessage = await pool.query(

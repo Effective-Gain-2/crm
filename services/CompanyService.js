@@ -74,6 +74,15 @@ const createCompany = async (company, schema) => {
             quote_id text
         );
         `);
+        
+        // Adicionar colunas filename e mimetype se não existirem
+        try {
+          await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS filename text`);
+          await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS mimetype text`);
+        } catch (error) {
+          console.log('Colunas filename e mimetype já existem ou erro ao adicionar:', error.message);
+        }
+        
         await pool.query(`
              CREATE TABLE IF NOT EXISTS ${schema}.contacts (
              number text not null primary key,
@@ -439,6 +448,14 @@ const updateSchema = async (schema) => {
             quote_id text
         );
         `);
+        
+        // Adicionar colunas filename e mimetype se não existirem
+        try {
+          await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS filename text`);
+          await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS mimetype text`);
+        } catch (error) {
+          console.log('Colunas filename e mimetype já existem ou erro ao adicionar:', error.message);
+        }
         
         await pool.query(`
              CREATE TABLE IF NOT EXISTS ${schema}.contacts (

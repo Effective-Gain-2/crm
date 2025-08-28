@@ -447,7 +447,7 @@ function ChatPage({ theme, chat_id} ) {
   const getFilteredChats = () => {
     let filtered = chatList.filter(chat => {
       // Filtro por aba (conversas/aguardando)
-      if (selectedTab === 'conversas' && chat.status === 'waiting') return false;
+      if (selectedTab === 'conversas' && (chat.status === 'waiting' || chat.status === 'disparo')) return false;
       if (selectedTab === 'aguardando' && chat.status !== 'waiting') return false;
 
       // Filtro por status
@@ -881,17 +881,27 @@ useEffect(() => {
     loadChats();
   }, [schema, userData.id, url]);
 
-const formatMessage = (msg) => ({
-  id: msg.id,
-  name: msg.contact_name || msg.senderName,
-  text: msg.text || msg.body,
-  from_me: msg.from_me|| msg.fromMe,
-  timestamp: msg.timestamp || msg.created_at,
-  message_type: msg.message_type,
-  base64: msg.midiaBase64 || msg.base64,
-  user_id: msg.user_id
-}
-);
+const formatMessage = (msg) => {
+  const formatted = {
+    id: msg.id,
+    name: msg.contact_name || msg.senderName,
+    text: msg.text || msg.body,
+    from_me: msg.from_me|| msg.fromMe,
+    timestamp: msg.timestamp || msg.created_at,
+    message_type: msg.message_type,
+    base64: msg.midiaBase64 || msg.base64,
+    user_id: msg.user_id,
+    filename: msg.filename,
+    mimetype: msg.mimetype
+  };
+  
+  // Log para documentos
+  if (msg.message_type === 'document' || msg.message_type === 'documentMessage' || msg.message_type === 'arquivo') {
+    console.log('Documento formatado:', formatted);
+  }
+  
+  return formatted;
+};
 
 
 const loadMessages = async (chatId) => {
@@ -905,6 +915,7 @@ const loadMessages = async (chatId) => {
     });
 
 
+    console.log('Mensagens recebidas do backend:', res.data.messages);
     const formattedMessages = res.data.messages.map(formatMessage);
 
 
@@ -2173,6 +2184,67 @@ const handleImageUpload = async (event) => {
                     onClick={() => handleImageClick(msg.base64)}
                   />
                 </>
+              ) : (msg.message_type === 'document' || msg.message_type === 'documentMessage' || msg.message_type === 'arquivo') ? (
+                (() => {
+                  console.log('Renderizando documento:', msg);
+                  const name = msg.file_name || msg.filename || msg.name || 'Documento';
+                  const b64 = typeof msg.base64 === 'string' ? msg.base64 : '';
+                  let mime = msg.mimetype || msg.mime || '';
+                  console.log('Documento renderizando:', { name, b64: b64 ? 'presente' : 'ausente', mime });
+                  if (!mime && b64 && b64.startsWith('data:')) {
+                    const m = b64.match(/^data:([^;]+);base64,/);
+                    if (m && m[1]) mime = m[1];
+                  }
+                  if (!mime) mime = 'application/octet-stream';
+                  let url = '';
+                  if (b64) {
+                    if (b64.startsWith('blob:') || b64.startsWith('http')) url = b64;
+                    else if (b64.startsWith('data:')) url = b64;
+                    else url = `data:${mime};base64,${b64}`;
+                  }
+                  console.log('URL gerada:', url ? 'presente' : 'ausente');
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '240px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                          width: '36px', height: '36px', borderRadius: '6px',
+                          background: '#e8f0fe', color: '#1a73e8', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                        }}>
+                          <i className="bi bi-file-earmark" style={{ fontSize: '1.1rem' }}></i>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontWeight: 600, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                          <a
+                            href={url}
+                            download={name}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ color: '#1a73e8', textDecoration: 'none', fontSize: '0.9rem' }}
+                            onClick={(e) => {
+                              if (!url) {
+                                e.preventDefault();
+                                alert('Arquivo não disponível para download');
+                              } else {
+                                console.log('Tentando abrir documento:', { url: url.substring(0, 50) + '...', name, mime });
+                              }
+                            }}
+                          >
+                            Abrir/baixar
+                          </a>
+                        </div>
+                      </div>
+                      {mime === 'application/pdf' && url && (
+                        <iframe
+                          src={url}
+                          title={name}
+                          style={{ width: '100%', height: '320px', border: '1px solid var(--border-color)' }}
+                          onError={(e) => console.log('Erro ao carregar PDF:', e)}
+                        />
+                      )}
+                    </div>
+                  );
+                })()
               ) : (
                 msg.text && (
                   <div>

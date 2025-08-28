@@ -83,16 +83,13 @@ const runOpenAi = async (thread_id) => {
     console.log(run);
 }
 const getAssistantReply = async (thread_id, userMessage) => {
-  // Adiciona a mensagem do usuário ao thread
   await openai.beta.threads.messages.create(thread_id, {
     role: 'user',
     content: userMessage
   });
 
-  // Cria o run
   const run = await openai.beta.threads.runs.create(thread_id, { assistant_id: 'asst_baus9UgM0ByVi3v2fICzDsu9' });
 
-  // Aguarda o run terminar
   let status = run.status;
   let runResult = run;
   while (status !== 'completed' && status !== 'failed' && status !== 'cancelled') {
@@ -101,11 +98,29 @@ const getAssistantReply = async (thread_id, userMessage) => {
     status = runResult.status;
   }
 
-  // Busca as mensagens do thread
   const threadMessages = await openai.beta.threads.messages.list(thread_id);
-  const resposta = threadMessages.data.find(m => m.role === 'assistant');
-  if (resposta && resposta.content && resposta.content[0] && resposta.content[0].text) {
-    return resposta.content[0].text.value;
+  const assistantMsg = threadMessages.data.find(m => m.role === 'assistant');
+
+  // Verifica se há chamada de função
+  if (assistantMsg && assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
+    for (const toolCall of assistantMsg.tool_calls) {
+      if (toolCall.function) {
+        // Aqui você pode executar a função correspondente no seu backend
+        const functionName = toolCall.function.name;
+        const functionArgs = JSON.parse(toolCall.function.arguments);
+        // Exemplo: chamar uma função local
+        if (functionName === '') {
+          return await suaFuncao(functionArgs);
+        }
+        // Retorne ou trate conforme necessário
+        return { functionName, functionArgs };
+      }
+    }
+  }
+
+  // Se não for function call, retorna resposta normal
+  if (assistantMsg && assistantMsg.content && assistantMsg.content[0] && assistantMsg.content[0].text) {
+    return assistantMsg.content[0].text.value;
   } else {
     return null;
   }
