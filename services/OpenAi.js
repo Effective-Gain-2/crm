@@ -1,7 +1,6 @@
 const OpenAI = require('openai');
 const dotenv = require('dotenv');
 const { content } = require('googleapis/build/src/apis/content');
-const { assert } = require('tone/build/esm/core/util/Debug');
 const pool = require('../db/queries');
 dotenv.config();
 
