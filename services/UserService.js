@@ -13,7 +13,7 @@ const createUser = async (user, schema) => {
             user.getEmail(),
             passwordHash,
             user.getPermission()
-        ]
+        ] 
     );
 
     return result.rows[0];
