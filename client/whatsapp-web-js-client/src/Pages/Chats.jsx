@@ -2205,35 +2205,6 @@ const handleImageUpload = async (event) => {
                   console.log('URL gerada:', url ? 'presente' : 'ausente');
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '240px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                          width: '36px', height: '36px', borderRadius: '6px',
-                          background: '#e8f0fe', color: '#1a73e8', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                        }}>
-                          <i className="bi bi-file-earmark" style={{ fontSize: '1.1rem' }}></i>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontWeight: 600, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-                          <a
-                            href={url}
-                            download={name}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ color: '#1a73e8', textDecoration: 'none', fontSize: '0.9rem' }}
-                            onClick={(e) => {
-                              if (!url) {
-                                e.preventDefault();
-                                alert('Arquivo não disponível para download');
-                              } else {
-                                console.log('Tentando abrir documento:', { url: url.substring(0, 50) + '...', name, mime });
-                              }
-                            }}
-                          >
-                            Abrir/baixar
-                          </a>
-                        </div>
-                      </div>
                       {mime === 'application/pdf' && url && (
                         <iframe
                           src={url}
@@ -2242,6 +2213,54 @@ const handleImageUpload = async (event) => {
                           onError={(e) => console.log('Erro ao carregar PDF:', e)}
                         />
                       )}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{
+                            width: '36px', height: '36px', borderRadius: '6px',
+                            background: '#e8f0fe', color: '#1a73e8', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                          }}>
+                            <i className="bi bi-file-earmark" style={{ fontSize: '1.1rem' }}></i>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontWeight: 600, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                          </div>
+                        </div>
+                                                 <button
+                           onClick={(e) => {
+                             if (!url) {
+                               e.preventDefault();
+                               alert('Arquivo não disponível para download');
+                             } else {
+                               console.log('Tentando abrir documento:', { url: url.substring(0, 50) + '...', name, mime });
+                               const link = document.createElement('a');
+                               link.href = url;
+                               link.download = name;
+                               link.target = '_blank';
+                               link.rel = 'noreferrer';
+                               document.body.appendChild(link);
+                               link.click();
+                               document.body.removeChild(link);
+                             }
+                           }}
+                           style={{
+                             background: '#6c757d',
+                             color: 'white',
+                             border: 'none',
+                             borderRadius: '50%',
+                             width: '32px',
+                             height: '32px',
+                             cursor: 'pointer',
+                             display: 'flex',
+                             alignItems: 'center',
+                             justifyContent: 'center',
+                             flexShrink: 0
+                           }}
+                           title="Baixar arquivo"
+                         >
+                           <i className="bi bi-download" style={{ fontSize: '0.9rem' }}></i>
+                         </button>
+                      </div>
                     </div>
                   );
                 })()
