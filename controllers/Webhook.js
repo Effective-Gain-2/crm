@@ -16,6 +16,7 @@ const express = require('express');
 const createRedisConnection = require('../config/Redis');
 const { Queue, Worker } = require('bullmq');
 const { getQueueById } = require('../services/QueueService');
+const { createThread, messageAnAssistant, getAssistantReply } = require('../services/OpenAi');
 
 // Função para emitir chats para as filas específicas
 const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
@@ -191,17 +192,13 @@ module.exports = (broadcastMessage) => {
       const baseChat = await getChatService(createChats.chat.id, createChats.chat.connection_id, createChats.schema)
       if(result.data.key.fromMe===false){
         await setMessageIsUnread(baseChat.id, schema)
-        // Se a mensagem não é do sistema (fromMe = false), atualiza o status de 'disparo' para 'open'
         await updateChatStatusFromDisparo(baseChat.id, schema)
       }
       if (baseChat.assigned_user !== null) {
-        // Chat já tem usuário atribuído - emitir para o usuário específico e para admins/técnicos
         const userChat = await getChatByUser(baseChat.assigned_user, baseChat.permission, schema)
         if (serverTest.io) {
-          // Emitir para o usuário específico
           serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', userChat)
           
-          // Emitir para admins e técnicos
           const adminUsersQuery = await pool.query(
             `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico') AND online = true AND id != $1`,
             [baseChat.assigned_user]
@@ -218,7 +215,6 @@ module.exports = (broadcastMessage) => {
           }
         }
       } else {
-        // Chat na sala de espera - emitir considerando permissões
         await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
       }
 
@@ -377,6 +373,16 @@ module.exports = (broadcastMessage) => {
             user_id: baseChat.assigned_user,
             status: baseChat.status
           };
+      //   if(baseChat.isboton==='on' || baseChat.isboton===true || baseChat.botchating===true){
+      //     if(!baseChat.thread_id){
+      //       await createThread(payload.body, 'asst_baus9UgM0ByVi3v2fICzDsu9', baseChat.id, schema)
+      //     }else{
+      //       const resposta = await getAssistantReply(baseChat.thread_id, payload.body)
+      //       if(resposta){
+      //         await sendTextMessage(result.instance, resposta, baseChat.contact_phone)
+      //       }
+      //     }
+      // }
       
         if (serverTest.io) {
           // Emitir chats atualizados baseado no status

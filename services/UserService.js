@@ -129,9 +129,11 @@ const searchUser = async (userMail, userPassword) => {
   };
   const updateLastAssignedUser = async (queue, user_id, schema) => {
     await pool.query(
-      `INSERT INTO ${schema}.last_assigned_user (queue_id, user_id)
-       VALUES ($1, $2)
-       ON CONFLICT (queue_id) DO UPDATE SET user_id = $2`,
+      `DELETE FROM ${schema}.last_assigned_user WHERE queue_id = $1`,
+      [queue]
+    );
+    await pool.query(
+      `INSERT INTO ${schema}.last_assigned_user (queue_id, user_id) VALUES ($1, $2)`,
       [queue, user_id]
     );
 };
