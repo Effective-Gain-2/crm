@@ -114,7 +114,7 @@ function WhatsappModal({ theme, show, onHide }) {
                 ) : (
                   contatos.map((contato) => (
                     <tr key={contato.id}>
-                      <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.name}</td>
+                      <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.label || contato.name}</td>
                       <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.number}</td>
                       <td className="px-3 py-2">
                         <div className="d-flex flex-wrap gap-2">

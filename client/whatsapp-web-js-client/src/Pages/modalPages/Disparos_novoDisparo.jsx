@@ -35,6 +35,10 @@ function DisparoModal({ theme, disparo = null, onSave }) {
   // Estados para transferência de contatos
   const [transferirContato, setTransferirContato] = useState(false);
   const [etapaDestino, setEtapaDestino] = useState('');
+  // Estados para envio para fila única
+  const [enviarParaFila, setEnviarParaFila] = useState(false);
+  const [filaDestino, setFilaDestino] = useState('');
+  const [filas, setFilas] = useState([]);
   // Remover todos os estados e lógicas de loading, success, errorMsg
   // Remover feedback visual do botão
   // Remover exibição de erro
@@ -52,7 +56,8 @@ function DisparoModal({ theme, disparo = null, onSave }) {
     funilSelecionado: false,
     etapa: false,
     tagsSelecionadas: false,
-    etapaDestino: false
+    etapaDestino: false,
+    filaDestino: false
   });
 
 
@@ -206,6 +211,15 @@ const limparBase64 = (base64ComPrefixo) => {
       setTransferirContato(false);
       setEtapaDestino('');
     }
+
+    // Carregar dados de fila única se existir
+    if (disparo && (disparo.enviar_para_fila_unica || disparo.queue_id)) {
+      setEnviarParaFila(true);
+      setFilaDestino(disparo.queue_id || '');
+    } else {
+      setEnviarParaFila(false);
+      setFilaDestino('');
+    }
     
     // Limpar erros quando carregar disparo
     setErrors({
@@ -217,7 +231,8 @@ const limparBase64 = (base64ComPrefixo) => {
       funilSelecionado: false,
       etapa: false,
       tagsSelecionadas: false,
-      etapaDestino: false
+      etapaDestino: false,
+      filaDestino: false
     });
   } else {
     setTitulo('');
@@ -241,6 +256,8 @@ const limparBase64 = (base64ComPrefixo) => {
     setIntervaloUnidadeMax('segundos');
     setTransferirContato(false);
     setEtapaDestino('');
+    setEnviarParaFila(false);
+    setFilaDestino('');
     
     // Limpar erros quando carregar disparo
     setErrors({
@@ -252,7 +269,8 @@ const limparBase64 = (base64ComPrefixo) => {
       funilSelecionado: false,
       etapa: false,
       tagsSelecionadas: false,
-      etapaDestino: false
+      etapaDestino: false,
+      filaDestino: false
     });
   }
 };
@@ -290,6 +308,34 @@ const limparBase64 = (base64ComPrefixo) => {
       }
     };
     fetchFunis();
+
+    // Buscar filas disponíveis (silenciosamente; ignora erro se endpoint não existir)
+    const fetchFilas = async () => {
+      try {
+        // Tentativas de endpoints comuns; use o primeiro que responder
+        const tentativa1 = axios.get(`${url}/queue/get-all-queues/${schema}`, { withCredentials: true }).catch(() => null);
+        const [r1] = await Promise.all([tentativa1]);
+        const resp = r1 ;
+        let lista = [];
+        if (resp && Array.isArray(resp.data)) {
+          lista = resp.data;
+        } else if (resp && Array.isArray(resp.data?.result)) {
+          lista = resp.data.result;
+        } else {
+          lista = [];
+        }
+        // Normaliza para { id, name }
+        const normalizada = lista.map((item) => {
+          const id = item.id ?? item.queue_id ?? item.value ?? item.uuid ?? '';
+          const name = item.label ?? item.name ?? item.titulo ?? item.title ?? `Fila ${id}`;
+          return { id, name };
+        }).filter(f => f.id !== '');
+        setFilas(normalizada);
+      } catch (error) {
+        setFilas([]);
+      }
+    };
+    fetchFilas();
   }, [url, schema]);
 
 
@@ -497,7 +543,8 @@ const limparBase64 = (base64ComPrefixo) => {
       funilSelecionado: tipoAlvo === 'Funil' && !funilSelecionado,
       etapa: tipoAlvo === 'Funil' && !etapa,
       tagsSelecionadas: tipoAlvo === 'Tag' && tagsSelecionadas.length === 0,
-      etapaDestino: transferirContato && !etapaDestino
+      etapaDestino: transferirContato && !etapaDestino,
+      filaDestino: enviarParaFila && !filaDestino
     };
     
     setErrors(newErrors);
@@ -551,7 +598,9 @@ const limparBase64 = (base64ComPrefixo) => {
       unidade_max: intervaloDinamico ? intervaloUnidadeMax : null
     },
     transferir_contato: transferirContato,
-    ...(transferirContato && etapaDestino ? { new_stage: etapaDestino } : {})
+    ...(transferirContato && etapaDestino ? { new_stage: etapaDestino } : {}),
+    enviar_para_fila_unica: enviarParaFila,
+    ...(enviarParaFila && filaDestino ? { queue_id: filaDestino } : {})
 };
 
     try {
@@ -795,7 +844,7 @@ const limparBase64 = (base64ComPrefixo) => {
                         >
                           <option value="">Selecione um canal</option>
                           {conexao.filter(conn => conn.id === canalId || !canais.includes(conn.id)).map(conn => (
-                            <option key={conn.id} value={conn.id}>{conn.name}</option>
+                            <option key={conn.id} value={conn.id}>{conn.label || conn.name}</option>
                           ))}
                         </select>
                         {canais.length > 1 && (
@@ -1002,6 +1051,60 @@ const limparBase64 = (base64ComPrefixo) => {
                     )}
                   </div>
                 )}
+
+                {/* Enviar contatos para uma única fila */}
+                <div className="mb-3">
+                  <div className="form-check">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      id="enviarParaFila"
+                      checked={enviarParaFila}
+                      onChange={(e) => {
+                        setEnviarParaFila(e.target.checked);
+                        if (!e.target.checked) {
+                          setFilaDestino('');
+                          setErrors(prev => ({ ...prev, filaDestino: false }));
+                        }
+                      }}
+                    />
+                    <label className={`form-check-label card-subtitle-${theme}`} htmlFor="enviarParaFila">
+                      Enviar contatos para uma única fila
+                    </label>
+                  </div>
+
+                  {enviarParaFila && (
+                    <div className="mt-2">
+                      <label htmlFor="filaDestino" className={`form-label card-subtitle-${theme}`}>
+                        Fila de Destino *
+                      </label>
+                      <select
+                        className={`form-select input-${theme} ${errors.filaDestino ? 'border-danger' : ''}`}
+                        id="filaDestino"
+                        value={filaDestino}
+                        onChange={(e) => {
+                          setFilaDestino(e.target.value);
+                          if (errors.filaDestino) {
+                            setErrors(prev => ({ ...prev, filaDestino: false }));
+                          }
+                        }}
+                        title={errors.filaDestino ? "Campo obrigatório" : ""}
+                      >
+                        <option value="" disabled>Selecione uma fila</option>
+                        {Array.isArray(filas) && filas.map((fila) => (
+                          <option key={fila.id} value={fila.id}>
+                            {fila.name}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.filaDestino && (
+                        <div className="text-danger small mt-1">
+                          Este campo é obrigatório
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               {/* Coluna da Direita */}
               <div className="col-6">

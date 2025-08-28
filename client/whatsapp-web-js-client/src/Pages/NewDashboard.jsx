@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import { useToast } from '../contexts/ToastContext';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -35,6 +36,11 @@ function NewDashboard({ theme }) {
   const url = process.env.REACT_APP_URL;
   const userData = JSON.parse(localStorage.getItem('user'));
   const schema = userData?.schema;
+  const { showError, showSuccess } = useToast();
+  const xlsx = require('xlsx');
+  const XLSX = xlsx;
+  const [selectedDates, setSelectedDates] = useState({});
+  
 
   // Estados de filtros
   const [selectedPeriod, setSelectedPeriod] = useState('diario');
@@ -75,24 +81,118 @@ function NewDashboard({ theme }) {
     }
 
     const fetchCampaingChats = async () => {
-      try {
-        const chats = [];
-        for(const campanha of campanhas){
-          const response = await axios.get(`${url}/campaing/get-campaing-chats/${campanha.campaing_id}/${schema}`);
-          chats.push(...response.data.result);
-          console.log(response.data.result);
-        }
-        
-        setCampaingChats(chats);
-      } catch (error) {
-        console.error('Erro ao buscar chats das campanhas:', error);
-      }
+  try {
+    const chats = [];
+    for (const campanha of campanhas) {
+      const response = await axios.get(`${url}/campaing/get-campaing-chats/${campanha.campaing_id}/${schema}`);
+      chats.push(...response.data.result);
     }
+
+    // Filtrar chats únicos por chat_id
+    const chatsUnicos = Object.values(
+      chats.reduce((acc, chat) => {
+        acc[chat.chat_id] = chat;
+        return acc;
+      }, {})
+    );
+
+    setCampaingChats(chatsUnicos);
+  } catch (error) {
+    console.error('Erro ao buscar chats das campanhas:', error);
+  }
+};
 
     fetchDisparos();
     fetchCampaingData();
     fetchCampaingChats();
   }, [url, activeTab])
+
+  const handleExportAll = (campaing_id) => {
+  try {
+    const selectedDate = selectedDates[campaing_id] || getLast7Days()[0];
+    console.log(campaingChats)
+    console.log(new Date(Number(campaingChats[0].created_at)).toISOString())
+    const contatos = campaingChats.filter(chat =>
+      chat.campaing_id === campaing_id &&
+      chat.created_at && new Date(Number(chat.created_at)).toISOString().startsWith(selectedDate)
+    );
+    const json = contatos.map(contato=>({
+      nome:contato.contact_name,
+      numero:contato.contact_phone,
+      etapa:contato.stage,
+      status: contato.status==='disparo'? 'Não respondido' : 'Respondido'
+    }))
+    if (contatos.length === 0) {
+      showError('Nenhum contato encontrado para exportar.');
+      return;
+    }
+    const worksheet = XLSX.utils.json_to_sheet(json);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "book");
+    XLSX.writeFile(workbook, 'contatos_campanha.xlsx');
+  } catch (error) {
+    showError('Erro ao exportar contatos da campanha.');
+    console.error('Erro ao exportar contatos da campanha:', error);
+  }
+};
+
+const handleExportNaoRespondidas = (campaing_id)=>{
+  try {
+  const naoRespondidos = campaingChats.filter(chat => chat.campaing_id === campaing_id).filter(contato=> contato.status==='disparo')
+  const jsonNR = naoRespondidos.map(contato=>({
+    nome:contato.contact_name,
+    numero:contato.contact_phone,
+    etapa:contato.kanban_stage
+  }))
+  if (naoRespondidos.length ===0){
+    showError('Nenhum contato não respondido encontrado para exportar.')
+  }
+  const worksheet = XLSX.utils.json_to_sheet(jsonNR)
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, "book");
+  if(naoRespondidos.length>0){
+    XLSX.writeFile(workbook, 'contatos_nao_respondidos.xlsx')
+  }
+  } catch (error) {
+    showError('Erro ao exportar contatos não respondidos da campanha.')
+    console.error('Erro ao exportar contatos não respondidos da campanha:', error)
+  }
+  
+}
+const handleExportRespondidas = (campaing_id)=>{
+  try {
+  const respondidos = campaingChats.filter(chat => chat.campaing_id === campaing_id).filter(contato=> contato.status!=='disparo')
+  const json = respondidos.map(contato=>({
+    nome:contato.contact_name,
+    numero:contato.contact_phone,
+    etapa:contato.kanban_stage
+  }))
+  if (respondidos.length ===0){
+    showError('Nenhum contato respondido encontrado para exportar.')
+  }
+  const worksheet = XLSX.utils.json_to_sheet(json)
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, "book");
+  if(respondidos.length>0){
+    XLSX.writeFile(workbook, 'contatos_respondidos.xlsx')
+  }
+  } catch (error) {
+    showError('Erro ao exportar contatos respondidos da campanha.')
+    console.error('Erro ao exportar contatos respondidos da campanha:', error)
+  }
+  
+}
+const getLast7Days = () => {
+  const days = [];
+  const today = new Date();
+  for (let i = 0; i < 7; i++) {
+    const date = new Date();
+    date.setDate(today.getDate() - i);
+    days.push(date.toISOString().slice(0, 10));
+  }
+  console.log(days)
+  return days;
+};
 
   // Usar hooks personalizados
   const { data, loading, error, lastUpdate, calculatedData } = useDashboardData(schema, url);
@@ -223,6 +323,7 @@ function NewDashboard({ theme }) {
 const chatsProcessados = new Set();
 
 campaingChats.forEach(chat => {
+  console.log(chat);
   if (
     chat.campaing_id &&
     chat.status === 'disparo' &&
@@ -340,7 +441,7 @@ campaingChats.forEach(chat => {
                   <table className={`table table-bordered table-hover m-0 table-${theme}`}>
                     <thead className={`table-${theme}`}>
                       <tr>
-                        <th><i className="bi bi-calendar me-1"></i>Data</th>
+                        
                         <th><i className="bi bi-phone me-1"></i>Canal</th>
                         <th><i className="bi bi-list-ul me-1"></i>Fila</th>
                         <th><i className="bi bi-person me-1"></i>Atendente</th>
@@ -357,7 +458,7 @@ campaingChats.forEach(chat => {
                       )}
                       {data.reportData?.slice(0, 10).filter(userData.role==='tecnico'||userData.role==='admin'?r=>r.id!==null:r=>r.user_id===userData.id).map((row, idx) => (
                         <tr key={idx} className={idx % 2 === 0 ? `table-light-${theme}` : ''}>
-                          <td>{new Date().toLocaleDateString('pt-BR')}</td>
+                          
                           <td>WhatsApp</td>
                           <td>{row.queue_id ? (data.queueMap[row.queue_id] || `Fila ${row.queue_id}`) : '-'}</td>
                           <td>{row.user_id ? (data.userNames[row.user_id] || `Usuário ${row.user_id}`) : '-'}</td>
@@ -568,7 +669,10 @@ campaingChats.forEach(chat => {
             </small>
             
             {/* Filtros seguindo padrão do login */}
-            <div className="input-group" style={{ minWidth: '140px' }}>
+            <div className="input-group" style={{ minWidth: '140px',
+                  display: activeTab === 'disparos' ? 'none' : 'flex'
+
+            }}>
               <span className={`input-group-text igt-${theme}`}>
                 <i className="bi bi-calendar3"></i>
               </span>
@@ -1178,7 +1282,6 @@ campaingChats.forEach(chat => {
                   <table className={`table table-bordered table-hover m-0 table-${theme}`}>
                     <thead className={`table-${theme}`}>
                       <tr>
-                        <th><i className="bi bi-calendar me-1"></i>Data</th>
                         <th><i className="bi bi-phone me-1"></i>Canal</th>
                         <th><i className="bi bi-list-ul me-1"></i>Fila</th>
                         <th><i className="bi bi-person me-1"></i>Atendente</th>
@@ -1194,9 +1297,9 @@ campaingChats.forEach(chat => {
                         <tr><td colSpan={9} className="text-center">Nenhum dado encontrado</td></tr>
                       )}
                       {data.reportData?.slice(0, 10).filter(userData.role==='tecnico'||userData.role==='admin'?r=>r.id!==null:r=>r.user_id===userData.id).map((row, idx) => (
+                        console.log(row),
                         <tr key={idx} className={idx % 2 === 0 ? `table-light-${theme}` : ''}>
-                          <td>{new Date().toLocaleDateString('pt-BR')}</td>
-                          <td>WhatsApp</td>
+                          <td>WhatsApp</td> 
                           <td>{row.queue_id ? (data.queueMap[row.queue_id] || `Fila ${row.queue_id}`) : '-'}</td>
                           <td>{row.user_id ? (data.userNames[row.user_id] || `Usuário ${row.user_id}`) : '-'}</td>
                           <td>{row.categoria || '-'}</td>
@@ -1383,7 +1486,7 @@ campaingChats.forEach(chat => {
                         const naoRespondidos = campaingChats.filter(chat => 
                           chat.campaing_id === disparo.id && chat.status === 'disparo'
                         ).length;
-                        
+                        console.log(campaingChats, naoRespondidos)
                         const respondidos = totalContatos - naoRespondidos;
                         
                         return (
@@ -1391,9 +1494,23 @@ campaingChats.forEach(chat => {
                             <div className={`card h-100 card-${theme}`} style={{ minHeight: '180px' }}>
                               <div className="card-body d-flex flex-column justify-content-between p-3">
                                 <div>
+                                 <div className="d-flex justify-content-between align-items-center mb-2">
                                   <h6 className={`card-title mb-2 header-text-${theme}`} style={{ fontSize: '0.9rem' }}>
                                     {disparo.campaing_name || `Campanha ${disparo.id}`}
                                   </h6>
+                                  <select
+                                    className="form-select form-select-sm"
+                                    style={{ width: 130, fontSize: '0.8rem' }}
+                                    value={selectedDates[disparo.id] || getLast7Days()[0]}
+                                    onChange={e => setSelectedDates(prev => ({ ...prev, [disparo.id]: e.target.value }))}
+                                  >
+                                    {getLast7Days().map(date => (
+                                      <option key={date} value={date}>
+                                        {date}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
                                   <div className="mb-2">
                                     <small className={`card-subtitle-${theme} d-block`}>
                                       <i className="bi bi-people me-1"></i>
@@ -1411,15 +1528,15 @@ campaingChats.forEach(chat => {
                                 </div>
                                 
                                 <div className="d-flex gap-1 mt-2 justify-content-center flex-wrap">
-                                  <button className={`btn btn-sm btn-1-${theme} mb-1`} style={{ fontSize: '0.75rem' }}>
+                                  <button className={`btn btn-sm btn-1-${theme} mb-1`} style={{ fontSize: '0.75rem' }} onClick={()=>handleExportAll(disparo.id)}>
                                     <i className="bi bi-download me-1"></i>
                                     Completa
                                   </button>
-                                  <button className={`btn btn-sm btn-2-${theme} mb-1`} style={{ fontSize: '0.75rem' }}>
+                                  <button className={`btn btn-sm btn-2-${theme} mb-1`} style={{ fontSize: '0.75rem' }} onClick={()=>handleExportNaoRespondidas(disparo.id)}>
                                     <i className="bi bi-download me-1"></i>
                                     Não Respondidos
                                   </button>
-                                  <button className={`btn btn-sm btn-1-${theme} mb-1`} style={{ fontSize: '0.75rem' }}>
+                                  <button className={`btn btn-sm btn-1-${theme} mb-1`} style={{ fontSize: '0.75rem' }} onClick={()=>handleExportRespondidas(disparo.id)}>
                                     <i className="bi bi-download me-1"></i>
                                     Respondidos
                                   </button>

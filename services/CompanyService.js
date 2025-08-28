@@ -74,6 +74,15 @@ const createCompany = async (company, schema) => {
             quote_id text
         );
         `);
+        
+        // Adicionar colunas filename e mimetype se não existirem
+        try {
+          await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS filename text`);
+          await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS mimetype text`);
+        } catch (error) {
+          console.log('Colunas filename e mimetype já existem ou erro ao adicionar:', error.message);
+        }
+        
         await pool.query(`
              CREATE TABLE IF NOT EXISTS ${schema}.contacts (
              number text not null primary key,
@@ -337,6 +346,9 @@ const createCompany = async (company, schema) => {
             created_at TIMESTAMPTZ DEFAULT now()
             );
             `)
+            await pool.query(`
+            create table${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
+            `)
 
 
     const superAdmin = new Users(
@@ -436,6 +448,14 @@ const updateSchema = async (schema) => {
             quote_id text
         );
         `);
+        
+        // Adicionar colunas filename e mimetype se não existirem
+        try {
+          await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS filename text`);
+          await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS mimetype text`);
+        } catch (error) {
+          console.log('Colunas filename e mimetype já existem ou erro ao adicionar:', error.message);
+        }
         
         await pool.query(`
              CREATE TABLE IF NOT EXISTS ${schema}.contacts (
@@ -633,7 +653,10 @@ const updateSchema = async (schema) => {
             proxima_etapa TEXT NOT NULL
             );
         `)
-
+        await pool.query(`
+            create table ${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
+            `)
+            
         await pool.query(`alter table ${schema}.messages add column user_id uuid`)
 
         return { message: "Schema atualizado com sucesso! Todas as tabelas foram criadas/verificadas." };

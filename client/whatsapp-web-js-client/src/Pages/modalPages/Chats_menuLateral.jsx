@@ -86,6 +86,7 @@ const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
     });
             if (connectionRes.data.data) {
               const connection = connectionRes.data.data;
+              console.log(connection)
               if (connection) {
                 setConnectionData(connection);
               }
@@ -184,7 +185,7 @@ const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
             </div>
             <div style={{ marginBottom: 16 }}>
             <strong>Conexão:</strong>
-            <div>{connectionData?.name || selectedChat?.connection_id || 'N/A'}</div>
+            <div>{connectionData?.label || connectionData?.name || 'N/A'}</div>
             </div>
             <div style={{ marginBottom: 16 }}>
             <strong>ID do Chat:</strong>
