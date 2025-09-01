@@ -15,6 +15,7 @@ const campaingRoutes = require('./routes/CampaingRoutes')
 const tagRoutes = require('./routes/TagRoutes')
 const bodyParser = require('body-parser');
 const excelRoutes = require('./routes/ExcelRoutes');
+const documentRoutes = require('./routes/DocumentRoutes');
 const lembreteRoutes = require('./routes/LembretesRoutes');
 const preferenceRoutes = require('./routes/UserPreferencesRoutes');
 const passportRoutes = require('./routes/PassportRoutes')
@@ -281,6 +282,7 @@ app.use('/files', filesRoutes);
 app.use('/campaing', campaingRoutes)
 app.use('/tag', tagRoutes)
 app.use('/excel', excelRoutes);
+app.use('/documents', documentRoutes);
 app.use('/lembretes', lembreteRoutes);
 app.use('/preferences', preferenceRoutes)
 app.use('/auth', passportRoutes);
