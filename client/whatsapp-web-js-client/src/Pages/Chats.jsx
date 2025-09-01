@@ -20,6 +20,8 @@ import { Modal, Button, Form } from 'react-bootstrap';
 import QuickMsgManageModal from './modalPages/Chats_mensagensRapidas';
 import CustomValuesModal from './modalPages/CustomValuesModal';
 import FinalizarAtendimentoModal from './modalPages/Chats_finalizarAtendimento';
+import DocumentUploadModal from './modalPages/Chats_uploadPdf';
+import { getFileIcon } from '../utils/fileUtils';
 import { useToast } from '../contexts/ToastContext';
 
 function formatHour(timestamp) {
@@ -334,6 +336,7 @@ function ChatPage({ theme, chat_id} ) {
   const [redistributing, setRedistributing] = useState(false);
   const { showError, showSuccess } = useToast();
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
 
   useEffect(() => {
     if (!showQuickMsgPopover) setQuickMsgIndex(-1);
@@ -2191,20 +2194,52 @@ const handleImageUpload = async (event) => {
                   const b64 = typeof msg.base64 === 'string' ? msg.base64 : '';
                   let mime = msg.mimetype || msg.mime || '';
                   console.log('Documento renderizando:', { name, b64: b64 ? 'presente' : 'ausente', mime });
+                  
+                  // Determinar o tipo de arquivo baseado na extensão se o MIME não estiver disponível
+                  if (!mime) {
+                    const extension = name.split('.').pop()?.toLowerCase();
+                    switch (extension) {
+                      case 'pdf':
+                        mime = 'application/pdf';
+                        break;
+                      case 'xlsx':
+                        mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                        break;
+                      case 'xls':
+                        mime = 'application/vnd.ms-excel';
+                        break;
+                      case 'doc':
+                        mime = 'application/msword';
+                        break;
+                      case 'docx':
+                        mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                        break;
+                      default:
+                        mime = 'application/octet-stream';
+                    }
+                  }
+                  
                   if (!mime && b64 && b64.startsWith('data:')) {
                     const m = b64.match(/^data:([^;]+);base64,/);
                     if (m && m[1]) mime = m[1];
                   }
-                  if (!mime) mime = 'application/octet-stream';
+                  
                   let url = '';
-                  if (b64) {
+                  if (b64 && b64 !== 'presente') {
                     if (b64.startsWith('blob:') || b64.startsWith('http')) url = b64;
                     else if (b64.startsWith('data:')) url = b64;
                     else url = `data:${mime};base64,${b64}`;
                   }
+                  
                   console.log('URL gerada:', url ? 'presente' : 'ausente');
+                  
+
+                  
+                  const fileIcon = getFileIcon(mime, name);
+                  
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '240px' }}>
+                      {/* Preview para PDFs */}
                       {mime === 'application/pdf' && url && (
                         <iframe
                           src={url}
@@ -2213,53 +2248,63 @@ const handleImageUpload = async (event) => {
                           onError={(e) => console.log('Erro ao carregar PDF:', e)}
                         />
                       )}
+                      
+                      {/* Informações do arquivo */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <div style={{
                             width: '36px', height: '36px', borderRadius: '6px',
-                            background: '#e8f0fe', color: '#1a73e8', display: 'flex',
+                            background: fileIcon.bgColor, color: fileIcon.color, display: 'flex',
                             alignItems: 'center', justifyContent: 'center', flexShrink: 0
                           }}>
-                            <i className="bi bi-file-earmark" style={{ fontSize: '1.1rem' }}></i>
+                            <i className={`bi ${fileIcon.icon}`} style={{ fontSize: '1.1rem' }}></i>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <span style={{ fontWeight: 600, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                            <small style={{ color: '#666', fontSize: '0.75rem' }}>
+                              {mime.includes('pdf') ? 'Documento PDF' : 
+                               mime.includes('excel') || mime.includes('spreadsheet') ? 'Planilha Excel' :
+                               mime.includes('word') || mime.includes('document') ? 'Documento Word' :
+                               'Arquivo'}
+                            </small>
                           </div>
                         </div>
-                                                 <button
-                           onClick={(e) => {
-                             if (!url) {
-                               e.preventDefault();
-                               alert('Arquivo não disponível para download');
-                             } else {
-                               console.log('Tentando abrir documento:', { url: url.substring(0, 50) + '...', name, mime });
-                               const link = document.createElement('a');
-                               link.href = url;
-                               link.download = name;
-                               link.target = '_blank';
-                               link.rel = 'noreferrer';
-                               document.body.appendChild(link);
-                               link.click();
-                               document.body.removeChild(link);
-                             }
-                           }}
-                           style={{
-                             background: '#6c757d',
-                             color: 'white',
-                             border: 'none',
-                             borderRadius: '50%',
-                             width: '32px',
-                             height: '32px',
-                             cursor: 'pointer',
-                             display: 'flex',
-                             alignItems: 'center',
-                             justifyContent: 'center',
-                             flexShrink: 0
-                           }}
-                           title="Baixar arquivo"
-                         >
-                           <i className="bi bi-download" style={{ fontSize: '0.9rem' }}></i>
-                         </button>
+                        
+                        {/* Botão de download */}
+                        <button
+                          onClick={(e) => {
+                            if (!url || b64 === 'presente') {
+                              e.preventDefault();
+                              alert('Arquivo não disponível para download');
+                            } else {
+                              console.log('Tentando abrir documento:', { url: url.substring(0, 50) + '...', name, mime });
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = name;
+                              link.target = '_blank';
+                              link.rel = 'noreferrer';
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }
+                          }}
+                          style={{
+                            background: '#6c757d',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '32px',
+                            height: '32px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}
+                          title="Baixar arquivo"
+                        >
+                          <i className="bi bi-download" style={{ fontSize: '0.9rem' }}></i>
+                        </button>
                       </div>
                     </div>
                   );
@@ -2556,6 +2601,23 @@ const handleImageUpload = async (event) => {
           <i className="bi bi-emoji-smile"></i>
         </button>
         )}
+
+        {!isRecording && (
+        <button
+          id="pdf"
+          className={`btn d-flex justify-content-center align-items-center btn-2-${theme}`}
+          style={{
+            width: '35px',
+            height: '35px',
+            border: 'none',
+          }}
+          onClick={() => setShowPdfModal(true)}
+          disabled={!selectedChat}
+          title="Enviar PDF"
+        >
+          <i className="bi bi-file-pdf"></i>
+        </button>
+        )}
         
         {showEmojiPicker && !isRecording && (
           <div style={{ position: 'absolute', bottom: '40px', left: '0', zIndex: 1000 }}>
@@ -2754,6 +2816,7 @@ const handleImageUpload = async (event) => {
         theme={theme}
         schema={schema}
       />
+
 
       <FinalizarAtendimentoModal
         show={showFinalizarModal}

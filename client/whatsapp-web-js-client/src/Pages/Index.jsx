@@ -14,7 +14,8 @@
   import RelatorioPage from './Relatorios';
   import UsuariosPage from './Usuarios';
   import FilaPage from './Filas';
-  import KanbanPage from './Kanban';
+import AssistentesPage from './Assistentes';
+import KanbanPage from './Kanban';
   import DisparosPage from './Disparos';
   import WhatsappModal from './modalPages/Whatsapp';
   import Manutencao from './Manutencao';
@@ -465,6 +466,7 @@
         case 'chats': return <ChatPage theme={theme} />;
         case 'kanban': return <KanbanPage theme={theme} />;
         case 'filas': return <FilaPage theme={theme} />;
+        case 'assistentes': return <AssistentesPage theme={theme} />;
         case 'usuarios': return <UsuariosPage theme={theme} />;
         case 'agenda': return <LembretesPage
     theme={theme}
@@ -561,6 +563,17 @@
               >
                 <i className="bi bi-diagram-3"></i>
                 <span className="sidebar-label d-none">Filas</span>
+              </button>
+              <button
+                id="assistentes"
+                onClick={() => handlePageChange('assistentes')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Assistentes ChatGPT"
+                className={`btn ${page === 'assistentes' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-robot"></i>
+                <span className="sidebar-label d-none">Assistentes</span>
               </button>
               <button
                 id="disparos"
