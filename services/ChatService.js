@@ -252,7 +252,6 @@ const getMessages = async(chat_Id, schema)=>{
       `SELECT * FROM ${schema}.messages WHERE chat_id=$1 ORDER BY created_at ASC`,
       [chat_Id]
     );
-    console.log('Mensagens retornadas:', result.rows);
     return result.rows
 }
 

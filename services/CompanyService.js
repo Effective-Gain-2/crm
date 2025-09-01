@@ -220,7 +220,7 @@ const createCompany = async (company, schema) => {
             );
         `)
         await pool.query(`
-            CREATE TABLE ${schema}.preferences_kanban (
+            CREATE TABLE IF NOT EXISTS ${schema}.preferences_kanban (
             sector TEXT primary key NOT NULL,
             label TEXT,
             color TEXT NOT NULL
@@ -301,7 +301,7 @@ const createCompany = async (company, schema) => {
         `);
         
         await pool.query(
-            `CREATE TABLE ${schema}.expense_items (
+            `CREATE TABLE IF NOT EXISTS ${schema}.expense_items (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             expense_id UUID NOT NULL REFERENCES ${schema}.expenses(id) ON DELETE CASCADE,
             quantity integer NOT NULL DEFAULT 1,
@@ -313,7 +313,7 @@ const createCompany = async (company, schema) => {
         )
 
         await pool.query(
-            `CREATE TABLE ${schema}.tax_rates (
+            `CREATE TABLE IF NOT EXISTS ${schema}.tax_rates (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             name TEXT NOT NULL, -- ex: "ICMS 18%", "ISS 5%"
             rate NUMERIC(6,4) NOT NULL, -- ex: 0.18 para 18%
@@ -325,7 +325,7 @@ const createCompany = async (company, schema) => {
         )
 
         await pool.query(
-            `CREATE TABLE ${schema}.expense_item_taxes (
+            `CREATE TABLE IF NOT EXISTS ${schema}.expense_item_taxes (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             expense_item_id UUID NOT NULL REFERENCES ${schema}.expense_items(id) ON DELETE CASCADE,
             tax_rate_id UUID NOT NULL REFERENCES ${schema}.tax_rates(id),
@@ -336,7 +336,7 @@ const createCompany = async (company, schema) => {
         )
 
         await pool.query(`
-            CREATE TABLE ${schema}.expense_taxes (
+            CREATE TABLE IF NOT EXISTS ${schema}.expense_taxes (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             expense_id UUID NOT NULL REFERENCES ${schema}.expenses(id) ON DELETE CASCADE,
             name TEXT NOT NULL, -- ex: "Retenção de INSS"
@@ -347,7 +347,7 @@ const createCompany = async (company, schema) => {
             );
             `)
             await pool.query(`
-            create table${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
+            create table IF NOT EXISTS ${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
             `)
 
 
@@ -361,7 +361,6 @@ const createCompany = async (company, schema) => {
 
     await createUser(superAdmin, schema);
 
-    // Só insere na tabela effective_gain.companies se for um schema novo
     if (isNewSchema) {
         await pool.query('INSERT INTO effective_gain.companies (company_name, schema_name) VALUES ($1, $2)', [
             company.name,
@@ -654,10 +653,10 @@ const updateSchema = async (schema) => {
             );
         `)
         await pool.query(`
-            create table ${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
+            create table if not exists ${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
             `)
             
-        await pool.query(`alter table ${schema}.messages add column user_id uuid`)
+        await pool.query(`alter table ${schema}.messages add column if not exists user_id uuid`)
 
         return { message: "Schema atualizado com sucesso! Todas as tabelas foram criadas/verificadas." };
     } catch (error) {

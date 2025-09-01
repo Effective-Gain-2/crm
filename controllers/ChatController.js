@@ -168,7 +168,6 @@ const getMessagesController = async (req, res) => {
   const { chat_id, schema } = req.body;
   try {
     const result = await getMessages(chat_id, schema);
-    console.log('Controller retornando mensagens:', result);
     res.json({ messages: result });
   } catch (err) {
     console.error('Erro ao buscar mensagens:', err);

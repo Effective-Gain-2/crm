@@ -2,6 +2,9 @@ const OpenAI = require('openai');
 const dotenv = require('dotenv');
 const { content } = require('googleapis/build/src/apis/content');
 const pool = require('../db/queries');
+const { sendTextMessage } = require('../requests/evolution');
+const { createReceita } = require('./ReceitaService');
+const { insertExpenseItens } = require('./ExpensesService');
 dotenv.config();
 
 const openai = new OpenAI({
@@ -82,7 +85,27 @@ const runOpenAi = async (thread_id) => {
     const run = await openai.beta.threads.runs.create(thread_id,{assistant_id: 'asst_Lt7WO4INpumjlucxpMUAb3BG'});
     console.log(run);
 }
+
+const cancelRun = async(thread_id) => {
+    const runs = await openai.beta.threads.runs.list(thread_id)
+    for(const run of runs.data){
+        if(run.status!=='completed' && run.status!=='expired' && run.status!=='cancelled'){
+            console.log('Cancelando run', run)
+            await openai.beta.threads.runs.cancel(run.id, {thread_id: thread_id})
+        }
+    }
+}
+const listRuns = async (thread_id) => {
+    const runs = await openai.beta.threads.runs.list(thread_id);
+    console.log('Runs:', runs);
+    return runs.data;
+}
 const getAssistantReply = async (thread_id, userMessage) => {
+    if (!thread_id) {
+      console.error('thread_id é undefined ou null');
+      return null;
+    }
+    
   await openai.beta.threads.messages.create(thread_id, {
     role: 'user',
     content: userMessage
@@ -92,44 +115,112 @@ const getAssistantReply = async (thread_id, userMessage) => {
 
   let status = run.status;
   let runResult = run;
+  
   while (status !== 'completed' && status !== 'failed' && status !== 'cancelled') {
     await new Promise(res => setTimeout(res, 1000));
     runResult = await openai.beta.threads.runs.retrieve(run.id, { thread_id });
     status = runResult.status;
+    
+    // Se o run requer ação (tool calls), processe-os
+    if (status === 'requires_action' && runResult.required_action) {
+      console.log('Processando tool calls...');
+      const toolCalls = runResult.required_action.submit_tool_outputs.tool_calls;
+      const toolOutputs = [];
+      
+      for (const toolCall of toolCalls) {
+        console.log('Processando tool call:', toolCall);
+        
+        if (toolCall.function) {
+          const functionName = toolCall.function.name;
+          const functionArgs = JSON.parse(toolCall.function.arguments);
+          
+          console.log(`Executando função: ${functionName} com args:`, functionArgs);
+          // Processar as funções específicas
+          let output = '';
+          if (functionName === 'job_finished') {
+              output = 'Pedido finalizado com sucesso!';
+              console.log('Job finished with args:', functionArgs);   
+              const receita = await createReceita(`Pedido de ${functionArgs.cliente}`, null, null, functionArgs.valor_total, new Date().toISOString(), functionArgs.metodo_pagamento, 'pago', 'robo');
+              for(const item of functionArgs.pedido){
+                console.log(item)
+                await insertExpenseItens(receita.id, item.item, 'descrição', item.quantidade, item.preco_unitario, false, 'robo');
+              }
+          } else if (functionName === 'passar_atendente') {
+            output = 'Transferindo para atendente humano...';
+            console.log('Passando para atendente com args:', functionArgs);
+          }
+          
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: output
+          });
+        }
+      }
+      
+             // Submeter os outputs das funções
+       if (toolOutputs.length > 0) {
+         console.log('Submetendo tool outputs:', toolOutputs);
+         console.log('Run ID:', run.id, 'Thread ID:', thread_id);
+       }
+    }
   }
 
+  // Buscar a mensagem final do assistente
   const threadMessages = await openai.beta.threads.messages.list(thread_id);
   const assistantMsg = threadMessages.data.find(m => m.role === 'assistant');
-
-  // Verifica se há chamada de função
+  console.log('Assistant message final:', assistantMsg);
+  
+  // Verificar se há tool calls na mensagem final
   if (assistantMsg && assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
+    console.log('Mensagem final contém tool calls');
     for (const toolCall of assistantMsg.tool_calls) {
+      console.log('Tool call final:', toolCall);
       if (toolCall.function) {
-        // Aqui você pode executar a função correspondente no seu backend
         const functionName = toolCall.function.name;
         const functionArgs = JSON.parse(toolCall.function.arguments);
-        // Exemplo: chamar uma função local
-        if (functionName === '') {
-          return await suaFuncao(functionArgs);
-        }
-        // Retorne ou trate conforme necessário
         return { functionName, functionArgs };
       }
     }
   }
 
   // Se não for function call, retorna resposta normal
-  if (assistantMsg && assistantMsg.content && assistantMsg.content[0] && assistantMsg.content[0].text) {
-    return assistantMsg.content[0].text.value;
-  } else {
-    return null;
+  if (assistantMsg && assistantMsg.content && assistantMsg.content.length > 0) {
+    const textContent = assistantMsg.content.find(content => content.type === 'text');
+    if (textContent && textContent.text) {
+      return textContent.text.value;
+    }
   }
+  
+  console.log('Nenhuma resposta válida encontrada');
+  return null;
 };
+
+const createAssistant = async (name, instructions, model) => {
+    await openai.beta.assistants.create({
+        instructions: instructions,
+        name: name,
+        tools:[{type:'code_interpreter'}],
+        model: model
+    })
+}
+const updateAssistant = async (assistant_id, name, instructions, model) => {
+    await openai.beta.assistants.update(assistant_id, {
+        instructions: instructions,
+        name: name,
+        tools:[{type:'code_interpreter'}],
+        model: model
+    })
+}
 module.exports = {
     createChatCompletion,
     getRun,
     createThread,
     messageAnAssistant,
     getAssistantReply,
-    runOpenAi
+    runOpenAi,
+    listRuns,
+    cancelRun,
+    createAssistant,
+    updateAssistant
+
 }
