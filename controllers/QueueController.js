@@ -1,6 +1,6 @@
     const Queue = require("../entities/Queue");
 const { v4: uuidv4 } = require('uuid');
-const { createQueue, addUserinQueue, getUserQueues, getAllQueues, deleteQueue, getQueueById, transferQueue, updateUserQueues, toggleWebhookStatus, updateWebhookUrl, getUsersInQueue, updateQueue } = require("../services/QueueService");
+const { createQueue, addUserinQueue, getUserQueues, getAllQueues, deleteQueue, getQueueById, transferQueue, updateUserQueues, toggleWebhookStatus, updateWebhookUrl, getUsersInQueue, updateQueue, updateAssistantId } = require("../services/QueueService");
 const { setUserChat } = require("../services/ChatService");
 const { getUserById } = require("../services/UserService");
 
@@ -239,6 +239,23 @@ const updateQueueController = async (req, res) => {
     }
 };
 
+const updateAssistantController = async (req, res) => {
+    const {queue_id, assistant_id, schema} = req.body
+    try {
+        const result = await updateAssistantId(queue_id, assistant_id, schema)
+        res.status(200).json({
+            success:true,
+            data:result
+        })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            success:false,
+            message:"Erro ao vincular assistente"
+        })
+    }
+}
+
 module.exports = {
     createQueueController,
     addUserinQueueController,
@@ -251,5 +268,6 @@ module.exports = {
     updateWebhookUrlController,
     toggleWebhookStatusController,
     getUsersInQueueController,
-    updateQueueController
+    updateQueueController,
+    updateAssistantController
 };

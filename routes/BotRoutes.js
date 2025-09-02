@@ -1,7 +1,10 @@
 const express = require('express');
-const { createAssistantController } = require('../controllers/BotController');
+const { createAssistantController, deleteAssistantController, getBotsController } = require('../controllers/BotController');
+const { verifyToken } = require('../controllers/UserController');
 const router = express.Router()
 
-router.post('/create', createAssistantController)
+router.get('/get-bots/:schema', verifyToken, getBotsController)
+router.post('/create', verifyToken, createAssistantController)
+router.delete('/delete/:schema/:assistant_id', verifyToken, deleteAssistantController)
 
 module.exports = router

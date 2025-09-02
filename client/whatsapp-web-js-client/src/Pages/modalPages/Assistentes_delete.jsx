@@ -1,7 +1,12 @@
 import React from 'react';
 import * as bootstrap from 'bootstrap';
+import axios from 'axios';
 
 function DeleteAssistantModal({ theme, assistente, onAssistantDeleted }) {
+  const userData = JSON.parse(localStorage.getItem('user'));
+  const schema = userData?.schema;
+  const url = process.env.REACT_APP_URL;
+
   const handleDelete = async () => {
     if (!assistente?.id) {
       console.error('Assistente não encontrado');
@@ -9,13 +14,8 @@ function DeleteAssistantModal({ theme, assistente, onAssistantDeleted }) {
     }
 
     try {
-      // Aqui será implementada a chamada para a API quando o backend estiver pronto
-      console.log('Excluindo assistente:', assistente.id);
       
-      // Simular sucesso
-      if (onAssistantDeleted) {
-        onAssistantDeleted(assistente.id);
-      }
+      await axios.delete(`${url}/bot/delete/${schema}/${assistente.id}`, {withCredentials:true})
       
       // Fechar modal
       const modal = bootstrap.Modal.getInstance(document.getElementById('DeleteAssistantModal'));
@@ -49,7 +49,7 @@ function DeleteAssistantModal({ theme, assistente, onAssistantDeleted }) {
                 <strong>"{assistente?.name || 'Assistente'}"</strong>
               </p>
               <p className={`card-subtitle-${theme} mt-2`} style={{ fontSize: '0.9rem' }}>
-                Esta ação não pode ser desfeita e todas as conversas associadas serão perdidas.
+                Esta ação não pode ser desfeita e todos os dados associados serão perdidos.
               </p>
             </div>
           </div>

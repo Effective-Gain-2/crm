@@ -161,9 +161,9 @@ function EditAssistantModal({ theme, assistente }) {
                       <p className="mb-1">{assistente.id}</p>
                     </div>
                     <div className="col-6">
-                      <small className="text-muted">Criado em:</small>
+                      <small className="text-muted">Atualizado em:</small>
                       <p className="mb-1">
-                        {assistente.created_at ? new Date(assistente.created_at).toLocaleDateString('pt-BR') : 'N/A'}
+                        {assistente.updated_at ? new Date(Number(assistente.updated_at)).toLocaleDateString('pt-BR') : 'N/A'}
                       </p>
                     </div>
                   </div>
@@ -173,13 +173,6 @@ function EditAssistantModal({ theme, assistente }) {
           </div>
           
           <div className="modal-footer">
-            <button
-              type="button"
-              className={`btn btn-2-${theme}`}
-              onClick={handleCancel}
-            >
-              Restaurar
-            </button>
             <button
               type="button"
               className={`btn btn-2-${theme}`}

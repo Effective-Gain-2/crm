@@ -6,12 +6,14 @@ import DeleteQueueModal from './modalPages/Filas_delete';
 import FilasWebhookModal from './modalPages/Filas_webhook';
 import {socket} from '../socket'
 import EditQueueModal from './modalPages/Filas_editarFila';
+import FilasAssistenteModal from './modalPages/Filas_assistente';
 
 function FilaPage({ theme }) {
   const [filas, setFilas] = useState([]);
   const [fila, setFila] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [showWebhookModal, setShowWebhookModal] = useState(false);
+  const [showAssistantModal, setShowAssistantModal] = useState(false)
   const [selectedFila, setSelectedFila] = useState(null);
   const userData = JSON.parse(localStorage.getItem('user'));
   const [socketInstance] = useState(socket)  
@@ -151,6 +153,17 @@ useEffect(() => {
                   </button>
 
                   <button
+                   className={`btn btn-sm btn-2-${theme}`}
+                   title='Assistente GPT'
+                   onClick={()=>{
+                    setSelectedFila(fila)
+                    setShowAssistantModal(true)
+                   }}
+                   >
+                    <i className='bi bi-robot' style={{ fontSize: '0.8rem' }}></i>
+                  </button>
+
+                  <button
                     className="btn btn-sm delete-btn"
                     data-bs-toggle="tooltip"
                     title="Excluir"
@@ -187,6 +200,18 @@ useEffect(() => {
           onSave={handleWebhookSave}
         />
       )}
+    {showAssistantModal && selectedFila && (
+      <FilasAssistenteModal
+      theme={theme}
+      show={showAssistantModal}
+      onClose={()=>{
+        setShowAssistantModal(false)
+        setSelectedFila(null)
+      }}
+      fila={selectedFila}
+      >
+      </FilasAssistenteModal>
+    )}
     </div>
   );
 }

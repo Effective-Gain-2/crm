@@ -3,40 +3,24 @@ import * as bootstrap from 'bootstrap';
 import NewAssistantModal from './modalPages/Assistentes_novoAssistente';
 import DeleteAssistantModal from './modalPages/Assistentes_delete';
 import EditAssistantModal from './modalPages/Assistentes_editarAssistente';
+import axios from 'axios';
 
 function AssistentesPage({ theme }) {
   const [assistentes, setAssistentes] = useState([]);
   const [assistente, setAssistente] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAssistant, setSelectedAssistant] = useState(null);
-
+  const userData = JSON.parse(localStorage.getItem('user'));
+  const schema = userData?.schema;
+  const url = process.env.REACT_APP_URL;
   // Mock data para demonstração - será substituído pela API real
   useEffect(() => {
-    const mockAssistentes = [
-      {
-        id: 1,
-        name: 'Assistente de Vendas',
-        instructions: 'Especialista em vendas e prospecção de clientes',
-        model: 'gpt-4',
-        created_at: '2024-01-15'
-      },
-      {
-        id: 2,
-        name: 'Suporte Técnico',
-        instructions: 'Auxilia com problemas técnicos e troubleshooting',
-        model: 'gpt-3.5-turbo',
-        created_at: '2024-01-10'
-      },
-      {
-        id: 3,
-        name: 'Assistente Financeiro',
-        instructions: 'Ajuda com questões financeiras e orçamentos',
-        model: 'gpt-4',
-        created_at: '2024-01-05'
-      }
-    ];
-    setAssistentes(mockAssistentes);
-  }, []);
+    const fetchAssistentes = async () => {
+      const response = await axios.get(`${url}/bot/get-bots/${schema}`, {withCredentials:true})
+      setAssistentes(Array.isArray(response.data.data)?response.data.data:[response.data.data])
+    }
+      fetchAssistentes()
+  }, [url, schema]);
 
   useEffect(() => {
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
@@ -108,7 +92,7 @@ function AssistentesPage({ theme }) {
                       {assistente.model}
                     </span>
                     <small className={`card-subtitle-${theme}`} style={{ fontSize: '0.7rem' }}>
-                      Criado em {new Date(assistente.created_at).toLocaleDateString('pt-BR')}
+                      Criado em {new Date(Number(assistente.created_at)).toLocaleDateString('pt-BR')}
                     </small>
                   </div>
                 </div>

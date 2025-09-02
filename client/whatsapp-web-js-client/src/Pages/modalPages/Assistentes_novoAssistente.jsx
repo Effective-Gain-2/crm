@@ -1,18 +1,24 @@
 import React, { useState } from 'react';
 import * as bootstrap from 'bootstrap';
+import axios from 'axios';
 
 function NewAssistantModal({ theme }) {
   const [name, setName] = useState('');
   const [instructions, setInstructions] = useState('');
   const [model, setModel] = useState('');
-
-  // Lista de modelos aceitos pelo playground do OpenAI
+  const userData = JSON.parse(localStorage.getItem('user'));
+  const schema = userData?.schema;
+  const url = process.env.REACT_APP_URL;
+  
+  
   const modelosDisponiveis = [
     { value: 'gpt-4', label: 'GPT-4', description: 'Modelo mais avançado, ideal para tarefas complexas' },
     { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', description: 'Versão otimizada do GPT-4, mais rápida' },
     { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', description: 'Modelo equilibrado entre qualidade e velocidade' },
     { value: 'gpt-3.5-turbo-16k', label: 'GPT-3.5 Turbo 16K', description: 'Versão com contexto estendido' }
   ];
+
+
 
   const handleSave = async () => {
     if (!name || !instructions || !model) {
@@ -21,15 +27,17 @@ function NewAssistantModal({ theme }) {
     }
 
     try {
-      // Aqui será implementada a chamada para a API quando o backend estiver pronto
-      console.log('Criando assistente:', { name, instructions, model });
-      
-      // Limpar campos após sucesso
+      const response = await axios.post(`${url}/bot/create`,{
+        name:name,
+        instructions:instructions,
+        model:model,
+        schema:schema
+      }, { withCredentials:true });
+
       setName('');
       setInstructions('');
       setModel('');
       
-      // Fechar modal
       const modal = bootstrap.Modal.getInstance(document.getElementById('NewAssistantModal'));
       if (modal) {
         modal.hide();

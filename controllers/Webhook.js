@@ -373,15 +373,18 @@ module.exports = (broadcastMessage) => {
             user_id: baseChat.assigned_user,
             status: baseChat.status
           };
-          console.log('mensagem')
+          const queue = await getQueueById(baseChat.queue_id, schema)
+        if(queue[0].assistant_id){
         if(baseChat.isboton==='on' || baseChat.isboton===true || baseChat.botchating===true){
-          if(!baseChat.thread_id){
-            await createThread(payload.body, 'asst_baus9UgM0ByVi3v2fICzDsu9', baseChat.id, schema)
-          }else{
-            const resposta = await getAssistantReply(baseChat.thread_id, payload.body)
-            if(resposta){
-              await sendTextMessage(result.instance, resposta, baseChat.contact_phone)
-              await saveMessage(baseChat.id, new Message(uuidv4(), resposta, true, baseChat.id, getCurrentTimestamp()), schema, null)
+            const assistant_id = queue[0].assistant_id
+            if(!baseChat.thread_id){
+              await createThread(payload.body, assistant_id, baseChat.id, schema)
+            }else{
+              const resposta = await getAssistantReply(baseChat.thread_id, payload.body, assistant_id)
+              if(resposta){
+                await sendTextMessage(result.instance, resposta, baseChat.contact_phone)
+                await saveMessage(baseChat.id, new Message(uuidv4(), resposta, true, baseChat.id, getCurrentTimestamp()), schema, null)
+              }
             }
           }
       }

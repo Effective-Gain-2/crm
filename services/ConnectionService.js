@@ -68,7 +68,6 @@ const deleteConnection = async (connection_id, schema) => {
     }
 }
 
-
 module.exports = {
     createConnection,
     fetchInstance,
@@ -76,5 +75,5 @@ module.exports = {
     setQueue,
     getAllConnections,
     deleteConnection,
-    searchConnById
+    searchConnById,
 }

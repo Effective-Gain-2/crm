@@ -100,7 +100,7 @@ const listRuns = async (thread_id) => {
     console.log('Runs:', runs);
     return runs.data;
 }
-const getAssistantReply = async (thread_id, userMessage) => {
+const getAssistantReply = async (thread_id, userMessage, assistant_id, schema) => {
     if (!thread_id) {
       console.error('thread_id é undefined ou null');
       return null;
@@ -111,7 +111,7 @@ const getAssistantReply = async (thread_id, userMessage) => {
     content: userMessage
   });
 
-  const run = await openai.beta.threads.runs.create(thread_id, { assistant_id: 'asst_baus9UgM0ByVi3v2fICzDsu9' });
+  const run = await openai.beta.threads.runs.create(thread_id, { assistant_id: assistant_id });
 
   let status = run.status;
   let runResult = run;
@@ -123,31 +123,24 @@ const getAssistantReply = async (thread_id, userMessage) => {
     
     // Se o run requer ação (tool calls), processe-os
     if (status === 'requires_action' && runResult.required_action) {
-      console.log('Processando tool calls...');
       const toolCalls = runResult.required_action.submit_tool_outputs.tool_calls;
       const toolOutputs = [];
       
       for (const toolCall of toolCalls) {
-        console.log('Processando tool call:', toolCall);
-        
         if (toolCall.function) {
           const functionName = toolCall.function.name;
           const functionArgs = JSON.parse(toolCall.function.arguments);
           
-          console.log(`Executando função: ${functionName} com args:`, functionArgs);
           // Processar as funções específicas
           let output = '';
           if (functionName === 'job_finished') {
               output = 'Pedido finalizado com sucesso!';
-              console.log('Job finished with args:', functionArgs);   
-              const receita = await createReceita(`Pedido de ${functionArgs.cliente}`, null, null, functionArgs.valor_total, new Date().toISOString(), functionArgs.metodo_pagamento, 'pago', 'robo');
+              const receita = await createReceita(`Pedido de ${functionArgs.cliente}`, null, null, functionArgs.valor_total, new Date().toISOString(), functionArgs.metodo_pagamento, 'pago', schema);
               for(const item of functionArgs.pedido){
-                console.log(item)
-                await insertExpenseItens(receita.id, item.item, 'descrição', item.quantidade, item.preco_unitario, false, 'robo');
+                await insertExpenseItens(receita.id, item.item, 'descrição', item.quantidade, item.preco_unitario, false, schema);
               }
           } else if (functionName === 'passar_atendente') {
             output = 'Transferindo para atendente humano...';
-            console.log('Passando para atendente com args:', functionArgs);
           }
           
           toolOutputs.push({
@@ -159,8 +152,6 @@ const getAssistantReply = async (thread_id, userMessage) => {
       
              // Submeter os outputs das funções
        if (toolOutputs.length > 0) {
-         console.log('Submetendo tool outputs:', toolOutputs);
-         console.log('Run ID:', run.id, 'Thread ID:', thread_id);
        }
     }
   }
@@ -168,13 +159,10 @@ const getAssistantReply = async (thread_id, userMessage) => {
   // Buscar a mensagem final do assistente
   const threadMessages = await openai.beta.threads.messages.list(thread_id);
   const assistantMsg = threadMessages.data.find(m => m.role === 'assistant');
-  console.log('Assistant message final:', assistantMsg);
   
   // Verificar se há tool calls na mensagem final
   if (assistantMsg && assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
-    console.log('Mensagem final contém tool calls');
     for (const toolCall of assistantMsg.tool_calls) {
-      console.log('Tool call final:', toolCall);
       if (toolCall.function) {
         const functionName = toolCall.function.name;
         const functionArgs = JSON.parse(toolCall.function.arguments);
@@ -196,12 +184,13 @@ const getAssistantReply = async (thread_id, userMessage) => {
 };
 
 const createAssistant = async (name, instructions, model) => {
-    await openai.beta.assistants.create({
+    const result = await openai.beta.assistants.create({
         instructions: instructions,
         name: name,
         tools:[{type:'code_interpreter'}],
         model: model
     })
+    return result;
 }
 const updateAssistant = async (assistant_id, name, instructions, model) => {
     await openai.beta.assistants.update(assistant_id, {
@@ -210,6 +199,9 @@ const updateAssistant = async (assistant_id, name, instructions, model) => {
         tools:[{type:'code_interpreter'}],
         model: model
     })
+}
+const deleteAssistant = async (assistant_id) => {
+    await openai.beta.assistants.delete(assistant_id)
 }
 module.exports = {
     createChatCompletion,
@@ -221,6 +213,7 @@ module.exports = {
     listRuns,
     cancelRun,
     createAssistant,
-    updateAssistant
+    updateAssistant,
+    deleteAssistant
 
 }
