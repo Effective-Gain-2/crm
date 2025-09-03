@@ -1,4 +1,4 @@
-const { insertBotInTable, deleteBotInTable, getBots } = require("../services/BotService")
+const { insertBotInTable, deleteBotInTable, getBots, getFunctions, insertBotFunctions, deleteAllBotFunctions } = require("../services/BotService")
 const { createAssistant, deleteAssistant } = require("../services/OpenAi")
 
 const createAssistantController = async (req, res) => {
@@ -59,9 +59,43 @@ const getBotsController = async (req, res) => {
         })
     }
 }
-
+const getFunctionsController = async (req, res) => {
+    const {schema} = req.params
+    try {
+        const result = await getFunctions(schema)
+        res.status(200).json({
+            success:true,
+            data:result
+        })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            success:false,
+            message:'Erro ao buscar funções'
+        })
+    }
+}
+const insertBotFunctionsController = async (req, res) => {
+    const {assistant_id, function_id, schema} = req.body
+    try {
+        await deleteAllBotFunctions(assistant_id, schema)
+        const result = await insertBotFunctions(assistant_id, function_id, schema)
+        res.status(200).json({
+            success:true,
+            data:result
+        })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            success:false,
+            message:'Erro ao inserir funções no assistente'
+        })
+    }
+}
 module.exports={
     createAssistantController,
     deleteAssistantController,
-    getBotsController
+    getBotsController,
+    getFunctionsController,
+    insertBotFunctionsController
 }

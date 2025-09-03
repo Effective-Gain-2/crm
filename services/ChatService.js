@@ -733,6 +733,8 @@ const getAverageTimeToClose = async(schema)=>{
 
 
 
+
+
 module.exports = {
   createChat,
   updateChatMessages,
@@ -762,5 +764,5 @@ module.exports = {
   createStatus,
   getStatus,
   getClosedChats,
-  getAverageTimeToClose
+  getAverageTimeToClose,
 };

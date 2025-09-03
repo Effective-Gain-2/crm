@@ -58,7 +58,7 @@ function KanbanDeletarFunilModal({ show, onHide, funil, theme }) {
         },
         headers: {
           'user-data': JSON.stringify({
-            id: userData.id
+            userData:userData
           })
         }
       },

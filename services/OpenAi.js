@@ -5,6 +5,7 @@ const pool = require('../db/queries');
 const { sendTextMessage } = require('../requests/evolution');
 const { createReceita } = require('./ReceitaService');
 const { insertExpenseItens } = require('./ExpensesService');
+const { disableBot } = require('./ChatService');
 dotenv.config();
 
 const openai = new OpenAI({
@@ -100,7 +101,7 @@ const listRuns = async (thread_id) => {
     console.log('Runs:', runs);
     return runs.data;
 }
-const getAssistantReply = async (thread_id, userMessage, assistant_id, schema) => {
+const getAssistantReply = async (thread_id, userMessage, assistant_id, chat_id, schema) => {
     if (!thread_id) {
       console.error('thread_id é undefined ou null');
       return null;
@@ -133,6 +134,7 @@ const getAssistantReply = async (thread_id, userMessage, assistant_id, schema) =
           
           // Processar as funções específicas
           let output = '';
+
           if (functionName === 'job_finished') {
               output = 'Pedido finalizado com sucesso!';
               const receita = await createReceita(`Pedido de ${functionArgs.cliente}`, null, null, functionArgs.valor_total, new Date().toISOString(), functionArgs.metodo_pagamento, 'pago', schema);
@@ -140,6 +142,7 @@ const getAssistantReply = async (thread_id, userMessage, assistant_id, schema) =
                 await insertExpenseItens(receita.id, item.item, 'descrição', item.quantidade, item.preco_unitario, false, schema);
               }
           } else if (functionName === 'passar_atendente') {
+            await disableBot(chat_id, schema)
             output = 'Transferindo para atendente humano...';
           }
           

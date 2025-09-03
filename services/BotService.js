@@ -16,17 +16,30 @@ const updateBotInTable = async (assistant_id, name, instructions, model, has_fun
 }
 
 const deleteBotInTable = async (assistant_id, schema) => {
-    const result = await pool.query(`DELETE FROM ${schema}.bots where id=$1`,[assistant_id])
+    await pool.query(`DELETE FROM ${schema}.bots where id=$1`,[assistant_id])
 }
 
 const getBots = async (schema) => {
     const result = await pool.query(`SELECT * FROM ${schema}.bots`)
     return result.rows
 }
+const getFunctions = async (schema) => {
+    const result = await pool.query(`SELECT * FROM ${schema}.functions`)
+    return result.rows
+}
+const insertBotFunctions = async (assistant_id, function_id, schema) => {
+    await pool.query(`INSERT INTO ${schema}.bot_functions(assistant_id, func_id) VALUES ($1, $2)`, [assistant_id, function_id])
+}
+const deleteAllBotFunctions = async (assistant_id, schema) => {
+    await pool.query(`DELETE FROM ${schema}.bot_functions WHERE assistant_id = $1`, [assistant_id])
+}
 module.exports={
     insertBotInTable,
     updateBotInTable,
     deleteBotInTable,
-    getBots
+    getBots,
+    getFunctions,
+    insertBotFunctions,
+    deleteAllBotFunctions
     
 }

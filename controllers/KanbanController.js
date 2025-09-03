@@ -117,6 +117,7 @@ const createFunilController = async (req, res) => {
 const deleteFunilController = async (req, res) => {
     const {sector, schema} = req.params
     const {password, userRole} = req.body
+
     
     try {
         if (userRole === 'admin' && !password) {
@@ -129,14 +130,17 @@ const deleteFunilController = async (req, res) => {
         if (userRole === 'admin') {
             const { searchUser, getUserById } = require('../services/UserService');
             const userData = JSON.parse(req.headers['user-data'] || '{}');
-            if (!userData.id) {
+            if (!userData.userData.id) {
                 return res.status(400).json({
                     success: false,
                     message: 'Dados do usuário não encontrados'
                 });
             }
             try {
-                const user = await searchUser(user_email.email, password);
+                const email = await getUserById(userData.userData.id, schema)
+                console.log(email)
+                const user = await searchUser(email.email, password);
+                console.log(user)
                 if (!user || user.user.permission !== 'admin') {
                     return res.status(401).json({
                         success: false,
@@ -144,6 +148,7 @@ const deleteFunilController = async (req, res) => {
                     });
                 }
             } catch (error) {
+                console.error(error)
                 return res.status(401).json({
                     success: false,
                     message: 'Senha incorreta'
