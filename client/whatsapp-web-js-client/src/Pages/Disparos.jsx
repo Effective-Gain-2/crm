@@ -29,6 +29,7 @@ function formatDateHour(timestamp) {
 }
 
 function formatInterval(intervalInSeconds) {
+  if(intervalInSeconds === null || intervalInSeconds === undefined) return null;
   const seconds = Number(intervalInSeconds);
   if (seconds >= 3600) {
     return `${Math.floor(seconds / 3600)}h`;
@@ -240,31 +241,15 @@ function DisparosPage({ theme }) {
                 </div>
                 <div className={`header-text-${theme} mb-1`}>
                   Intervalo: <span className={`fw-bold`}>
-                    {formatInterval(disparo.timer)}
+                    {formatInterval(disparo.timer) || formatInterval(disparo.min)+'-'+formatInterval(disparo.max) || 'Não definido'}
                   </span>
                 </div>
-                <div className={`header-text-${theme} mb-1`}>
-                  Canais: <span className={`fw-bold`}>
-                    {disparo.connection_id ? 
-                      (Array.isArray(disparo.connection_id) ? 
-                        disparo.connection_id.map(id => {
-                          const conexao = conexoes.find(conn => conn.id === id);
-                          return conexao ? conexao.name : `Canal ID: ${id}`;
-                        }).join(', ') :
-                        disparo.connection_id.split(',').map(id => {
-                          const conexao = conexoes.find(conn => conn.id === id.trim());
-                          return conexao ? conexao.name : `Canal ID: ${id.trim()}`;
-                        }).join(', ')
-                      ) : 
-                      'Nenhum canal'
-                    }
-                  </span>
-                </div>
-                <div className={`header-text-${theme}`}>
+                
+                {/* <div className={`header-text-${theme}`}>
                   Status: <span className={`fw-bold`}>
                     {disparo.status}
                   </span>
-                </div>
+                </div> */}
               </div>
 
     {/* Divider Vertical */}

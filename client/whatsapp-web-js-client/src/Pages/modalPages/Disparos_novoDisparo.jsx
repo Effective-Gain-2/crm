@@ -86,7 +86,38 @@ const limparBase64 = (base64ComPrefixo) => {
   return base64ComPrefixo.replace(/^data:image\/\w+;base64,/, '');
 };
 
-
+useEffect(() => {
+  console.log(disparo)
+  if (disparo && disparo.min) {
+    if (disparo.min) {
+      const minEmSegundos = Number(disparo.min) || 30;
+      if (minEmSegundos >= 3600) {
+        setIntervaloMinimo(Math.floor(minEmSegundos / 3600));
+        setIntervaloUnidadeMin('horas');
+      } else if (minEmSegundos >= 60) {
+        setIntervaloMinimo(Math.floor(minEmSegundos / 60));
+        setIntervaloUnidadeMin('minutos');
+      } else {
+        setIntervaloMinimo(minEmSegundos);
+        setIntervaloUnidadeMin('segundos');
+      }
+      if (disparo.max) {
+        const maxEmSegundos = Number(disparo.max) || 60;
+        if (maxEmSegundos >= 3600) {
+          setIntervaloMaximo(Math.floor(maxEmSegundos / 3600));
+          setIntervaloUnidadeMax('horas');
+        } else if (maxEmSegundos >= 60) {
+          setIntervaloMaximo(Math.floor(maxEmSegundos / 60));
+          setIntervaloUnidadeMax('minutos');
+        } else {
+          setIntervaloMaximo(maxEmSegundos);
+          setIntervaloUnidadeMax('segundos');
+        }
+      }
+    }
+    
+  }
+}, [disparo]);
   useEffect(() =>   {
   const carregarDisparo = async () => {
   if (disparo) {
@@ -145,10 +176,10 @@ const limparBase64 = (base64ComPrefixo) => {
     }
 
     // Carregar dados do intervalo dinâmico se existir
-    if (disparo.intervalo && disparo.intervalo.dinamico) {
+    if (disparo.min) {
       setIntervaloDinamico(true);
-      if (disparo.intervalo.minimo) {
-        const minEmSegundos = Number(disparo.intervalo.minimo.valor) || 30;
+      if (disparo.min) {
+        const minEmSegundos = Number(disparo.min) || 30;
         if (minEmSegundos >= 3600) {
           setIntervaloMinimo(Math.floor(minEmSegundos / 3600));
           setIntervaloUnidadeMin('horas');
@@ -160,8 +191,8 @@ const limparBase64 = (base64ComPrefixo) => {
           setIntervaloUnidadeMin('segundos');
         }
       }
-      if (disparo.intervalo.maximo) {
-        const maxEmSegundos = Number(disparo.intervalo.maximo.valor) || 60;
+      if (disparo.max) {
+        const maxEmSegundos = Number(disparo.max) || 60;
         if (maxEmSegundos >= 3600) {
           setIntervaloMaximo(Math.floor(maxEmSegundos / 3600));
           setIntervaloUnidadeMax('horas');
@@ -1171,7 +1202,7 @@ const limparBase64 = (base64ComPrefixo) => {
                         onChange={(e) => setIntervaloDinamico(e.target.checked)}
                       />
                       <label className={`form-check-label card-subtitle-${theme}`} htmlFor="intervaloDinamico">
-                        Intervalo Dinâmico
+                        Dinâmico
                       </label>
                     </div>
                   </div>
@@ -1210,7 +1241,7 @@ const limparBase64 = (base64ComPrefixo) => {
                           type="number"
                           className={`form-control input-${theme}`}
                           min="1"
-                          value={intervaloMinimo}
+                          value={ intervaloMinimo}
                           onChange={(e) => handleIntervaloDinamicoChange(parseInt(e.target.value) || 1, intervaloUnidadeMin, 'min')}
                           style={{ width: '100px' }}
                         />

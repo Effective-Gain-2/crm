@@ -108,7 +108,9 @@ const createFunilController = async (req, res) => {
     const {sector, schema} = req.body
     try {
         const result = await createFunil(sector, schema)
-        res.status(200).json(result)
+        res.status(200).json({
+            success:true,
+            result})
 
     } catch (error) {
         console.error(error)
@@ -138,9 +140,7 @@ const deleteFunilController = async (req, res) => {
             }
             try {
                 const email = await getUserById(userData.userData.id, schema)
-                console.log(email)
                 const user = await searchUser(email.email, password);
-                console.log(user)
                 if (!user || user.user.permission !== 'admin') {
                     return res.status(401).json({
                         success: false,
