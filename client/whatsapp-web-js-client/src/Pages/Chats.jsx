@@ -2605,7 +2605,7 @@ const handleImageUpload = async (event) => {
         {!isRecording && (
         <button
           id="pdf"
-          className={`btn d-flex justify-content-center align-items-center btn-2-${theme}`}
+          className={`btn d-none d-flex justify-content-center align-items-center btn-2-${theme}`}
           style={{
             width: '35px',
             height: '35px',
