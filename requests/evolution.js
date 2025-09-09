@@ -9,7 +9,7 @@ const createInstance = async ({ instanceName, number }) => {
     qrcode: true,
     groupsIgnore: true,
     webhook:{
-      url:`${process.env.BACKEND_URL}/webhook/chat`,
+      url:`${process.env.BACKEND_URL}webhook/chat`,
       base64:true,
       byEvents:false,
       headers: {

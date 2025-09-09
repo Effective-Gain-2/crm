@@ -147,15 +147,16 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
         setLoadingGoogle(true);
         try {
             // Salva user_id e schema na sessão antes do OAuth
-            await axios.post('/calendar/set-session', {
+            await axios.post(`${process.env.REACT_APP_URL}/calendar/set-session`, {
                 user_id: userData.id,
                 schema: schema,
                 userRole: userData.role
             });
-            const response = await axios.get('/calendar/auth-url');
+            const response = await axios.get(`${process.env.REACT_APP_URL}/calendar/auth-url`);
             if (response.data.url) {
                 window.location.href = response.data.url;
             }
+            console.log(response)
         } catch (err) {
             showError('Erro ao conectar com o Google Calendar');
         } finally {
@@ -436,7 +437,7 @@ const handleSalvarLembrete = (lembreteCriadoOuEditado) => {
                     </button>
                 ) : (
                     <button
-                        className="d-flex align-items-center gap-2 google-calendar-btn d-none"
+                        className="d-flex align-items-center gap-2 google-calendar-btn "
                         onClick={handleConnectGoogleCalendar}
                         disabled={loadingGoogle}
                     >
