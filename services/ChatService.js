@@ -550,17 +550,7 @@ const closeChatContact = async (chat_id, status, schema) => {
     `, [uuid4(), chat_id, number.rows[0].contact_phone, status, number.rows[0].assigned_user || null])
 
     try {
-      const falsee=true
-      const is_on = await pool.query(`SELECT * FROM effective_gain.limits WHERE schema=$1`, [schema])
-      const log = is_on.rows.find(l=>l.name==='relatorio')
-      if(!log){
-        return
-      }
-      if(log.is_on===true){
-        const report = await getGptResponse(chat_id, schema, status)
-        return report
-      }
-      return 
+      const report = await getGptResponse(chat_id, schema, status)
     } catch (gptError) {
       console.error('Erro ao gerar relatório GPT:', gptError.message);
     }

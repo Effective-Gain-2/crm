@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
-import axios from 'axios';
 
 function EditAssistantModal({ theme, assistente }) {
   const [name, setName] = useState('');
   const [instructions, setInstructions] = useState('');
   const [model, setModel] = useState('');
-  const [funcoesSelecionadas, setFuncoesSelecionadas] = useState([]);
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const schema = user.schema;
 
-  const [funcoesDisponiveis, setFuncoesDisponiveis] = useState([]);
   // Lista de modelos aceitos pelo playground do OpenAI
   const modelosDisponiveis = [
     { value: 'gpt-4', label: 'GPT-4', description: 'Modelo mais avançado, ideal para tarefas complexas' },
@@ -28,31 +23,6 @@ function EditAssistantModal({ theme, assistente }) {
     }
   }, [assistente]);
 
-  const adicionarFuncao = () => {
-  const disponiveis = funcoesDisponiveis.filter(f => !funcoesSelecionadas.some(fs => fs.value === f.value));
-  if (disponiveis.length > 0) {
-    setFuncoesSelecionadas(prev => [...prev, disponiveis[0]]);
-  }
-};
-
-const alterarFuncao = (idx, novaFuncaoValue) => {
-  const novaFuncaoObj = funcoesDisponiveis.find(f => f.value === novaFuncaoValue);
-  if (novaFuncaoObj && !funcoesSelecionadas.some(fs => fs.value === novaFuncaoValue)) {
-    setFuncoesSelecionadas(prev => prev.map((f, i) => i === idx ? novaFuncaoObj : f));
-  }
-};
-const removerFuncao = (idx) => {
-  setFuncoesSelecionadas(prev => prev.filter((_, i) => i !== idx));
-};
-
-  useEffect(()=>{
-    const fetchFuncoes = async () => {
-      const response = await axios.get(`${process.env.REACT_APP_URL}/bot/get-functions/${schema}`, {withCredentials:true})
-      setFuncoesDisponiveis(response.data.data)
-    }
-    fetchFuncoes()
-  }, [schema])
-
   const handleSave = async () => {
     if (!name || !instructions || !model || !assistente?.id) {
       console.error('Preencha todos os campos obrigatórios.');
@@ -60,14 +30,9 @@ const removerFuncao = (idx) => {
     }
 
     try {
-      const response = await axios.put(`${process.env.REACT_APP_URL}/bot/update-assistant/${assistente.id}`, {
-        name,
-        instructions,
-        model,
-        functions: funcoesSelecionadas,
-        schema:schema
-      }, { withCredentials: true });
-
+      // Aqui será implementada a chamada para a API quando o backend estiver pronto
+      console.log('Atualizando assistente:', { id: assistente.id, name, instructions, model });
+      
       // Fechar modal
       const modal = bootstrap.Modal.getInstance(document.getElementById('EditAssistantModal'));
       if (modal) {
@@ -168,44 +133,6 @@ const removerFuncao = (idx) => {
                 O modelo determina as capacidades e velocidade do assistente
               </div>
             </div>
-            <div className="mb-3">
-  <label className={`form-label card-subtitle-${theme}`}>Funções do Robô *</label>
-  <div className={`d-flex flex-column gap-2`}>
-    {funcoesSelecionadas.map((funcao, idx) => (
-      <div key={idx} className="d-flex align-items-center gap-2">
-        <select
-          className={`form-select input-${theme}`}
-          value={funcao}
-          onChange={e => alterarFuncao(idx, e.target.value)}
-        >
-          <option value="">Selecione uma função</option>
-          {funcoesDisponiveis
-            .filter(f => f.value === funcao || !funcoesSelecionadas.includes(f.value))
-            .map(f => (
-              <option key={f.value} value={f.value}>{f.label}</option>
-            ))}
-        </select>
-        {funcoesSelecionadas.length > 1 && (
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-danger"
-            onClick={() => removerFuncao(idx)}
-          >
-            <i className="bi bi-x"></i>
-          </button>
-        )}
-      </div>
-    ))}
-    <button
-      type="button"
-      className="btn btn-outline-secondary mt-2"
-      onClick={adicionarFuncao}
-      disabled={funcoesSelecionadas.length >= funcoesDisponiveis.length}
-    >
-      + Adicionar função
-    </button>
-  </div>
-</div>
 
             {/* Preview das instruções */}
             {instructions && (

@@ -1,5 +1,5 @@
-const { insertBotInTable, deleteBotInTable, getBots, getFunctions, insertBotFunctions, deleteAllBotFunctions, updateBotInTable } = require("../services/BotService")
-const { createAssistant, deleteAssistant, updateAssistant } = require("../services/OpenAi")
+const { insertBotInTable, deleteBotInTable, getBots, getFunctions, insertBotFunctions, deleteAllBotFunctions } = require("../services/BotService")
+const { createAssistant, deleteAssistant } = require("../services/OpenAi")
 
 const createAssistantController = async (req, res) => {
     const {name, instructions, model, schema} = req.body
@@ -92,49 +92,10 @@ const insertBotFunctionsController = async (req, res) => {
         })
     }
 }
-const updateBotController = async (req, res) => {
-    const {assistant_id} = req.params
-    const {name, instructions, model, functions, schema} = req.body
-    try {
-        let tools = []
-        if(functions && functions.length>0){
-            for(const func of functions){
-                await insertBotFunctions(assistant_id, func.id, schema)
-                tools.push({
-                type: 'function',
-                function: {
-                    name: func.name,
-                    description: func.label,
-                    parameters: {
-                    type: 'object',
-                    properties: {},
-                    required: []
-                    }
-                }
-                })
-            }
-        }
-        console.log(JSON.stringify(tools, null, 2));
-        const result = await updateAssistant(assistant_id, name, instructions, model, tools)
-        await updateBotInTable(assistant_id, name, instructions, model, null, schema)
-        res.status(200).json({
-            success:true,
-            message:'Assistente atualizado com sucesso'
-        })
-
-    } catch (error) {
-        console.error(error)
-        res.status(500).json({
-            success:false,
-            message:'Erro ao atualizar assistente'
-        })
-    }
-}
 module.exports={
     createAssistantController,
     deleteAssistantController,
     getBotsController,
     getFunctionsController,
-    insertBotFunctionsController,
-    updateBotController
+    insertBotFunctionsController
 }

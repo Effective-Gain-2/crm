@@ -24,7 +24,6 @@ const getAuthUrl = (req, res) => {
 
 // 2. Callback de autenticação
 const oauthCallback = async (req, res) => {
-  console.log('entrou callback')
   const code = req.query.code;
   const user_id = req.session.user_id || req.user_id || req.query.user_id || req.body.user_id;
   const schema = req.session.schema || req.query.schema || req.body.schema;

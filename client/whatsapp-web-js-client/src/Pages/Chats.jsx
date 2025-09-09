@@ -738,25 +738,18 @@ const handleRedistributeWaitingChats = async () => {
     socketInstance.emit('join', selectedChatId);
 
     const handleMessage = (msg) => {
-      if (msg.chatId === selectedChatId) {
-        const formatted = formatMessage(msg);
-        
-        setSelectedMessages(prev => {
-          const newMessages = [...prev, formatted];
-          return newMessages;
-        });
-        
-        // Scroll para baixo após adicionar mensagem
-        setTimeout(() => {
-          scrollToBottom();
-        }, 100);
-        
-        // Toca o som se a mensagem não for minha
-        if (!msg.fromMe && !msg.from_me) {
-          playNotificationSound();
-        }
+    if (msg.chatId === selectedChatId) {
+      const formatted = formatMessage(msg);
+      setSelectedMessages(prev => {
+        const newMessages = [...prev, formatted];
+        return newMessages;
+      });
+      // Toca o som se a mensagem não for minha
+      if (!msg.fromMe && !msg.from_me) {
+        playNotificationSound();
       }
-    };
+    }
+  };
     socketInstance.on('message', handleMessage);
 
     return () => {
@@ -896,7 +889,7 @@ const formatMessage = (msg) => {
     id: msg.id,
     name: msg.contact_name || msg.senderName,
     text: msg.text || msg.body,
-    from_me: Boolean(msg.from_me || msg.fromMe), // Garantir que seja boolean
+    from_me: msg.from_me|| msg.fromMe,
     timestamp: msg.timestamp || msg.created_at,
     message_type: msg.message_type,
     base64: msg.midiaBase64 || msg.base64,
@@ -1332,8 +1325,8 @@ const handleImageUpload = async (event) => {
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [selectedMessages]);
+  scrollToBottom();
+}, [selectedMessages]);
 
   const handleImageClick = (imageBase64) => {
     setSelectedImage(imageBase64);
@@ -2152,15 +2145,11 @@ const handleImageUpload = async (event) => {
               data-message-id={msg.id}
               style={{
                 backgroundColor: msg.from_me ? 'var(--hover)' : '#f1f0f0',
-                color: msg.from_me ? 'var(--text-color)' : '#333',
                 textAlign: 'left',
                 padding: '10px 10px 5px 10px',
                 borderRadius: '10px',
                 maxWidth: '50%',
                 width: (msg.message_type === 'audio' || msg.message_type === 'audioMessage') ? '50%' : 'fit-content',
-                wordWrap: 'break-word',
-                overflowWrap: 'break-word',
-                whiteSpace: 'pre-wrap'
               }}
             >
               {(msg.message_type === 'audio' || msg.message_type === 'audioMessage') ? (
@@ -2322,13 +2311,7 @@ const handleImageUpload = async (event) => {
                 })()
               ) : (
                 msg.text && (
-                  <div style={{
-                    wordWrap: 'break-word',
-                    overflowWrap: 'break-word',
-                    whiteSpace: 'pre-wrap',
-                    lineHeight: '1.4',
-                    fontSize: '14px'
-                  }}>
+                  <div>
                     {msg.text}
                   </div>
                 )

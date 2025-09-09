@@ -415,6 +415,21 @@ module.exports = (broadcastMessage) => {
       
         await chatQueue.add('message', payload, { removeOnComplete: true });
         
+      //   const queue = await getQueueById(baseChat.queue_id, schema)
+      //   if(queue[0].assistant_id){
+      //   if(baseChat.isboton==='on' || baseChat.isboton===true || baseChat.botchating===true){
+      //       const assistant_id = queue[0].assistant_id
+      //       if(!baseChat.thread_id){
+      //         await createThread(payload.body, assistant_id, baseChat.id, schema)
+      //       }else{
+      //         const resposta = await getAssistantReply(baseChat.thread_id, payload.body, assistant_id, baseChat.id, schema)
+      //         if(resposta){
+      //           await sendTextMessage(result.instance, resposta, baseChat.contact_phone)
+      //           await saveMessage(baseChat.id, new Message(uuidv4(), resposta, true, baseChat.id, getCurrentTimestamp()), schema, null)
+      //         }
+      //       }
+      //     }
+      // }
       }
       if (!chat || !result.instance) {
         throw new Error('Dados obrigatórios ausentes para createChat');
@@ -457,34 +472,6 @@ module.exports = (broadcastMessage) => {
           ),
           schema
         );
-      }
-      const queue = await getQueueById(baseChat.queue_id, schema)
-        if(queue[0].assistant_id){
-        if(baseChat.isboton==='on' || baseChat.isboton===true || baseChat.botchating===true){
-            const assistant_id = queue[0].assistant_id
-            if(!baseChat.thread_id){
-              await createThread(messageBody, assistant_id, baseChat.id, schema)
-            }else{
-              const resposta = await getAssistantReply(baseChat.thread_id, messageBody, assistant_id, baseChat.id, schema)
-              if(resposta){
-                await sendTextMessage(result.instance, resposta, baseChat.contact_phone)
-                const message = await saveMessage(baseChat.id, new Message(uuidv4(), resposta, true, baseChat.id, getCurrentTimestamp()), schema, null)
-                messagePayload={
-                  id: message.id,
-                  chatId:baseChat.id,
-                  contact_name:baseChat.contact_name,
-                  body:resposta,
-                  from_me: true,
-                  timestamp: timestamp,
-                  message_type:null,
-                  base64:null,
-                  user_id:baseChat.user_id
-                }
-          serverTest.io.to(baseChat.id).emit('message', messagePayload)
-              }
-              
-            }
-          }
       }
       const data = {
         chatId: chatDb.id,
