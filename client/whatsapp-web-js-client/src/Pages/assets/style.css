@@ -1,0 +1,1156 @@
+@import url('./theme.css');
+
+* {
+    transition: all var(--TT) ease-in-out;
+    box-sizing: border-box;
+}
+
+.bg-screen-light {
+    background-color: #f4f4f4;
+}
+.bg-screen-dark {
+    background-color: #201F1F;
+}
+
+.bg-form-light {
+    background-color: var(--bg-color-light);
+}
+.bg-form-dark {
+    background-color: var(--bg-color-dark);
+}
+
+.input-group-text {
+    color: var(--primary-color);
+}
+.igt-light {
+    background-color: var(--bg-color-light);
+    border-color: var(--border-color-light);
+}
+.igt-dark {
+    background-color: var(--bg-color-dark);
+    border-color: var(--border-color-dark);
+}
+
+.input-light {
+    color: var(--color-light);
+    background-color: var(--input-bg-color-light);
+    transition: background-color var(--TT);
+}
+.input-dark {
+    color: var(--color-dark);
+    background-color: var(--input-bg-color-dark);
+    border-color: var(--border-color-dark);
+    transition: background-color var(--TT);
+}
+.input-dark::placeholder {
+    color: var(--placeholder-color);
+}
+.input-dark:focus {
+    color: var(--color-dark);
+    background-color: var(--input-bg-color-dark);
+}
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: none;
+}
+
+.form-check-input {
+    border-color: var();
+    background-color: transparent;
+}
+.form-check-input:focus {
+    box-shadow: 0 0 0 0.25rem rgba(189, 143, 83, 0.25);
+}
+.form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+.form-check-input[type="checkbox"]:not(:checked) {
+    background-color: transparent;
+    border-color: var(--primary-color);
+}  
+
+.ext-label-light {
+    color: var(--color-light);
+}
+.ext-label-dark {
+    color: var(--color-dark);
+}
+
+.toggle-light {
+    border-color: var(--border-color-light);
+    background-color: var(--bg-color-light);
+}
+.toggle-dark {
+    border-color: var(--border-color-dark);
+    background-color: var(--bg-color-dark);
+}
+
+.btn-primary:focus{
+    box-shadow: 0 0 0 0.25rem rgba(189, 143, 83, 0.25);
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+.btn-primary:active {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+.btn-1-light {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--bg-color-light);
+}
+.btn-1-light:hover {
+    background-color: var(--primary-hover-color-light);
+    border-color: var(--primary-hover-color-light);
+}
+.btn-1-dark {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--bg-color-dark);
+}
+.btn-1-dark:hover {
+    background-color: var(--primary-hover-color-dark);
+    border-color: var(--primary-hover-color-dark);
+    color: var(--bg-color-dark);
+}
+
+.btn-secondary:focus {
+    box-shadow: inset 0 0 5px 2px rgba(189, 143, 83, 0.25);
+    background-color: transparent;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+.btn-secondary:active {
+    background-color: transparent !important;
+    border-color: var(--primary-color) !important;
+    color: var(--primary-color) !important;
+}
+.btn-2-light {
+    background-color: transparent;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    cursor: pointer;
+}
+.btn-2-light:hover {
+    background-color: transparent;
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    box-shadow: inset 0 0 5px 2px rgba(189, 143, 83, 0.25);
+}
+.btn-2-dark {
+    background-color: transparent;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    cursor: pointer;
+}
+.btn-2-dark:hover {
+    background-color: transparent;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    box-shadow: inset 0 0 5px 2px rgba(189, 143, 83, 0.25);
+}
+.btn-3-light {
+    background-color: transparent;
+    border-color: var(--border-color-light);
+    color: var(--primary-color);
+}
+.btn-3-light:hover {
+    background-color: transparent;
+    color: var(--primary-color);
+    border-color: var(--border-color-light);
+    box-shadow: inset 0 0 5px 2px rgba(189, 143, 83, 0.25);
+}
+.btn-3-dark {
+    background-color: transparent;
+    border-color: var(--border-color-dark);
+    color: var(--primary-color);
+}
+.btn-3-dark:hover {
+    background-color: transparent;
+    border-color: var(--border-color-dark);
+    color: var(--primary-color);
+    box-shadow: inset 0 0 5px 2px rgba(189, 143, 83, 0.25);
+}
+a {
+    text-decoration: none;
+}
+
+.text-danger-false {
+    display: none;
+    opacity: 0;
+    color: var(--error-color);
+}
+.text-danger-true {
+    display: block;
+    opacity: 1;
+    color: var(--error-color);
+}
+
+#password-error-container {
+    display: none;
+    opacity: 0;
+}
+#password-error-container.show {
+    display: block;
+    opacity: 1;
+}
+#password-confirm-container {
+    display: none;
+    opacity: 0;
+}
+#password-confirm-container.show {
+    display: block;
+    opacity: 1;
+}
+.ul-pw, .ul-pw2 {
+    list-style: none;
+}
+.ul-light {
+    color: var(--color-light);
+}
+.ul-dark {
+    color: var(--color-dark);
+}
+.maiuscula, .minuscula, .numero, .simbolo, .caractere {
+    color: transparent;
+}
+.checked {
+    color: var(--success-color);
+}
+
+.title-light {
+    color: var(--color-light);
+}
+.title-dark {
+    color: var(--color-dark);
+}
+.hidden {
+    display: none;
+}
+
+#sidebar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    transition: width 0.3s;
+}
+.header-light {
+    background-color: var(--bg-color-light);
+}
+.header-dark {
+    background-color: var(--bg-color-dark);
+}
+#main {
+    display: flex;
+    min-width: 0;
+}
+
+.main-light {
+    background-color: var(--bg-color-light)
+}
+.main-dark {
+    background-color: var(--bg-color-dark)
+}
+
+.custom-tooltip {
+    --bs-tooltip-bg: var(--bg-color-dark);
+    --bs-tooltip-color: var(--color-dark);
+}
+
+.selected-light {
+    background-color: var(--primary-color);
+    color: var(--bg-color-light);
+}
+.selected-dark {
+    background-color: var(--primary-color);
+    color: var(--bg-color-dark);
+}
+.sidebar-selected-button {
+    border-color: var(--primary-color);
+    background-color: var(--primary-color);
+    color: var(--bg-color-light);
+}
+.sidebar-selected-button:hover {
+    border-color: var(--primary-color);
+    background-color: var(--primary-color);
+}
+.sidebar-button {
+    border-color: transparent;
+    box-shadow: -3px 4px 10px rgba(0, 0, 0, 0.1);
+}
+.content-title {
+    color: var(--primary-color);
+}
+.card-light {
+    background-color: var(--input-bg-color-light);
+    border-color: var(--border-color-light);
+}
+.card-dark {
+    background-color: var(--input-bg-color-dark);
+    border-color: var(--border-color-dark);
+}
+.card-icon {
+    color: var(--primary-color);
+}
+.card-subtitle-light {
+    color: var(--color-light);
+    font-size: 1rem;
+    opacity: 0.75;
+}
+.card-subtitle-dark {
+    color: var(--color-dark);
+    font-size: 1rem;
+    opacity: 0.5;
+}
+.btn-eye-light {
+    background-color: transparent;
+    border-color: var(--border-color-light);
+    color: var(--primary-color);
+}
+.btn-eye-light:hover {
+    background-color: transparent;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+.btn-eye-dark {
+    background-color: transparent;
+    border-color: var(--border-color-dark);
+    color: var(--primary-color);
+}
+.btn-eye-dark:hover {
+    background-color: transparent;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+.money-light {
+    background-color: var(--bg-color-light);
+    color: var(--color-light);
+}
+.money-dark {
+    background-color: var(--bg-color-dark);
+    color: var(--color-dark);
+}
+.table-header-light {
+    background-color: var(--bg-color-light);
+    color: var(--color-light);
+    font-weight: 500;
+}
+.table-header-dark {
+    background-color: var(--bg-color-dark);
+    color: var(--color-dark);
+    font-weight: 500;
+}
+.table-line-light {
+    background-color: var(--bg-color-light);
+    color: var(--color-light);
+}
+.table-line-dark {
+    background-color: var(--bg-color-dark);
+    color: var(--color-dark);
+}
+.bg-success-light {
+    background-color: var(--success-color) !important;
+    color: var(--bg-color-light);
+}
+.bg-success-dark {
+    background-color: var(--success-color) !important;
+    color: var(--bg-color-dark);
+}
+.bg-warning-light {
+    background-color: var(--alert-color) !important;
+    color: var(--bg-color-light);
+}
+.bg-warning-dark {
+    background-color: var(--alert-color) !important;
+    color: var(--bg-color-dark);
+}
+.sidebar-collapsed {
+    width: 4.93vw !important; /* 75 / 1521 * 100 */
+    max-width: 75px !important;
+}
+.sidebar-expanded {
+    width: 13.15vw !important; /* 200 / 1521 * 100 */
+    max-width: 200px !important;
+}
+.sidebar-expanded .sidebar-label {
+    display: inline !important;
+}
+
+.sidebar-collapsed .sidebar-label {
+    display: none;
+}
+.header-text-light {
+    color: var(--color-light);
+}
+.header-text-dark {
+    color: var(--color-dark);
+}
+
+.text-muted-light {
+    color: var(--color-light);
+    opacity: 0.75;
+}
+.text-muted-dark {
+    color: var(--color-dark);
+    opacity: 0.75;
+}
+
+.border-light {
+    border: 1px solid var(--border-color-light) !important;
+}
+.border-dark {
+    border: 1px solid var(--border-color-dark) !important;
+}
+.question-light {
+    color: var(--color-light);
+}
+.question-dark {
+    color: var(--color-dark);
+}
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+.status-dot.online { background-color: var(--success-color); }
+.status-dot.ausente { background-color: var(--alert-color); }
+.status-dot.offline { background-color: var(--placeholder-color); }
+
+#lista-atendentes li > span {
+    flex: 1;
+    text-align: left;
+}
+.lista-tabela {
+    border-radius: 8px;
+    overflow-y: auto;
+    max-height: 550px;
+}
+.lista-tabela::-webkit-scrollbar {
+    width: 6px;
+}
+.lista-tabela::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 4px;
+}
+.btn-label-light {
+    background-color: var(--bg-color-light);
+    color: var(--color-light);
+    border-color: var(--border-color-light);
+}
+  .btn-label-dark {
+    background-color: var(--bg-color-dark);
+    color: var(--color-dark);
+    border-color: var(--border-color-dark);
+}
+.btn-check:checked + .btn {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--color-dark);
+}
+.btn-check:hover + .btn{
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+.chat {
+    border-radius: var(--bs-border-radius);
+}
+.chat-light {
+    background-color: var(--input-bg-color-light);
+    border: 1px solid var(--border-color-light);
+}
+.chat-dark {
+    background-color: var(--input-bg-color-dark);
+    border: 1px solid var(--border-color-dark);
+}
+.chat-list-light {
+    border-right: 1px solid var(--border-color-light);
+    border-color: var(--border-color-light);
+}
+.chat-list-dark {
+    border-right: 1px solid var(--border-color-dark);
+    border-color: var(--border-color-dark);
+}
+.icon-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.custom-table-light, .custom-table-dark {
+    border-radius: var(--bs-border-radius);
+    overflow: hidden;
+}
+.custom-table-light {
+    border: 1px solid var(--border-color-light) !important;
+}
+.custom-table-dark {
+    border: 1px solid var(--border-color-dark) !important;
+}
+.custom-table-dark thead {
+    background-color: var(--bg-color-dark);
+    color: var(--color-dark);
+}
+.custom-table-light td {
+    background-color: var(--input-bg-color-light);
+}
+.custom-table-dark td {
+    background-color: var(--input-bg-color-dark);
+}
+.custom-table-light th {
+    background-color: var(--bg-color-light);
+}
+.custom-table-dark th {
+    background-color: var(--bg-color-dark);
+}
+.custom-table-light th,
+.custom-table-light td {
+    color: var(--color-light);
+    vertical-align: middle;
+    border: 1px solid var(--border-color-light);
+}
+.custom-table-dark th,
+.custom-table-dark td {
+    color: var(--color-dark);
+    vertical-align: middle;
+    border: 1px solid var(--border-color-dark);
+}
+.custom-table-light td tr:hover {
+    background-color: var(--bg-color-light-hover);
+}
+.custom-table-dark td tr:hover {
+    background-color: var(--bg-color-dark-hover);
+}
+.table-hover td tr:hover {
+    background-color: var(--hover);
+}
+.table-hover td tr:hover td {
+    color: var(--color-light);
+}
+.schedule-view { display: none; }
+.schedule-view.active { display: block; }
+.hour-cell {
+  border-bottom: 1px solid #dee2e6;
+  padding: 8px;
+}
+.highlight {
+  background-color: #e7f3ff;
+}
+.text-muted {
+    color: var(--placeholder-color);
+}
+
+.btn-play {
+    border-color: var(--primary-color);
+    background-color: transparent;
+    color: var(--primary-color);
+}
+.btn-pause {
+    border-color: var(--error-color);
+    background-color: transparent;
+    color: var(--error-color);
+}
+.btn-play:hover {
+    border-color: var(--primary-color);
+    background-color: transparent;
+    color: var(--primary-color);
+}
+.btn-pause:hover {
+    border-color: var(--error-color);
+    background-color: transparent;
+    color: var(--error-color);
+}
+
+:root {
+    --cor-bolinha: var(--primary-color);
+    --barra-background: white;
+    --bs-primary: #0082ca;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 13px;
+    height: 13px;
+    background: var(--cor-bolinha);
+    border-radius: 50%;
+    border: 2px solid var(--secondary-color);
+    cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    background: var(--cor-bolinha);
+    border-radius: 50%;
+    border: 2px solid var(--secondary-color);
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+    background: var(--barra-background);
+    border-radius: 5px;
+    height: 5px;
+}
+
+input[type="range"]::-moz-range-progress {
+    background: var(--primary-color);
+    border-radius: 5px;
+    height: 5px;
+}
+
+.btn-user:hover {
+    box-shadow: none;
+}
+
+.btn:disabled {
+  opacity: 1 !important;
+  pointer-events: none;
+  color: var(--placeholder-color);
+  border-color: var(--placeholder-color) !important;
+}
+
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.form-switch .form-check-input:not(:checked) {
+  background-color: transparent;
+  border-color: var(--primary-color);
+}
+
+.text-unchanged {
+  color: var(--placeholder-color);
+}
+
+.hr-light {
+  border-color: var(--border-color-light);
+  opacity: 0.8;
+}
+
+.hr-dark {
+  border-color: var(--border-color-dark);
+  opacity: 0.8;
+}
+
+.delete-btn {
+    border-color: var(--error-color);
+    color: var(--error-color);
+    background-color: transparent;
+}
+.delete-btn:hover {
+    border-color: var(--error-color);
+    color: var(--error-color);
+    box-shadow: inset 0 0 5px 2px rgba(189, 143, 83, 0.25);
+}
+.delete-btn:focus {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.success-btn {
+    border-color: var(--success-color);
+    color: var(--success-color);
+    background-color: transparent;
+}
+.success-btn:hover {
+    border-color: var(--success-color);
+    color: var(--success-color);
+    box-shadow: inset 0 0 5px 2px rgba(189, 143, 83, 0.25);
+}
+.success-btn:focus {
+    border-color: var(--success-color);
+    color: var(--success-color);
+}
+
+.disabled-btn {
+    border-color: var(--placeholder-color);
+    color: var(--placeholder-color);
+    background-color: transparent;
+}
+.disabled-btn:hover {
+    border-color: var(--placeholder-color);
+    color: var(--placeholder-color);
+    box-shadow: inset 0 0 5px 2px rgba(189, 143, 83, 0.25);
+}
+.disabled-btn:focus {
+    border-color: var(--placeholder-color);
+    color: var(--placeholder-color);
+}
+
+/* Scrollbar customizado para o Kanban */
+.kanban-scroll-container::-webkit-scrollbar {
+  height: 8px;
+  background: transparent;
+}
+.kanban-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(0,130,202,0.1);
+  border-radius: 4px;
+}
+
+.kanban-card {
+  border: 1.5px solid var(--primary-color);
+  border-radius: 12px;
+  background-color: rgba(0,130,202,0.02);
+  transition: box-shadow 0.2s;
+}
+.kanban-card:hover {
+  box-shadow: 0 2px 8px 0 rgba(0,130,202,0.10);
+  border-color: var(--primary-color);
+}
+
+.bg-primary {
+    background-color: var(--primary-color) !important;
+}
+
+.no-caret::after { display: none !important; }
+
+/* Toast styles */
+.toast-container {
+  z-index: 1050;
+}
+.toast {
+  min-width: 300px;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  opacity: 1 !important;
+}
+.toast.bg-light {
+  background-color: var(--input-bg-color-light) !important;
+  border-color: var(--border-color-light) !important;
+}
+.toast.bg-dark {
+  background-color: var(--input-bg-color-dark) !important;
+  border-color: var(--border-color-dark) !important;
+}
+.toast .toast-body.text-dark {
+  color: var(--color-light) !important;
+}
+.toast .toast-body.text-light {
+  color: var(--color-dark) !important;
+}
+.toast .toast-body i {
+  color: inherit !important;
+}
+.toast .btn-close {
+  opacity: 0.5;
+}
+.toast .btn-close:hover {
+  opacity: 0.75;
+}
+.toast-header {
+  border-bottom: 1px solid var(--border-color-light);
+}
+.toast.bg-dark .toast-header {
+  border-bottom: 1px solid var(--border-color-dark);
+}
+
+.dp-light {
+    background-color: var(--bg-form-light);
+    color: var(--color-light);
+    cursor: pointer;
+}
+.dp-dark {
+    background-color: var(--bg-form-dark);
+    color: var(--color-dark);
+    cursor: pointer;
+}
+
+.dp-light:hover {
+    background-color: var(--hover);
+    color: var(--color-light);
+    cursor: pointer;
+}
+.dp-dark:hover {
+    background-color: var(--bg-color-light);
+    color: var(--color-light);
+    cursor: pointer;
+}
+
+::part(progress){
+    height: 35px;
+}
+::part(wrapper){
+    display: grid;
+}
+::part(scroll){
+    display: flex;
+}
+
+.waveform * {
+    width: 100%;
+    display: flex;
+    height: 35px;
+}
+
+/* Estilos para o dropdown customizado */
+.dropdown-item {
+    color: var(--text-color-light);
+    transition: background-color 0.2s;
+}
+
+.dropdown-item:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.dropdown-item:active {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+/* Estilos para o dropdown dos chats com cores corretas */
+.chat-dropdown-menu {
+    background-color: var(--bg-color-light) !important;
+    border-color: var(--border-color-light) !important;
+}
+
+.chat-dropdown-menu .dropdown-item {
+    color: var(--text-color-light) !important;
+}
+
+.chat-dropdown-menu .dropdown-item:hover {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+}
+
+/* Versão dark */
+.chat-dropdown-menu.dark {
+    background-color: var(--bg-color-dark) !important;
+    border-color: var(--border-color-dark) !important;
+}
+
+.chat-dropdown-menu.dark .dropdown-item {
+    color: var(--text-color-dark) !important;
+}
+
+.chat-dropdown-menu.dark .dropdown-item:hover {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+}
+
+/* Estilos específicos para o dropdown dos chats */
+.chat-dropdown-menu {
+    z-index: 9999 !important;
+    position: absolute !important;
+    overflow: visible !important;
+    right: 0 !important;
+    left: auto !important;
+    top: 100% !important;
+    transform: none !important;
+}
+
+.chat-dropdown-menu.show {
+    display: block !important;
+    position: absolute !important;
+    transform: none !important;
+    inset: auto !important;
+    right: 0 !important;
+    left: auto !important;
+    top: 100% !important;
+}
+
+/* Garantir que o dropdown não seja cortado */
+.chat .dropdown {
+    position: relative !important;
+    overflow: visible !important;
+}
+
+.chat .dropdown-menu {
+    margin-top: 0.125rem !important;
+    margin-left: 0 !important;
+    min-width: 200px !important;
+    left: auto !important;
+    right: 0 !important;
+    transform-origin: bottom right !important;
+}
+
+/* Ajuste específico para o dropdown de opções dos chats */
+.chat .dropdown[data-bs-popper="static"] .dropdown-menu {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    left: auto !important;
+    transform: none !important;
+}
+
+/* Forçar posicionamento correto do dropdown de opções */
+.chat .dropdown-menu.show {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    left: auto !important;
+    transform: none !important;
+    margin-top: 0.125rem !important;
+    margin-right: 0 !important;
+    margin-left: auto !important;
+}
+.custom-values-modal .modal-dialog {
+  max-width: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+.custom-values-modal .modal-content {
+  min-width: 250px;
+  width: 100%;
+  margin: 0 auto;
+  border-radius: 16px;
+  box-shadow: 0 6px 32px 0 rgba(0,0,0,0.18);
+  border: 1.5px solid var(--border-color-light);
+  transition: background-color var(--TT), border-color var(--TT);
+}
+.custom-values-modal .modal-content.bg-form-dark {
+  border: 1.5px solid var(--border-color-dark);
+  background: var(--bg-color-dark);
+}
+.custom-values-modal .modal-content.bg-form-light {
+  border: 1.5px solid var(--border-color-light);
+  background: var(--bg-color-light);
+}
+.custom-values-modal .modal-header, .custom-values-modal .modal-footer {
+  border-radius: 16px 16px 0 0;
+  border: none;
+}
+.custom-values-modal .modal-footer {
+  border-radius: 0 0 16px 16px;
+  border: none;
+}
+.custom-values-modal .list-group-item {
+  border-radius: 8px;
+  margin-bottom: 6px;
+  border-width: 1.2px;
+  font-size: 1rem;
+  background: var(--input-bg-color-light);
+  color: var(--color-light);
+  border-color: var(--border-color-light);
+  transition: background-color var(--TT), color var(--TT), border-color var(--TT);
+}
+.bg-form-dark .custom-values-modal .list-group-item {
+  background: var(--input-bg-color-dark);
+  color: var(--color-dark);
+  border-color: var(--border-color-dark);
+}
+.custom-values-modal .list-group-item:last-child {
+  margin-bottom: 0;
+}
+.custom-values-modal .form-control.input-light {
+  background: var(--input-bg-color-light);
+  color: var(--color-light);
+  border-color: var(--border-color-light);
+}
+.custom-values-modal .form-control.input-dark {
+  background: var(--input-bg-color-dark);
+  color: var(--color-dark);
+  border-color: var(--border-color-dark);
+}
+.custom-values-modal .form-control:focus {
+  box-shadow: 0 0 0 0.15rem var(--primary-color);
+  border-color: var(--primary-color);
+}
+.custom-values-modal .form-check-input:focus {
+  box-shadow: 0 0 0 0.15rem var(--primary-color);
+}
+.custom-values-modal .form-check-input:checked {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+.custom-values-modal .form-check-label {
+  font-size: 1rem;
+}
+.custom-values-modal .bi-info-circle {
+  font-size: 1.2rem;
+  vertical-align: middle;
+}
+.custom-values-modal [data-bs-toggle="tooltip"] {
+  color: var(--primary-color);
+  outline: none;
+}
+.custom-values-modal [data-bs-toggle="tooltip"]:focus {
+  color: var(--primary-hover-color-light);
+}
+.custom-values-modal .modal-footer .btn-primary:disabled {
+  background-color: #adb5bd !important;
+  border-color: #adb5bd !important;
+  color: #fff !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+.custom-values-modal .modal-footer .btn-outline-secondary {
+  border-color: #0d6efd !important;
+  color: #0d6efd !important;
+  background: #fff !important;
+}
+.custom-values-modal .modal-footer .btn-outline-secondary:hover,
+.custom-values-modal .modal-footer .btn-outline-secondary:focus {
+  background: #e7f1ff !important;
+  color: #0a58ca !important;
+  border-color: #0a58ca !important;
+}
+.custom-values-modal .modal-footer .btn-1-light:disabled {
+  background-color: #adb5bd !important;
+  border-color: #adb5bd !important;
+  color: #fff !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+.custom-values-modal .modal-footer .btn-1-dark:disabled {
+  background-color: #444 !important;
+  border-color: #444 !important;
+  color: #bbb !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
+.modal-50vw .modal-dialog {
+  max-width: 40vw !important;
+  width: 40vw !important;
+  margin: 1.75rem auto !important;
+}
+
+.modal-50vw .modal-content {
+  width: 100%;
+  margin: 0;
+}
+
+.modal-novo-motivo .modal-dialog {
+  max-width: 30vw !important;
+  width: 30vw !important;
+  margin: 1.75rem auto !important;
+}
+
+.modal-novo-motivo .modal-content {
+  width: 100%;
+  margin: 0;
+}
+
+/* Desfoque no modal principal quando o modal de novo motivo estiver aberto */
+.modal-50vw.modal-blur .modal-content {
+  filter: blur(3px);
+  transition: filter 0.3s ease;
+}
+
+.modal-50vw.modal-blur .modal-content * {
+  pointer-events: none;
+}
+
+/* Remover seta do botão de opções */
+.btn-2-light.no-caret::after,
+.btn-2-dark.no-caret::after {
+  display: none !important;
+}
+
+.no-caret::after { 
+  display: none !important; 
+}
+
+/* Regras mais específicas para remover a seta do dropdown */
+.dropdown-toggle.no-caret::after,
+.dropdown-toggle.no-caret::before {
+  display: none !important;
+}
+
+.btn.dropdown-toggle.no-caret::after {
+  display: none !important;
+}
+
+/* Forçar remoção da seta em todos os dropdowns com no-caret */
+[class*="btn"][class*="no-caret"]::after {
+    display: none !important;
+}
+
+/* Animações para o painel de visualização de documentos */
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-100%) translateY(-50%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0) translateY(-50%);
+        opacity: 1;
+    }
+}
+
+/* Estilos para o painel de visualização de documentos */
+.document-viewer-panel {
+    animation: slideInLeft 0.3s ease-out;
+    position: fixed;
+    top: 50%;
+    left: 10px;
+    transform: translateY(-50%);
+    width: 32%;
+    height: 85vh;
+    background-color: var(--bg-color-light);
+    border-radius: 16px;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.18);
+    z-index: 1060;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.document-viewer-panel.dark {
+    background-color: var(--bg-color-dark);
+}
+
+.document-container {
+    transition: transform 0.2s ease;
+}
+
+/* Responsividade para o painel de documentos */
+@media (max-width: 1400px) {
+    .document-viewer-panel {
+        width: 38% !important;
+        left: 8px !important;
+    }
+}
+
+@media (max-width: 1200px) {
+    .document-viewer-panel {
+        width: 42% !important;
+        left: 5px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .document-viewer-panel {
+        width: 90% !important;
+        left: 5% !important;
+        height: 80vh !important;
+    }
+}
+
+/* Modal positioning when document viewer is open */
+.modal-with-viewer {
+    margin-left: auto !important;
+    margin-right: 5px !important;
+    max-width: 58% !important;
+    width: 58% !important;
+}
+
+@media (max-width: 1400px) {
+    .modal-with-viewer {
+        max-width: 54% !important;
+        width: 54% !important;
+        margin-right: 3px !important;
+    }
+}
+
+@media (max-width: 1200px) {
+    .modal-with-viewer {
+        max-width: 48% !important;
+        width: 48% !important;
+        margin-right: 2px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .modal-with-viewer {
+        max-width: 90% !important;
+        width: 90% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+}
