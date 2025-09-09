@@ -153,7 +153,7 @@ useEffect(() => {
                   </button>
 
                   <button
-                   className={`btn btn-sm d-none btn-2-${theme}`}
+                   className={`btn btn-sm btn-2-${theme}`}
                    title='Assistente GPT'
                    onClick={()=>{
                     setSelectedFila(fila)
