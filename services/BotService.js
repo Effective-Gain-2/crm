@@ -8,11 +8,11 @@ const insertBotInTable = async (assistant_id, name, instructions, model, has_fun
     return result.rows[0];
 }
 
-const updateBotInTable = async (assistant_id, name, instructions, model, has_func) => {
+const updateBotInTable = async (assistant_id, name, instructions, model, has_func, schema) => {
     const result = await pool.query(`UPDATE ${schema}.bots
         SET name = $2, instructions = $3, model = $4, has_func = $5, updated_at = $6
-        WHERE assistant_id = $1
-        `, [assistant_id, name, instructions, model, has_func, getCurrentTimestamp()])
+        WHERE id = $1
+        `, [assistant_id, name, instructions, model, has_func || false, getCurrentTimestamp()])
 }
 
 const deleteBotInTable = async (assistant_id, schema) => {

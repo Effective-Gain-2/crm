@@ -6,6 +6,10 @@ function NewQueueModal({ theme, superUsers = [] }) {
   const [superUser, setSuperUser] = useState('');
   const [users, setUser] = useState([]);
   const [autoDistribution, setAutoDistribution] = useState(false);
+  const [funilSelecionado, setFunilSelecionado] = useState('');
+  const [funis, setFunis] = useState([]);
+  const [etapas, setEtapas] = useState([]);
+  const [etapaSelecionada, setEtapaSelecionada] = useState('');
   const userData = JSON.parse(localStorage.getItem('user')); 
   const schema = userData?.schema
 
@@ -25,6 +29,49 @@ function NewQueueModal({ theme, superUsers = [] }) {
     fetchUsuarios();
   }, []);
 
+  // Buscar funis do kanban
+  useEffect(() => {
+    const fetchFunis = async () => {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_URL}/kanban/get-funis/${schema}`, {
+          withCredentials: true
+        });
+        // Os funis vêm em response.data.name
+        const funisData = response.data.name || [];
+        setFunis(funisData);
+        console.log('Funis carregados:', funisData);
+      } catch (error) {
+        console.error('Erro ao buscar funis:', error);
+      }
+    };
+
+    fetchFunis();
+  }, [schema]);
+
+  // Buscar etapas quando funil for selecionado
+  useEffect(() => {
+    if (!funilSelecionado) {
+      setEtapas([]);
+      setEtapaSelecionada('');
+      return;
+    }
+
+    const fetchEtapas = async () => {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_URL}/kanban/get-stages/${funilSelecionado}/${schema}`, {
+          withCredentials: true
+        });
+        setEtapas(response.data || []);
+        setEtapaSelecionada(''); // Reset etapa selecionada
+      } catch (error) {
+        console.error('Erro ao buscar etapas:', error);
+        setEtapas([]);
+      }
+    };
+
+    fetchEtapas();
+  }, [funilSelecionado, schema]);
+
   const handleSave = async () => {
     if (!title || !superUser) {
       console.error('Preencha todos os campos obrigatórios.');
@@ -36,6 +83,7 @@ function NewQueueModal({ theme, superUsers = [] }) {
         super_user: superUser,
         schema: schema,
         distribution: autoDistribution,
+        stage_id: etapaSelecionada || null,
       },
         {
       withCredentials: true
@@ -47,6 +95,8 @@ function NewQueueModal({ theme, superUsers = [] }) {
     setTitle('');
     setSuperUser('');
     setAutoDistribution(false);
+    setFunilSelecionado('');
+    setEtapaSelecionada('');
   };
 
   return (
@@ -97,6 +147,52 @@ function NewQueueModal({ theme, superUsers = [] }) {
                 ))}
               </select>
             </div>
+
+            {/* Funil do Kanban */}
+            <div className="mb-3">
+              <label htmlFor="funilKanban" className={`form-label card-subtitle-${theme}`}>
+                Funil do Kanban
+              </label>
+              <select
+                className={`form-select input-${theme}`}
+                id="funilKanban"
+                value={funilSelecionado}
+                onChange={(e) => setFunilSelecionado(e.target.value)}
+              >
+                <option value="" disabled>
+                  Escolha um funil
+                </option>
+                {funis.map((funil) => (
+                  <option key={funil} value={funil}>
+                    {funil}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Etapa do Kanban */}
+            {funilSelecionado && (
+              <div className="mb-3">
+                <label htmlFor="etapaKanban" className={`form-label card-subtitle-${theme}`}>
+                  Etapa do Kanban
+                </label>
+                <select
+                  className={`form-select input-${theme}`}
+                  id="etapaKanban"
+                  value={etapaSelecionada}
+                  onChange={(e) => setEtapaSelecionada(e.target.value)}
+                >
+                  <option value="" disabled>
+                    Escolha uma etapa
+                  </option>
+                  {etapas.map((etapa) => (
+                    <option key={etapa.id} value={etapa.id}>
+                      {etapa.etapa}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Distribuição automática */}
             <div className="mb-3 form-check form-switch">

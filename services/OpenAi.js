@@ -5,7 +5,7 @@ const pool = require('../db/queries');
 const { sendTextMessage } = require('../requests/evolution');
 const { createReceita } = require('./ReceitaService');
 const { insertExpenseItens } = require('./ExpensesService');
-const { disableBot } = require('./ChatService');
+const { disableBott } = require('../utils/DisableBot');
 dotenv.config();
 
 const openai = new OpenAI({
@@ -142,7 +142,7 @@ const getAssistantReply = async (thread_id, userMessage, assistant_id, chat_id, 
                 await insertExpenseItens(receita.id, item.item, 'descrição', item.quantidade, item.preco_unitario, false, schema);
               }
           } else if (functionName === 'passar_atendente') {
-            await disableBot(chat_id, schema)
+            await disableBott(chat_id, schema)
             output = 'Transferindo para atendente humano...';
           }
           

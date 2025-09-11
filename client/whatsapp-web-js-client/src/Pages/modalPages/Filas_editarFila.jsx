@@ -7,6 +7,10 @@ function EditQueueModal({ theme, fila }) {
   const [superUser, setSuperUser] = useState('');
   const [users, setUser] = useState([]);
   const [autoDistribution, setAutoDistribution] = useState(false);
+  const [funilSelecionado, setFunilSelecionado] = useState('');
+  const [funis, setFunis] = useState([]);
+  const [etapas, setEtapas] = useState([]);
+  const [etapaSelecionada, setEtapaSelecionada] = useState('');
   const userData = JSON.parse(localStorage.getItem('user')); 
   const schema = userData?.schema;
 
@@ -15,6 +19,7 @@ function EditQueueModal({ theme, fila }) {
       setTitle(fila.name || '');
       setSuperUser(fila.superuser || '');
       setAutoDistribution(fila.distribution || false);
+      setEtapaSelecionada(fila.stage_id || '');
     }
   }, [fila]);
 
@@ -33,6 +38,45 @@ function EditQueueModal({ theme, fila }) {
     fetchUsuarios();
   }, [schema]);
 
+  // Buscar funis do kanban
+  useEffect(() => {
+    const fetchFunis = async () => {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_URL}/kanban/get-funis/${schema}`, {
+          withCredentials: true
+        });
+        const funisData = response.data.name || [];
+        setFunis(funisData);
+      } catch (error) {
+        console.error('Erro ao buscar funis:', error);
+      }
+    };
+
+    fetchFunis();
+  }, [schema]);
+
+  // Buscar etapas quando funil for selecionado
+  useEffect(() => {
+    if (!funilSelecionado) {
+      setEtapas([]);
+      return;
+    }
+
+    const fetchEtapas = async () => {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_URL}/kanban/get-stages/${funilSelecionado}/${schema}`, {
+          withCredentials: true
+        });
+        setEtapas(response.data || []);
+      } catch (error) {
+        console.error('Erro ao buscar etapas:', error);
+        setEtapas([]);
+      }
+    };
+
+    fetchEtapas();
+  }, [funilSelecionado, schema]);
+
   const handleSave = async () => {
     if (!title || !superUser) {
       return;
@@ -44,6 +88,7 @@ function EditQueueModal({ theme, fila }) {
         name: title,
         super_user: superUser,
         distribution: autoDistribution,
+        stage_id: etapaSelecionada || null,
         schema: schema,
       }, {
         withCredentials: true
@@ -112,6 +157,52 @@ function EditQueueModal({ theme, fila }) {
                 ))}
               </select>
             </div>
+
+            {/* Funil do Kanban */}
+            <div className="mb-3">
+              <label htmlFor="funilKanban" className={`form-label card-subtitle-${theme}`}>
+                Funil do Kanban
+              </label>
+              <select
+                className={`form-select input-${theme}`}
+                id="funilKanban"
+                value={funilSelecionado}
+                onChange={(e) => setFunilSelecionado(e.target.value)}
+              >
+                <option value="" disabled>
+                  Escolha um funil
+                </option>
+                {funis.map((funil) => (
+                  <option key={funil} value={funil}>
+                    {funil}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Etapa do Kanban */}
+            {funilSelecionado && (
+              <div className="mb-3">
+                <label htmlFor="etapaKanban" className={`form-label card-subtitle-${theme}`}>
+                  Etapa do Kanban
+                </label>
+                <select
+                  className={`form-select input-${theme}`}
+                  id="etapaKanban"
+                  value={etapaSelecionada}
+                  onChange={(e) => setEtapaSelecionada(e.target.value)}
+                >
+                  <option value="" disabled>
+                    Escolha uma etapa
+                  </option>
+                  {etapas.map((etapa) => (
+                    <option key={etapa.id} value={etapa.id}>
+                      {etapa.etapa}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Distribuição automática */}
             <div className="mb-3 form-check form-switch">

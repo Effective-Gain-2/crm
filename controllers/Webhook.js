@@ -17,6 +17,7 @@ const createRedisConnection = require('../config/Redis');
 const { Queue, Worker } = require('bullmq');
 const { getQueueById } = require('../services/QueueService');
 const { createThread, messageAnAssistant, getAssistantReply } = require('../services/OpenAi');
+const { updateContactInKanban } = require('../services/KanbanService');
 
 // Função para emitir chats para as filas específicas
 const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
@@ -415,21 +416,24 @@ module.exports = (broadcastMessage) => {
       
         await chatQueue.add('message', payload, { removeOnComplete: true });
         
-      //   const queue = await getQueueById(baseChat.queue_id, schema)
-      //   if(queue[0].assistant_id){
-      //   if(baseChat.isboton==='on' || baseChat.isboton===true || baseChat.botchating===true){
-      //       const assistant_id = queue[0].assistant_id
-      //       if(!baseChat.thread_id){
-      //         await createThread(payload.body, assistant_id, baseChat.id, schema)
-      //       }else{
-      //         const resposta = await getAssistantReply(baseChat.thread_id, payload.body, assistant_id, baseChat.id, schema)
-      //         if(resposta){
-      //           await sendTextMessage(result.instance, resposta, baseChat.contact_phone)
-      //           await saveMessage(baseChat.id, new Message(uuidv4(), resposta, true, baseChat.id, getCurrentTimestamp()), schema, null)
-      //         }
-      //       }
-      //     }
-      // }
+        const queue = await getQueueById(baseChat.queue_id, schema)
+        if(queue[0].stage_id){
+          await updateContactInKanban(baseChat.contact_phone, queue[0].stage_id, schema)
+        }
+        if(queue[0].assistant_id){
+        if(baseChat.isboton==='on' || baseChat.isboton===true || baseChat.botchating===true){
+            const assistant_id = queue[0].assistant_id
+            if(!baseChat.thread_id){
+              await createThread(payload.body, assistant_id, baseChat.id, schema)
+            }else{
+              const resposta = await getAssistantReply(baseChat.thread_id, payload.body, assistant_id, baseChat.id, schema)
+              if(resposta){
+                await sendTextMessage(result.instance, resposta, baseChat.contact_phone)
+                await saveMessage(baseChat.id, new Message(uuidv4(), resposta, true, baseChat.id, getCurrentTimestamp()), schema, null)
+              }
+            }
+          }
+      }
       }
       if (!chat || !result.instance) {
         throw new Error('Dados obrigatórios ausentes para createChat');

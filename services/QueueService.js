@@ -1,15 +1,16 @@
 const pool = require('../db/queries')
 
-const createQueue=async(queue, super_user, distribution, schema)=>{
+const createQueue=async(queue, super_user, distribution, stage_id, schema)=>{
     const result = await pool.query(
-        `INSERT INTO ${schema}.queues (id, name, color, users, superuser, distribution) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        `INSERT INTO ${schema}.queues (id, name, color, users, superuser, distribution, stage_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
         [
             queue.getId(),
             queue.getName(),
             queue.getColor(),
             queue.getUsers(),
             super_user,
-            distribution
+            distribution,
+            stage_id
         ]
     );
     return result.rows[0]
@@ -143,10 +144,10 @@ const getUsersInQueue = async (queue_id, schema) => {
     return result.rows
 }
 
-const updateQueue = async (queueId, name, color, super_user, distribution, schema) => {
+const updateQueue = async (queueId, name, color, super_user, distribution, stage_id, schema) => {
     const result = await pool.query(
-        `UPDATE ${schema}.queues SET name=$1, color=$2, superuser=$3, distribution=$4 WHERE id=$5 RETURNING *`,
-        [name, color, super_user, distribution, queueId]
+        `UPDATE ${schema}.queues SET name=$1, color=$2, superuser=$3, stage_id=$6, distribution=$4 WHERE id=$5 RETURNING *`,
+        [name, color, super_user, distribution, queueId, stage_id]
     );
     return result.rows[0];
 };

@@ -7,12 +7,12 @@ const { getUserById } = require("../services/UserService");
 
 const createQueueController = async(req, res)=>{
     try{
-        const {name, color, super_user, distribution} = req.body;
+        const {name, color, super_user, distribution, stage_id} = req.body;
 
         const queue = new Queue(uuidv4(), name, color)
         
         const schema = req.body.schema
-        const result = await createQueue(queue, super_user, distribution, schema)
+        const result = await createQueue(queue, super_user, distribution, stage_id || null, schema)
         global.socketIoServer.to(`schema_${schema}`).emit('new_queue', result)
         res.status(201).json({
             result
@@ -216,7 +216,7 @@ const getUsersInQueueController = async (req, res) => {
 
 const updateQueueController = async (req, res) => {
     try {
-        const { queueId, name, super_user, distribution, schema } = req.body;
+        const { queueId, name, super_user, distribution, stage_id, schema } = req.body;
         
         if (!queueId || !name || !super_user || !schema) {
             return res.status(400).json({ 
@@ -224,7 +224,7 @@ const updateQueueController = async (req, res) => {
             });
         }
         
-        const result = await updateQueue(queueId, name, null, super_user, distribution, schema);
+        const result = await updateQueue(queueId, name, null, super_user, distribution, stage_id || null, schema);
         
         if (result) {
             // Emitir evento para atualização em tempo real

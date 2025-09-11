@@ -22,23 +22,53 @@ function EditAssistantModal({ theme, assistente }) {
   // Carregar dados do assistente quando o modal abrir
   useEffect(() => {
     if (assistente) {
+      console.log('Carregando assistente:', assistente);
       setName(assistente.name || '');
       setInstructions(assistente.instructions || '');
       setModel(assistente.model || '');
+      // Só definir funções se existirem e forem um array
+      if (assistente.functions && Array.isArray(assistente.functions)) {
+        setFuncoesSelecionadas(assistente.functions);
+      } else {
+        setFuncoesSelecionadas([]);
+      }
+      console.log('Funções do assistente:', assistente.functions);
     }
   }, [assistente]);
 
   const adicionarFuncao = () => {
-  const disponiveis = funcoesDisponiveis.filter(f => !funcoesSelecionadas.some(fs => fs.value === f.value));
+  const disponiveis = funcoesDisponiveis.filter(f => !funcoesSelecionadas.some(fs => fs.id === f.id || fs.value === f.value));
   if (disponiveis.length > 0) {
     setFuncoesSelecionadas(prev => [...prev, disponiveis[0]]);
   }
 };
 
 const alterarFuncao = (idx, novaFuncaoValue) => {
-  const novaFuncaoObj = funcoesDisponiveis.find(f => f.value === novaFuncaoValue);
-  if (novaFuncaoObj && !funcoesSelecionadas.some(fs => fs.value === novaFuncaoValue)) {
-    setFuncoesSelecionadas(prev => prev.map((f, i) => i === idx ? novaFuncaoObj : f));
+  console.log('Alterando função:', { idx, novaFuncaoValue, funcoesDisponiveis });
+  
+  if (!novaFuncaoValue) return;
+  
+  if (funcoesDisponiveis.length === 0) {
+    console.warn('Funções disponíveis ainda não carregaram');
+    return;
+  }
+  
+  // Buscar por value (id) ou por name
+  const novaFuncaoObj = funcoesDisponiveis.find(f => 
+    f.value === novaFuncaoValue || 
+    f.id === novaFuncaoValue || 
+    f.name === novaFuncaoValue
+  );
+  console.log('Nova função encontrada:', novaFuncaoObj);
+  
+  if (novaFuncaoObj) {
+    setFuncoesSelecionadas(prev => {
+      const novoArray = prev.map((f, i) => i === idx ? novaFuncaoObj : f);
+      console.log('Novo array de funções:', novoArray);
+      return novoArray;
+    });
+  } else {
+    console.warn('Função não encontrada nas funções disponíveis');
   }
 };
 const removerFuncao = (idx) => {
@@ -47,8 +77,14 @@ const removerFuncao = (idx) => {
 
   useEffect(()=>{
     const fetchFuncoes = async () => {
-      const response = await axios.get(`${process.env.REACT_APP_URL}/bot/get-functions/${schema}`, {withCredentials:true})
-      setFuncoesDisponiveis(response.data.data)
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_URL}/bot/get-functions/${schema}`, {withCredentials:true})
+        console.log('Funções disponíveis carregadas:', response.data.data);
+        setFuncoesDisponiveis(response.data.data || [])
+      } catch (error) {
+        console.error('Erro ao carregar funções:', error);
+        setFuncoesDisponiveis([]);
+      }
     }
     fetchFuncoes()
   }, [schema])
@@ -84,6 +120,7 @@ const removerFuncao = (idx) => {
       setName(assistente.name || '');
       setInstructions(assistente.instructions || '');
       setModel(assistente.model || '');
+      setFuncoesSelecionadas(assistente.functions || []);
     }
   };
 
@@ -171,18 +208,25 @@ const removerFuncao = (idx) => {
             <div className="mb-3">
   <label className={`form-label card-subtitle-${theme}`}>Funções do Robô *</label>
   <div className={`d-flex flex-column gap-2`}>
-    {funcoesSelecionadas.map((funcao, idx) => (
-      <div key={idx} className="d-flex align-items-center gap-2">
+    {funcoesSelecionadas.map((funcao, idx) => {
+      console.log('Renderizando função:', { idx, funcao, funcoesDisponiveis });
+      return (
+      <div key={`funcao-${idx}-${funcao.value || 'empty'}`} className="d-flex align-items-center gap-2">
         <select
           className={`form-select input-${theme}`}
-          value={funcao}
+          value={funcao.id || funcao.value || ''}
           onChange={e => alterarFuncao(idx, e.target.value)}
         >
           <option value="">Selecione uma função</option>
           {funcoesDisponiveis
-            .filter(f => f.value === funcao || !funcoesSelecionadas.includes(f.value))
+            .filter(f => {
+              // Sempre mostrar a função atual
+              if (f.id === funcao.id || f.value === funcao.value) return true;
+              // Mostrar outras funções que não estão selecionadas
+              return !funcoesSelecionadas.some(fs => fs.id === f.id || fs.value === f.value);
+            })
             .map(f => (
-              <option key={f.value} value={f.value}>{f.label}</option>
+              <option key={f.id || f.value} value={f.id || f.value}>{f.label}</option>
             ))}
         </select>
         {funcoesSelecionadas.length > 1 && (
@@ -195,7 +239,8 @@ const removerFuncao = (idx) => {
           </button>
         )}
       </div>
-    ))}
+      );
+    })}
     <button
       type="button"
       className="btn btn-outline-secondary mt-2"

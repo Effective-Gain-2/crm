@@ -26,8 +26,20 @@ const insertContactInKanban = async (number, stage_id, schema) => {
 }
 
 const updateContactInKanban = async (number, stage_id, schema) => {
-  const result = await pool.query(`UPDATE ${schema}.contacts_stage SET stage=$1 WHERE contact_number=$2 RETURNING *`, [stage_id, number])
-  return result.rows[0]
+  // Verifica se o contato já existe em qualquer etapa
+  const contact_exists = await pool.query(
+    `SELECT * FROM ${schema}.contacts_stage WHERE contact_number=$1`,
+    [number]
+  );
+  
+  if(contact_exists.rowCount > 0){
+    // Contato já existe em alguma etapa, retorna o registro existente sem mexer
+    return contact_exists.rows[0];
+  } else {
+    // Contato não existe em nenhuma etapa, insere na nova etapa
+    const result = await insertContactInKanban(number, stage_id, schema);
+    return result;
+  }
 }
 
 const insertInKanbanStage = async (stageName, sector, number, schema) => {
@@ -228,6 +240,7 @@ const getCustomFields = async (schema) => {
   )
   return result.rows
 }
+
 
 module.exports = {
   createKanbanStage,
