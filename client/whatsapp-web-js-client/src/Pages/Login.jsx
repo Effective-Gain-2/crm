@@ -10,7 +10,6 @@ import { useNavigate } from 'react-router-dom';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { useToast } from '../contexts/ToastContext';
 
-
 function Redirecionar(){
   const navigate = useNavigate()
 
@@ -33,7 +32,6 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const url = process.env.REACT_APP_URL;
-
 
   useEffect(() => {
     const rememberedCredentials = JSON.parse(localStorage.getItem('rememberedCredentials')) || {};

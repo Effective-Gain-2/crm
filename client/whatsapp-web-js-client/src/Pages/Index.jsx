@@ -525,7 +525,7 @@ import KanbanPage from './Kanban';
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
                 data-bs-title="Financeiro"
-                className={`btn ${page === 'financeiro' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex d-none flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+                className={`btn ${page === 'financeiro' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex  flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
                 <i className="bi bi-cash-stack"></i>
                 <span className="sidebar-label d-none">Financeiro</span>

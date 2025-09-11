@@ -1,0 +1,26 @@
+[
+    {
+      "id": 44,
+      "nome": "joão",
+      "email": "joao@gmail.com",
+      "perfil": "admin"
+    },
+    {
+      "id": 3,
+      "nome": "Cauan",
+      "email": "cauanhakk@gmail.com",
+      "perfil": "admin"
+    },
+    {
+      "id": 2,
+      "nome": "Principal",
+      "email": "effectivegain@gmail.com",
+      "perfil": "admin"
+    },
+    {
+      "id": 1,
+      "nome": "Admin",
+      "email": "admin@admin.com",
+      "perfil": "admin"
+    }
+]  
