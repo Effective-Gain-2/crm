@@ -15,6 +15,16 @@ function SchemasPage({ theme: themeProp }) {
     name: '',
     superAdmin: { email: '', password: '', name: '' }
   });
+  const [showLimitsPanel, setShowLimitsPanel] = useState(false);
+  const [selectedSchemasForLimits, setSelectedSchemasForLimits] = useState([]);
+  const [currentSchemaLimits, setCurrentSchemaLimits] = useState(null);
+  const [loadingLimits, setLoadingLimits] = useState(false);
+  const [limits, setLimits] = useState([]);
+  const [newLimit, setNewLimit] = useState({
+    name: '',
+    is_on: true,
+    quantity: ''
+  });
 
   const url = process.env.REACT_APP_URL;
   const navigate = useNavigate();
@@ -110,6 +120,101 @@ const handleCreateSchema = async (e) => {
     }
   };
 
+  const toggleLimitsPanel = async (schema = null) => {
+    if (schema) {
+      const schemaName = schema.schema_name || schema;
+      setSelectedSchemasForLimits([schemaName]);
+      setLoadingLimits(true);
+      
+      try {
+        const response = await axios.get(`${url}/limits/get-limits/${schemaName}`, {
+          withCredentials: true
+        });
+        
+        if (response.data.success && response.data.data.length > 0) {
+          setLimits(response.data.data);
+          setCurrentSchemaLimits(response.data.data);
+        } else {
+          setLimits([]);
+          setCurrentSchemaLimits(null);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar limitadores:', error);
+        setLimits([]);
+        setCurrentSchemaLimits(null);
+      } finally {
+        setLoadingLimits(false);
+      }
+    }
+    setShowLimitsPanel(!showLimitsPanel);
+  };
+
+  const handleSchemaSelection = (schema) => {
+    const schemaName = schema.schema_name || schema;
+    setSelectedSchemasForLimits(prev => {
+      if (prev.includes(schemaName)) {
+        return prev.filter(s => s !== schemaName);
+      } else {
+        return [...prev, schemaName];
+      }
+    });
+  };
+
+  const addNewLimit = () => {
+    if (newLimit.name.trim()) {
+      setLimits(prev => [...prev, { ...newLimit, id: Date.now() }]);
+      setNewLimit({ name: '', is_on: true, quantity: '' });
+    }
+  };
+
+  const removeLimit = (index) => {
+    setLimits(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateLimit = (index, field, value) => {
+    setLimits(prev => prev.map((limit, i) => 
+      i === index ? { ...limit, [field]: value } : limit
+    ));
+  };
+
+  const handleLimitsSubmit = async () => {
+    try {
+      const schemaName = selectedSchemasForLimits[0];
+      
+      // Salvar cada limitador
+      for (const limit of limits) {
+        if (limit.id) {
+          // É um novo limitador (tem ID temporário)
+          await axios.post(`${url}/limits/insert-limit`, {
+            schema: schemaName,
+            name: limit.name,
+            is_on: limit.is_on,
+            quantity: limit.quantity || null
+          }, {
+            withCredentials: true
+          });
+        } else {
+          // É um limitador existente
+          await axios.put(`${url}/limits/update-limit`, {
+            schema: schemaName,
+            name: limit.name,
+            is_on: limit.is_on,
+            quantity: limit.quantity || null
+          }, {
+            withCredentials: true
+          });
+        }
+      }
+      
+      alert('Limitadores salvos com sucesso!');
+      setShowLimitsPanel(false);
+      setSelectedSchemasForLimits([]);
+    } catch (error) {
+      console.error('Erro ao salvar limitadores:', error);
+      alert('Erro ao salvar limitadores: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
   return (
     <div
       className={`d-flex justify-content-center align-items-center bg-screen-${theme}`}
@@ -157,7 +262,7 @@ const handleCreateSchema = async (e) => {
           ) : (
             <div className="d-flex flex-column gap-3 w-100 overflow-y-auto" style={{ maxHeight: '170px' }}>
               {filteredSchemas.length === 0 ? (
-                <div className="text-center text-muted">Nenhum resultado encontrado</div>
+                <div className={`text-center header-text-${theme}`}>Nenhum resultado encontrado</div>
               ) : (
                 filteredSchemas.map((schema) => (
                   <div
@@ -175,6 +280,13 @@ const handleCreateSchema = async (e) => {
                       </button>
                       <button
                         className={`btn btn-2-${theme}`}
+                        onClick={() => toggleLimitsPanel(schema)}
+                        title="Configurar Limitadores"
+                      >
+                        <i className="bi bi-shield-lock"></i>
+                      </button>
+                      <button
+                        className={`btn btn-2-${theme}`}
                         onClick={() => handleEnterSchema(schema)}
                       >
                         Entrar
@@ -186,8 +298,8 @@ const handleCreateSchema = async (e) => {
             </div>
           )}
           {selectedSchema && (
-            <div className="alert alert-success mt-3">
-              Schema selecionado: <strong>{selectedSchema}</strong>
+            <div className={`alert alert-success mt-3 bg-success-${theme}`}>
+              Schema selecionado: <strong className={`header-text-${theme}`}>{selectedSchema}</strong>
             </div>
           )}
         </div>
@@ -275,6 +387,222 @@ const handleCreateSchema = async (e) => {
 </form>
         </div>
       </div>
+
+      {/* Painel de Limitadores */}
+      {showLimitsPanel && (
+        <div 
+          className="limits-panel"
+          style={{
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            width: '400px',
+            height: '100vh',
+            backgroundColor: `var(--bg-color-${theme})`,
+            borderLeft: `1px solid var(--border-color-${theme})`,
+            zIndex: 1000,
+            padding: '20px',
+            overflowY: 'auto',
+            boxShadow: '-5px 0 15px rgba(0,0,0,0.1)'
+          }}
+        >
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h3 className={`header-text-${theme} m-0`} style={{fontWeight: 600, fontSize: '1.3rem'}}>
+              <i className="bi bi-shield-lock me-2"></i>
+              Configurar Limitadores
+            </h3>
+            <button
+              className={`btn btn-2-${theme}`}
+              onClick={toggleLimitsPanel}
+              aria-label="Fechar painel de limitadores"
+            >
+              <i className="bi bi-x-lg"></i>
+            </button>
+          </div>
+
+          {/* Seleção de Schemas */}
+          <div className="mb-4">
+            <h5 className={`header-text-${theme} mb-3`}>Schema Selecionado:</h5>
+            <div style={{ border: `1px solid var(--border-color-${theme})`, borderRadius: '8px', padding: '10px', backgroundColor: `var(--hover-${theme})` }}>
+              {selectedSchemasForLimits.map((schemaName, index) => {
+                const schema = schemas.find(s => (s.schema_name || s) === schemaName);
+                return (
+                  <div key={index} className="d-flex align-items-center justify-content-between">
+                    <span className={`header-text-${theme} fw-semibold`}>
+                      {schema?.company_name || schema?.empresa || schemaName}
+                    </span>
+                    <button
+                      className={`btn btn-sm btn-2-${theme}`}
+                      onClick={() => setSelectedSchemasForLimits([])}
+                      title="Remover schema"
+                    >
+                      <i className="bi bi-x"></i>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Estado de Carregamento */}
+          {loadingLimits && (
+            <div className="text-center mb-4">
+              <div className={`spinner-border text-${theme}`} role="status">
+                <span className="visually-hidden">Carregando...</span>
+              </div>
+              <p className={`header-text-${theme} mt-2`}>Carregando limitadores...</p>
+            </div>
+          )}
+
+          {/* Mensagem quando não há limitadores */}
+          {!loadingLimits && !currentSchemaLimits && (
+            <div className={`alert alert-info mb-4 bg-info-${theme}`}>
+              <div className="d-flex align-items-center">
+                <i className="bi bi-info-circle me-2"></i>
+                <div>
+                  <strong className={`header-text-${theme}`}>Ainda não há limitadores configurados!</strong>
+                  <p className={`header-text-${theme} mb-0 mt-1`}>
+                    Configure os limitadores abaixo para este schema.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mensagem quando não há limitadores */}
+          {!loadingLimits && limits.length === 0 && (
+            <div className={`alert alert-info mb-4 bg-info-${theme}`}>
+              <div className="d-flex align-items-center">
+                <i className="bi bi-info-circle me-2"></i>
+                <div>
+                  <strong className={`header-text-${theme}`}>Ainda não há limitadores configurados!</strong>
+                  <p className={`header-text-${theme} mb-0 mt-1`}>
+                    Crie seus limitadores personalizados abaixo.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Adicionar Novo Limitador */}
+          <div className="mb-4">
+            <h5 className={`header-text-${theme} mb-3`}>Adicionar Novo Limitador:</h5>
+            <div className="row g-2">
+              <div className="col-md-4">
+                <input
+                  type="text"
+                  className={`form-control input-${theme}`}
+                  placeholder="Nome do limitador"
+                  value={newLimit.name}
+                  onChange={(e) => setNewLimit({...newLimit, name: e.target.value})}
+                />
+              </div>
+              <div className="col-md-3">
+                <input
+                  type="number"
+                  className={`form-control input-${theme}`}
+                  placeholder="Quantidade (opcional)"
+                  value={newLimit.quantity}
+                  onChange={(e) => setNewLimit({...newLimit, quantity: e.target.value})}
+                />
+              </div>
+              <div className="col-md-3">
+                <div className="form-check form-switch">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="newLimitToggle"
+                    checked={newLimit.is_on}
+                    onChange={(e) => setNewLimit({...newLimit, is_on: e.target.checked})}
+                  />
+                  <label className={`form-check-label header-text-${theme}`} htmlFor="newLimitToggle">
+                    Ativo
+                  </label>
+                </div>
+              </div>
+              <div className="col-md-2">
+                <button
+                  type="button"
+                  className={`btn btn-1-${theme} w-100`}
+                  onClick={addNewLimit}
+                  disabled={!newLimit.name.trim()}
+                >
+                  <i className="bi bi-plus"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Lista de Limitadores */}
+          {limits.length > 0 && (
+            <div className="mb-4">
+              <h5 className={`header-text-${theme} mb-3`}>Limitadores Configurados:</h5>
+              <div className="d-flex flex-column gap-2">
+                {limits.map((limit, index) => (
+                  <div key={index} className={`card card-${theme} p-3`}>
+                    <div className="row align-items-center">
+                      <div className="col-md-4">
+                        <strong className={`header-text-${theme}`}>{limit.name}</strong>
+                      </div>
+                      <div className="col-md-3">
+                        <input
+                          type="number"
+                          className={`form-control form-control-sm input-${theme}`}
+                          placeholder="Quantidade"
+                          value={limit.quantity || ''}
+                          onChange={(e) => updateLimit(index, 'quantity', e.target.value)}
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <div className="form-check form-switch">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            checked={limit.is_on}
+                            onChange={(e) => updateLimit(index, 'is_on', e.target.checked)}
+                          />
+                          <label className={`form-check-label header-text-${theme}`}>
+                            {limit.is_on ? 'Ativo' : 'Inativo'}
+                          </label>
+                        </div>
+                      </div>
+                      <div className="col-md-2">
+                        <button
+                          type="button"
+                          className={`btn btn-sm btn-danger`}
+                          onClick={() => removeLimit(index)}
+                          title="Remover limitador"
+                        >
+                          <i className="bi bi-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Botões de Ação */}
+          <div className="d-flex gap-2">
+            <button
+              type="button"
+              className={`btn btn-1-${theme} flex-fill`}
+              onClick={handleLimitsSubmit}
+              disabled={loadingLimits}
+            >
+              Salvar Limitadores
+            </button>
+            <button
+              type="button"
+              className={`btn btn-2-${theme}`}
+              onClick={toggleLimitsPanel}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

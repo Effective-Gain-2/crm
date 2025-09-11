@@ -4,6 +4,7 @@
   import 'bootstrap/dist/js/bootstrap.bundle.min.js';
   import shortlogo from './assets/favicon.png';
   import logo from './assets/effective-gain_logo.png';
+  import AssistentesPage from './Assistentes';
   import './assets/style.css';
   import { useTheme } from './assets/js/useTheme';
   import { useNavigate } from 'react-router-dom';
@@ -14,8 +15,7 @@
   import RelatorioPage from './Relatorios';
   import UsuariosPage from './Usuarios';
   import FilaPage from './Filas';
-import AssistentesPage from './Assistentes';
-import KanbanPage from './Kanban';
+  import KanbanPage from './Kanban';
   import DisparosPage from './Disparos';
   import WhatsappModal from './modalPages/Whatsapp';
   import Manutencao from './Manutencao';
@@ -463,10 +463,10 @@ import KanbanPage from './Kanban';
       switch (page) {
         case 'dashboard': return <Dashboard theme={theme} />;
         case 'financeiro': return <FinanceiroPage theme={theme} />;
+        case 'assistentes': return <AssistentesPage theme={theme} />;
         case 'chats': return <ChatPage theme={theme} />;
         case 'kanban': return <KanbanPage theme={theme} />;
         case 'filas': return <FilaPage theme={theme} />;
-        case 'assistentes': return <AssistentesPage theme={theme} />;
         case 'usuarios': return <UsuariosPage theme={theme} />;
         case 'agenda': return <LembretesPage
     theme={theme}
@@ -519,18 +519,18 @@ import KanbanPage from './Kanban';
                 <i className="bi bi-speedometer2"></i>
                 <span className="sidebar-label d-none">Dashboard</span>
               </button>
+              <hr className={`hr-${theme} mx-auto my-0 `} style={{ width: '50%' }} />
               <button
                 id="financeiro"
                 onClick={() => handlePageChange('financeiro')}
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
                 data-bs-title="Financeiro"
-                className={`btn ${page === 'financeiro' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex  flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+                className={`btn ${page === 'financeiro' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
                 <i className="bi bi-cash-stack"></i>
-                <span className="sidebar-label d-none">Financeiro</span>
+                <span className="sidebar-label ">Financeiro</span>
               </button>
-              <hr className={`hr-${theme} mx-auto my-0 d-none`} style={{ width: '50%' }} />
               <button
                 id="chats"
                 onClick={() => handlePageChange('chats')}
@@ -554,6 +554,17 @@ import KanbanPage from './Kanban';
                 <span className="sidebar-label d-none">Kanban</span>
               </button>
               <button
+                id="assistentes"
+                onClick={() => handlePageChange('assistentes')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Assistentes IA"
+                className={`btn ${page === 'assistentes' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-robot"></i>
+                <span className="sidebar-label d-none">Assistentes IA</span>
+              </button>
+              <button
                 id="filas"
                 onClick={() => handlePageChange('filas')}
                 data-bs-toggle="tooltip"
@@ -563,17 +574,6 @@ import KanbanPage from './Kanban';
               >
                 <i className="bi bi-diagram-3"></i>
                 <span className="sidebar-label d-none">Filas</span>
-              </button>
-              <button
-                id="assistentes"
-                onClick={() => handlePageChange('assistentes')}
-                data-bs-toggle="tooltip"
-                data-bs-placement="right"
-                data-bs-title="Assistentes ChatGPT"
-                className={`btn ${page === 'assistentes' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row d-none align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
-              >
-                <i className="bi bi-robot"></i>
-                <span className="sidebar-label d-none">Assistentes</span>
               </button>
               <button
                 id="disparos"
