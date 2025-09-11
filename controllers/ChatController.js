@@ -1,5 +1,5 @@
 
-const { setUserChat, getChats, getMessages, getChatData, getChatByUser, updateQueue, getChatById, saveMediaMessage, setMessageAsRead, closeChat, setSpecificUser, scheduleMessage, getScheduledMessages, deleteScheduledMessage, disableBot, closeChatContact, createStatus, getStatus, getClosedChats, getAverageTimeToClose } = require('../services/ChatService');
+const { setUserChat, getChats, getMessages, getChatData, getChatByUser, updateQueue, getChatById, saveMediaMessage, setMessageAsRead, closeChat, setSpecificUser, scheduleMessage, getScheduledMessages, deleteScheduledMessage, disableBot, closeChatContact, createStatus, getStatus, getClosedChats, getAverageTimeToClose, activeBot } = require('../services/ChatService');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
@@ -507,6 +507,21 @@ const getAverageTimeToCloseController = async (req, res) => {
     res.status(500).json({ success:false, error: 'Erro ao calcular o tempo médio de fechamento.' });
   }
 }
+
+const activeBotController = async (req, res) => {
+  const {chat_id, schema} = req.body
+  try {
+    await activeBot(chat_id, schema)
+    res.status(200).json({
+      success:true
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      success:false
+    })
+  }
+}
   module.exports = {
     setUserChatController,
     getChatsController,
@@ -530,5 +545,6 @@ const getAverageTimeToCloseController = async (req, res) => {
     getStatusController,
     getClosedChatsController,
     redistributeWaitingChatsController,
-    getAverageTimeToCloseController
+    getAverageTimeToCloseController,
+    activeBotController
 };

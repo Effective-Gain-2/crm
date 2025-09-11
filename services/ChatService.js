@@ -9,6 +9,7 @@ const { saveMessage } = require('./MessageService');
 const { Message } = require('../entities/Message');
 const { createLembrete } = require('./LembreteService');
 const { getGptResponse } = require('./ReportService');
+const { act } = require('react');
 
 const bullConn = createRedisConnection()
 const messageQueue = new Queue('message', {connection: bullConn});
@@ -729,7 +730,9 @@ const getAverageTimeToClose = async(schema)=>{
   return validChats > 0 ? Math.floor(totalTime / validChats / (1000 * 60)) : 0; // Retorna em minutos
 }
 
-
+const activeBot = async (chat_id, schema) => {
+  await pool.query(`UPDATE ${schema}.chats set isboton=true where id=$1`,[chat_id])
+}
 
 
 
@@ -765,4 +768,5 @@ module.exports = {
   getStatus,
   getClosedChats,
   getAverageTimeToClose,
+  activeBot
 };

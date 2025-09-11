@@ -675,6 +675,22 @@ const disableBot = async () => {
   }
 };
 
+const activeBot = async () => {
+  if(!selectedChat) return
+  try {
+    await axios.put(`${url}/chat/active-bot`,{
+      chat_id:selectedChat.id,
+      schema:schema
+    },{
+      withCredentials:true
+    })
+    setIsBotActive(true);
+    showSuccess('Bot ativado')
+  } catch (error) {
+    showError('Erro ao ativar bot')
+  }
+}
+
 const handleRedistributeWaitingChats = async () => {
   if (selectedTab !== 'aguardando') return;
   
@@ -1878,8 +1894,7 @@ const handleImageUpload = async (event) => {
 
       <button
         className={`btn btn-2-${theme} d-flex gap-2`}
-        onClick={isBotActive ? disableBot : undefined}
-        disabled={!isBotActive || !selectedChat}
+        onClick={isBotActive ? disableBot : activeBot}
         title={isBotActive ? "Desativar Bot" : "Bot Desativado"}
       >
         <i className={`bi ${isBotActive ? 'bi-pause':'bi-play-fill'}`}></i>
