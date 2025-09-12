@@ -23,8 +23,15 @@ const deleteAssistantController = async (req, res) => {
     const {assistant_id, schema} = req.params
     try {
         await deleteAssistant(assistant_id)
-        await deleteBotInTable(assistant_id, schema)
-        res.status(200).json({
+    } catch (error) {
+        res.status(500).json({
+            success:false,
+            message:'Erro ao deletar assistente IA'
+        })
+    }finally{
+        try {
+            await deleteBotInTable(assistant_id, schema)
+            res.status(200).json({
             success:true,
             message:'Assistente deletado com sucesso'
         })
@@ -35,6 +42,7 @@ const deleteAssistantController = async (req, res) => {
             message:'Erro ao deletar assistente'
         })
     }
+}
 }
 const getBotsController = async (req, res) => {
     const {schema} = req.params

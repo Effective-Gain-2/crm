@@ -51,7 +51,8 @@ const createCompany = async (company, schema) => {
             color TEXT,
             users JSONB,
             distribution boolean,
-            superuser uuid REFERENCES ${schema}.users(id) ON DELETE SET NULL
+            superuser uuid REFERENCES ${schema}.users(id) ON DELETE SET NULL,
+            stage_id uuid
         );`);
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.connections (
@@ -657,6 +658,7 @@ const updateSchema = async (schema) => {
             `)
             
         await pool.query(`alter table ${schema}.messages add column if not exists user_id uuid`)
+        await pool.query(`alter table ${schema}.queues add column if not exists stage_id uuid`)
 
         return { message: "Schema atualizado com sucesso! Todas as tabelas foram criadas/verificadas." };
     } catch (error) {

@@ -149,7 +149,6 @@ const removerFuncao = (idx) => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Assistente de Vendas, Suporte Técnico..."
-                maxLength={100}
               />
               <div className="form-text text-muted">
                 Escolha um nome descritivo para identificar o assistente
@@ -168,16 +167,10 @@ const removerFuncao = (idx) => {
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder="Descreva o comportamento, conhecimento e estilo de comunicação do assistente..."
-                maxLength={1000}
                 style={{ resize: 'vertical' }}
               ></textarea>
-              <div className="d-flex justify-content-between">
-                <div className="form-text text-muted">
-                  Seja específico sobre o papel, conhecimento e comportamento esperado
-                </div>
-                <small className={`text-muted ${instructions.length > 900 ? 'text-warning' : ''}`}>
-                  {instructions.length}/1000
-                </small>
+              <div className="form-text text-muted">
+                Seja específico sobre o papel, conhecimento e comportamento esperado
               </div>
             </div>
 
