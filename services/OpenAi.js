@@ -57,7 +57,6 @@ const getRun = async(thread)=>{
     thread
   );
   for(message of threadMessages.data){
-      console.log(message.content)
   
 }
 }
@@ -79,26 +78,22 @@ const messageAnAssistant = async (message, thread_id) => {
         role: 'user',
         content: message
     })
-    console.log(response.content)
 }
 
 const runOpenAi = async (thread_id) => {
     const run = await openai.beta.threads.runs.create(thread_id,{assistant_id: 'asst_Lt7WO4INpumjlucxpMUAb3BG'});
-    console.log(run);
 }
 
 const cancelRun = async(thread_id) => {
     const runs = await openai.beta.threads.runs.list(thread_id)
     for(const run of runs.data){
         if(run.status==='in_progress' || run.status==='requires_action'){
-            console.log('Cancelando run', run)
             await openai.beta.threads.runs.cancel(run.id, {thread_id: thread_id})
         }
     }
 }
 const listRuns = async (thread_id) => {
     const runs = await openai.beta.threads.runs.list(thread_id);
-    console.log('Runs:', runs);
     return runs.data;
 }
 const getAssistantReply = async (thread_id, userMessage, assistant_id, chat_id, schema) => {
@@ -128,13 +123,11 @@ const getAssistantReply = async (thread_id, userMessage, assistant_id, chat_id, 
     if (status === 'requires_action' && runResult.required_action) {
       const toolCalls = runResult.required_action.submit_tool_outputs.tool_calls;
       const toolOutputs = [];
-      console.log(toolCalls)
       
       for (const toolCall of toolCalls) {
         if (toolCall.function) {
           const functionName = toolCall.function.name;
           const functionArgs = JSON.parse(toolCall.function.arguments);
-          console.log(functionArgs)
           
           // Processar as funções específicas
           let output = '';
