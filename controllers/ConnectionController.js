@@ -1,7 +1,7 @@
 const Connection = require("../entities/Connection")
 const { v4: uuidv4 } = require('uuid');
 const { createConnection, setQueue, getAllConnections, deleteConnection, updateWebhookUrl, toggleWebhookStatus, searchConnById } = require("../services/ConnectionService");
-const { deleteInstance } = require("../requests/evolution");
+const { deleteInstance, getConnectionHealth } = require("../requests/evolution");
 
 const createConnectionController = async(req, res)=>{
     try{
@@ -47,13 +47,48 @@ const getAllConnectionsController = async (req, res) => {
             });
         }
         
-        const result = await getAllConnections(schema);
+        const result = await getAllConnections(schema)
         res.status(200).json(result);
     } catch (error) {
         console.error('Erro ao buscar todas as conexões:', error.message);
         res.status(500).json({ error: 'Erro ao buscar todas as conexões' });
     }
 };
+
+const getAllConnectionsWithStatusController = async (req, res) => {
+    try {
+        const schema = req.params.schema;
+        
+        if (!schema || schema === 'null' || schema === 'undefined') {
+            return res.status(400).json({
+                error: 'Schema é obrigatório'
+            });
+        }
+        
+        const result = await getAllConnections(schema);
+        let connectionStatus = []
+        for (const connection of result){
+            const connstatus = await getConnectionHealth(connection.name)
+            if(connstatus.status===404 || connstatus.status==='404'){
+                const status = {
+                    connection:connection,
+                    status:'closed'
+                }
+                connectionStatus.push(status)
+            }else{
+                const status = {
+                    connection:connection,
+                    status: connstatus[0].connectionStatus
+                }
+                connectionStatus.push(status)
+            }
+        }
+        res.status(200).json(connectionStatus);
+    } catch (error) {
+        console.error('Erro ao buscar todas as conexões:', error.message);
+        res.status(500).json({ error: 'Erro ao buscar todas as conexões' });
+    }
+}
 const deleteConnectionController =async (req, res) => {
     try {
         const {connection_id, instanceName, schema} = req.params
@@ -91,5 +126,6 @@ module.exports = {
     setQueueController,
     getAllConnectionsController,
     deleteConnectionController,
-    searchConnByIdController
+    searchConnByIdController,
+    getAllConnectionsWithStatusController
 }
