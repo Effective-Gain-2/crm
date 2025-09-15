@@ -659,6 +659,7 @@ const updateSchema = async (schema) => {
             
         await pool.query(`alter table ${schema}.messages add column if not exists user_id uuid`)
         await pool.query(`alter table ${schema}.queues add column if not exists stage_id uuid`)
+        await pool.query(`ALTER TABLE ${schema}.custom_fields add column if not exists graph boolean default false`)
 
         return { message: "Schema atualizado com sucesso! Todas as tabelas foram criadas/verificadas." };
     } catch (error) {

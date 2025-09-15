@@ -257,8 +257,8 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
         continue;
       }
       
-      const messageIndex = groupIndex % totalMessages; // Rotação de mensagens por grupo
-      const connectionIdx = positionInGroup; // Cada conexão tem sua posição fixa no grupo
+      const messageIndex = groupIndex % totalMessages; 
+      const connectionIdx = positionInGroup; 
       
       const connection = connections[connectionIdx];
       const contact = contacts[contactIndex];

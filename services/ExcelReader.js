@@ -55,11 +55,44 @@ const getInformationFromExcel = async (data, sector, schema) => {
          ON CONFLICT (number) DO NOTHING`,
         [numero, nome]
       );
+      
       for (const [key, value] of Object.entries(row)) {
         if (key !== 'numero' && key !== 'nome' && key !== 'etapa') {
-          await insertValueCustomField(key, numero, value, schema);
+          // Converter valores de tempo do Excel para formato de horário
+          let processedValue = value;
+          
+          // Detectar se é um horário baseado no nome do campo e valor
+          const isTimeField = key.toLowerCase().includes('hora') || 
+                             key.toLowerCase().includes('time') || 
+                             key.toLowerCase().includes('horario');
+          
+          // Se o valor é um número decimal e o campo parece ser de horário
+          if (typeof value === 'number' && isTimeField) {
+            // Se está entre 0 e 1 (formato Excel: 0.75 = 18:00)
+            if (value >= 0 && value < 1) {
+              const hours = Math.floor(value * 24);
+              const minutes = Math.floor((value * 24 - hours) * 60);
+              processedValue = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            }
+            // Se está entre 1 e 2 (formato Excel: 1.75 = 18:00)
+            else if (value >= 1 && value < 2) {
+              const hours = Math.floor(value * 24);
+              const minutes = Math.floor((value * 24 - hours) * 60);
+              processedValue = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            }
+            // Se não parece ser horário, manter como número
+            else {
+              processedValue = value?.toString() || '';
+            }
+          } else {
+            // Para outros valores, converter para string
+            processedValue = value?.toString() || '';
+          }
+          
+          await insertValueCustomField(key, numero, processedValue, schema);
         }
       }
+      
       if (etapa) {
         const result = await insertInKanbanStage(etapa, sector, numero, schema);
         if (result === null) {

@@ -54,7 +54,30 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
         if (jsonData.length > 0) {
           const headers = jsonData[0];
           setAvailableColumns(headers);
-          setPreview(jsonData.slice(1));
+          
+          // Processar os dados para converter horários do Excel
+          const processedData = jsonData.slice(1).map(row => {
+            return row.map((cell, cellIndex) => {
+              const header = headers[cellIndex];
+              const isTimeField = header && (
+                header.toLowerCase().includes('hora') || 
+                header.toLowerCase().includes('time') || 
+                header.toLowerCase().includes('horario')
+              );
+              
+              // Se o valor é um número decimal e o campo parece ser de horário
+              if (typeof cell === 'number' && isTimeField) {
+                if (cell >= 0 && cell < 2) {
+                  const hours = Math.floor(cell * 24);
+                  const minutes = Math.floor((cell * 24 - hours) * 60);
+                  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                }
+              }
+              return cell;
+            });
+          });
+          
+          setPreview(processedData);
         } else {
           setErrorMsg('O arquivo está vazio ou não possui dados.');
         }
@@ -138,8 +161,8 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
 
   const handleDownloadModelo = () => {
     const ws = XLSX.utils.aoa_to_sheet([
-      ['nome', 'numero', 'etapa'],
-      ['Joao da Silva', '551188888888', 'Etapa do kanban']
+      ['nome', 'numero', 'etapa', 'horario'],
+      ['Joao da Silva', '551188888888', 'Etapa do kanban', '18:00']
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Modelo');
@@ -164,7 +187,9 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
                 className={`input-${theme} mb-1`}
               />
               <Form.Text className={`card-subtitle-${theme}`}>
-                Suporta arquivos Excel (.xlsx, .xls) e CSV
+                Suporta arquivos Excel (.xlsx, .xls) e CSV. 
+                <br />
+                <strong>Dica:</strong> Campos com "hora", "time" ou "horario" no nome terão valores decimais convertidos automaticamente para formato HH:MM.
               </Form.Text>
             </Form.Group>
           </div>

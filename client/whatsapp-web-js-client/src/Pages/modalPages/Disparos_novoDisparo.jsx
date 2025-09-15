@@ -642,6 +642,7 @@ useEffect(() => {
         {
       withCredentials: true
     });
+    console.log(response.data)
       
       if (response.status === 201) {
         if (!disparo) {

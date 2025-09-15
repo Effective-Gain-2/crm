@@ -15,14 +15,23 @@ const insertValueCustomField = async(fieldName, contactNumber, value, schema)=>{
         `SELECT * FROM ${schema}.custom_fields WHERE field_name = $1`,
         [fieldName.toLowerCase().replace(/\s+/g, '_')]
     );
+    
     if(field.rows.length === 0){
-        throw new Error('Campo não encontrado')
+        // Criar o campo automaticamente se não existir
+        const newField = await pool.query(
+            `INSERT INTO ${schema}.custom_fields (id, field_name, label) VALUES ($1, $2, $3) RETURNING *`,
+            [uuidv4(), fieldName.toLowerCase().replace(/\s+/g, '_'), fieldName.charAt(0).toUpperCase() + fieldName.slice(1)]
+        );
+        field.rows = newField.rows;
     }
+    
     const fieldId = field.rows[0].id;
+    
     const result = await pool.query(
-        `INSERT INTO ${schema}.contact_custom_values (id, contact_number, field_id, value)VALUES ($1, $2, $3, $4) ON CONFLICT (contact_number, field_id) DO NOTHING RETURNING *;`,
+        `INSERT INTO ${schema}.contact_custom_values (id, contact_number, field_id, value)VALUES ($1, $2, $3, $4) ON CONFLICT (contact_number, field_id) DO UPDATE SET value = $4 RETURNING *;`,
         [uuidv4(), contactNumber, fieldId, value]
     );
+    
     return result.rows[0];
 }
 const getCustomFieldsByContact = async (contact_number, schema) => {
