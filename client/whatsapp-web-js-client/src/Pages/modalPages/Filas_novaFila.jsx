@@ -39,7 +39,6 @@ function NewQueueModal({ theme, superUsers = [] }) {
         // Os funis vêm em response.data.name
         const funisData = response.data.name || [];
         setFunis(funisData);
-        console.log('Funis carregados:', funisData);
       } catch (error) {
         console.error('Erro ao buscar funis:', error);
       }

@@ -22,7 +22,6 @@ function EditAssistantModal({ theme, assistente }) {
   // Carregar dados do assistente quando o modal abrir
   useEffect(() => {
     if (assistente) {
-      console.log('Carregando assistente:', assistente);
       setName(assistente.name || '');
       setInstructions(assistente.instructions || '');
       setModel(assistente.model || '');
@@ -32,7 +31,6 @@ function EditAssistantModal({ theme, assistente }) {
       } else {
         setFuncoesSelecionadas([]);
       }
-      console.log('Funções do assistente:', assistente.functions);
     }
   }, [assistente]);
 
@@ -44,7 +42,6 @@ function EditAssistantModal({ theme, assistente }) {
 };
 
 const alterarFuncao = (idx, novaFuncaoValue) => {
-  console.log('Alterando função:', { idx, novaFuncaoValue, funcoesDisponiveis });
   
   if (!novaFuncaoValue) return;
   
@@ -59,12 +56,10 @@ const alterarFuncao = (idx, novaFuncaoValue) => {
     f.id === novaFuncaoValue || 
     f.name === novaFuncaoValue
   );
-  console.log('Nova função encontrada:', novaFuncaoObj);
   
   if (novaFuncaoObj) {
     setFuncoesSelecionadas(prev => {
       const novoArray = prev.map((f, i) => i === idx ? novaFuncaoObj : f);
-      console.log('Novo array de funções:', novoArray);
       return novoArray;
     });
   } else {
@@ -79,7 +74,6 @@ const removerFuncao = (idx) => {
     const fetchFuncoes = async () => {
       try {
         const response = await axios.get(`${process.env.REACT_APP_URL}/bot/get-functions/${schema}`, {withCredentials:true})
-        console.log('Funções disponíveis carregadas:', response.data.data);
         setFuncoesDisponiveis(response.data.data || [])
       } catch (error) {
         console.error('Erro ao carregar funções:', error);
@@ -202,7 +196,6 @@ const removerFuncao = (idx) => {
   <label className={`form-label card-subtitle-${theme}`}>Funções do Robô *</label>
   <div className={`d-flex flex-column gap-2`}>
     {funcoesSelecionadas.map((funcao, idx) => {
-      console.log('Renderizando função:', { idx, funcao, funcoesDisponiveis });
       return (
       <div key={`funcao-${idx}-${funcao.value || 'empty'}`} className="d-flex align-items-center gap-2">
         <select

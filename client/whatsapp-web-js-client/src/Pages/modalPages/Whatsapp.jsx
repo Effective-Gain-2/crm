@@ -3,6 +3,7 @@ import { Modal } from 'react-bootstrap';
 import WhatsappNovoContatoModal from './Whatsapp_novoContato';
 import WhatsappDeleteModal from './Whatsapp_delete';
 import WhatsappFilasModal from './Whatsapp_filas';
+import { useToast } from '../../contexts/ToastContext';
 
 import axios from 'axios';
 
@@ -15,6 +16,8 @@ function WhatsappModal({ theme, show, onHide }) {
   const [showUsuariosModal, setShowUsuariosModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrCodeData, setQrCodeData] = useState(null);
+  const { showError, showSuccess } = useToast();
+  
 
   const userData = JSON.parse(localStorage.getItem('user')); 
   const schema = userData?.schema
@@ -42,7 +45,7 @@ function WhatsappModal({ theme, show, onHide }) {
 
   const handleDelete = (contato) => {
     try {
-      setContatos(contatos.filter(c => c.id !== contato.id));
+      setContatos(contatos.filter(c => c.connection.id !== contato.connection.id));
     } catch (error) {
       console.error('Erro ao excluir contato:', error);
     } finally {
@@ -69,17 +72,23 @@ function WhatsappModal({ theme, show, onHide }) {
 
   const handleReconnect = async (contato) => {
     try {
+      if (!contato.connection) {
+        showError('Dados do contato não encontrados');
+        return;
+      }
+      
       setSelectedContato(contato);
       setShowQRModal(true);
       
-      // Aqui você pode implementar a chamada para a API que gera o QR Code
-      // const response = await axios.post(`${url}/connection/generate-qr/${contato.connection.id}`, {}, { withCredentials: true });
-      // setQrCodeData(response.data.qrCode);
+      const response = await axios.get(`${url}/evo/generate-qrcode/${contato.connection.name}`, {}, { withCredentials: true });
+      if(response.data.data.error){
+        showError('Erro ao gerar QRcode, favor entrar em contato com o suporte')
+      }
+      setQrCodeData(response.data.data.base64);
       
-      // Por enquanto, vamos simular um QR Code
-      setQrCodeData('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
     } catch (error) {
       console.error('Erro ao gerar QR Code:', error);
+      showError('Erro ao gerar QRcode, favor entrar em contato com o suporte')
     }
   };
 
@@ -132,9 +141,9 @@ function WhatsappModal({ theme, show, onHide }) {
                   </tr>
                 ) : (
                   contatos.map((contato) => (
-                    <tr key={contato.connection.id}>
-                      <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.connection.label || contato.connection.name}</td>
-                      <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.connection.number}</td>
+                    <tr key={contato.connection?.id || contato.id}>
+                      <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.connection?.label || contato.connection?.name || 'N/A'}</td>
+                      <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.connection?.number || 'N/A'}</td>
                       <td className="px-3 py-2 text-center">
                         {contato.status === 'open' ? (
                           <i className="bi bi-check-circle-fill text-success" style={{ fontSize: '1.2rem' }}></i>
@@ -145,7 +154,7 @@ function WhatsappModal({ theme, show, onHide }) {
                             data-bs-toggle="tooltip"
                             data-bs-placement="top"
                             title="Reconectar via QR Code"
-                            onClick={() => handleReconnect(contato)}
+                            onClick={() => contato.connection && handleReconnect(contato)}
                           >
                             <i className="bi bi-qr-code"></i>
                           </button>
@@ -160,8 +169,10 @@ function WhatsappModal({ theme, show, onHide }) {
                             data-bs-placement="top"
                             title="Editar"
                             onClick={() => {
-                              setSelectedContato(contato);
-                              setShowNovoContatoModal(true);
+                              if (contato.connection) {
+                                setSelectedContato(contato);
+                                setShowNovoContatoModal(true);
+                              }
                             }}
                           >
                             <i className="bi bi-pencil-fill"></i>
@@ -172,7 +183,7 @@ function WhatsappModal({ theme, show, onHide }) {
                             data-bs-toggle="tooltip"
                             data-bs-placement="top"
                             title="Filas"
-                            onClick={() => handleVerFilas(contato)}
+                            onClick={() => contato.connection && handleVerFilas(contato)}
                           >
                             <i className="bi bi-diagram-3"></i>
                           </button>
@@ -184,8 +195,10 @@ function WhatsappModal({ theme, show, onHide }) {
                             data-bs-placement="top"
                             title="Excluir"
                             onClick={() => {
-                              setSelectedContato(contato);
-                              setShowDeleteModal(true);
+                              if (contato.connection) {
+                                setSelectedContato(contato);
+                                setShowDeleteModal(true);
+                              }
                             }}
                           >
                             <i className="bi bi-trash-fill"></i>
@@ -297,7 +310,7 @@ function WhatsappModal({ theme, show, onHide }) {
             
             <div className="mt-3">
               <small className={`text-muted`}>
-                {selectedContato?.connection?.label || selectedContato?.connection?.name}
+                {selectedContato?.connection?.label || selectedContato?.connection?.name || 'N/A'}
               </small>
             </div>
           </Modal.Body>

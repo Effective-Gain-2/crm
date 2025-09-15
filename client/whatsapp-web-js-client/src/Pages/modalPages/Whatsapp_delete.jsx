@@ -9,7 +9,7 @@ function WhatsappDeleteModal({ theme, show, onHide, contato, onDelete }) {
 
   const handleDelete = async () => {
     try {
-      const response = await axios.delete(`${url}/connection/delete/${contato.id}/${contato.name}/${schema}`,
+      const response = await axios.delete(`${url}/connection/delete/${contato.connection.id}/${contato.connection.name}/${schema}`,
         {
       withCredentials: true
     })
@@ -36,18 +36,18 @@ function WhatsappDeleteModal({ theme, show, onHide, contato, onDelete }) {
 
       <Modal.Body style={{ backgroundColor: `var(--bg-color-${theme})` }}>
         <p className={`card-subtitle-${theme} mb-1`}>
-          Tem certeza que deseja excluir o contato <strong>{contato?.name}</strong>?
+          Tem certeza que deseja excluir o contato <strong>{contato?.connection.label}</strong>?
         </p>
         <p className="text-danger-true fw-bold mb-1">
           Nome:
           <span className={`fw-bold header-text-${theme} ms-1`}>
-            {contato?.name}
+            {contato?.connection.label}
           </span>
         </p>
         <p className="text-danger-true fw-bold mb-3">
           Número:
           <span className={`fw-bold header-text-${theme} ms-1`}>
-            {contato?.number}
+            {contato?.connection.number}
           </span>
         </p>
         <p className={`card-subtitle-${theme}`}>

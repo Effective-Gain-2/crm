@@ -86,7 +86,6 @@ const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
     });
             if (connectionRes.data.data) {
               const connection = connectionRes.data.data;
-              console.log(connection)
               if (connection) {
                 setConnectionData(connection);
               }

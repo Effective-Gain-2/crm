@@ -87,7 +87,6 @@ const limparBase64 = (base64ComPrefixo) => {
 };
 
 useEffect(() => {
-  console.log(disparo)
   if (disparo && disparo.min) {
     if (disparo.min) {
       const minEmSegundos = Number(disparo.min) || 30;
