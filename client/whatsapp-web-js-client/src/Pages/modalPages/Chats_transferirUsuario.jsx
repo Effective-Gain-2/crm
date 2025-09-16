@@ -73,7 +73,6 @@ function TransferirUsuarioModal({ show, onHide, theme, selectedChat, schema, url
         schema: schema
       };
       
-      console.log('Enviando dados para transferência:', requestData);
       
       const response = await axios.post(`${url}/chat/setUser`, requestData,
         {

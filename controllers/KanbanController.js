@@ -1,6 +1,6 @@
 const e = require("express");
 const SocketServer = require("../server");
-const { createKanbanStage, getFunis, getKanbanStages, getChatsInKanban, changeKanbanStage, updateStageName, updateStageIndex, createFunil, deleteEtapa, getCustomFields, getChatsInKanbanStage, deleteFunil, getContactsInKanbanStage } = require("../services/KanbanService");
+const { createKanbanStage, getFunis, getKanbanStages, getChatsInKanban, changeKanbanStage, updateStageName, updateStageIndex, createFunil, deleteEtapa, getCustomFields, getChatsInKanbanStage, deleteFunil, getContactsInKanbanStage, changeContactInKanban } = require("../services/KanbanService");
 const { createMessageForBlast } = require("../services/MessageBlast");
 const { changeKanbanPreference, getKanbanPreference } = require("../services/ContactService");
 
@@ -69,8 +69,7 @@ const changeKanbanStageController = async (req, res) => {
         let result;
         if (number) {
             // Atualiza contato na etapa
-            const updateContactInKanban = require('../services/KanbanService').updateContactInKanban;
-            result = await updateContactInKanban(number, stage_id, schema);
+            result = await changeContactInKanban(number, stage_id, schema);
             global.socketIoServer.to(`schema_${schema}`).emit('leadMoved', { number, stage_id });
         } else if (chat_id) {
             // Atualiza chat na etapa
@@ -217,9 +216,8 @@ const getContactsInKanbanStageController = async (req, res) => {
 const transferAllContactsToStage = async (req, res) => {
     const { numbers, new_stage, schema } = req.body;
     try {
-        const { updateContactInKanban } = require('../services/KanbanService');
         for (const number of numbers) {
-            await updateContactInKanban(number, new_stage, schema);
+            await changeContactInKanban(number, new_stage, schema);
             global.socketIoServer.to(`schema_${schema}`).emit('leadMoved', { number, stage_id: new_stage });
         }
         res.status(200).json({ success: true });

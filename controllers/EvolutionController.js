@@ -1,5 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
-const { createInstance, fetchInstanceEvo, sendTextMessage } = require('../requests/evolution');
+const { createInstance, fetchInstanceEvo, sendTextMessage, generateQrCode } = require('../requests/evolution');
 const Connections = require('../entities/Connection');
 const { createConnection, fetchInstance, searchConnById } = require('../services/ConnectionService');
 const { saveMessage } = require('../services/MessageService');
@@ -102,8 +102,26 @@ const sendTextMessageController = async (req, res) => {
     }
 };
 
+const generateQrCodeController = async (req, res) => {
+    const {instance} = req.params
+    try {
+        const result = await generateQrCode(instance)
+        res.status(200).json({
+            success:true,
+            data:result
+        })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            success:false,
+            message:'Erro ao gerar QR Code, favor entrar em contato com suporte'
+        })
+    }
+}
+
 module.exports = {
     createInstanceController,
     fetchInstanceController,
     sendTextMessageController,
+    generateQrCodeController
 };

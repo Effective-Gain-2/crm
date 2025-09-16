@@ -51,7 +51,8 @@ const createCompany = async (company, schema) => {
             color TEXT,
             users JSONB,
             distribution boolean,
-            superuser uuid REFERENCES ${schema}.users(id) ON DELETE SET NULL
+            superuser uuid REFERENCES ${schema}.users(id) ON DELETE SET NULL,
+            stage_id uuid
         );`);
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.connections (
@@ -653,10 +654,27 @@ const updateSchema = async (schema) => {
             );
         `)
         await pool.query(`
+            CREATE TABLE IF NOT EXISTS ${schema}.contacts_stage (
+            contact_number text NOT NULL REFERENCES ${schema}.contacts(number) ON DELETE CASCADE,
+            stage UUID NOT NULL,
+            PRIMARY KEY (contact_number, stage)
+            );
+        `)
+
+        await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.summary(
+            id UUID PRIMARY KEY NOT NULL,
+            chat_id UUID NOT NULL,
+            value TEXT,
+            created_at bigint 
+            )`)
+
+        await pool.query(`
             create table if not exists ${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
             `)
             
         await pool.query(`alter table ${schema}.messages add column if not exists user_id uuid`)
+        await pool.query(`alter table ${schema}.queues add column if not exists stage_id uuid`)
+        await pool.query(`ALTER TABLE ${schema}.custom_fields add column if not exists graph boolean default false`)
 
         return { message: "Schema atualizado com sucesso! Todas as tabelas foram criadas/verificadas." };
     } catch (error) {

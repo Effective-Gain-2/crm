@@ -1,7 +1,10 @@
+const { generateQrCode, getConnectionHealth } = require("./requests/evolution");
+const { replacePlaceholders } = require("./services/MessageBlast");
 const { messageAnAssistant, runOpenAi, getAssistantReply, listRuns, cancelRun } = require("./services/OpenAi");
 
 const test = async () => {
-    await cancelRun('thread_Mv6QSj4ykV1ZJExWMqQP8hH2')
+    const result = await replacePlaceholders('olá, {{contact_name}}, sua consulta é as {{horario}}', '557588821124', 'effective_gain')
+    console.log(result)
 };
 
 test();

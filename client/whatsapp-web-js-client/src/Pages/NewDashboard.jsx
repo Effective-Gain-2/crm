@@ -110,8 +110,6 @@ function NewDashboard({ theme }) {
   const handleExportAll = (campaing_id) => {
   try {
     const selectedDate = selectedDates[campaing_id] || getLast7Days()[0];
-    console.log(campaingChats)
-    console.log(new Date(Number(campaingChats[0].created_at)).toISOString())
     const contatos = campaingChats.filter(chat =>
       chat.campaing_id === campaing_id &&
       chat.created_at && new Date(Number(chat.created_at)).toISOString().startsWith(selectedDate)
@@ -190,7 +188,6 @@ const getLast7Days = () => {
     date.setDate(today.getDate() - i);
     days.push(date.toISOString().slice(0, 10));
   }
-  console.log(days)
   return days;
 };
 
@@ -323,7 +320,6 @@ const getLast7Days = () => {
 const chatsProcessados = new Set();
 
 campaingChats.forEach(chat => {
-  console.log(chat);
   if (
     chat.campaing_id &&
     chat.status === 'disparo' &&
@@ -353,7 +349,6 @@ campaingChats.forEach(chat => {
     const contatosResponderam = disparosComCampanhas.map(disparo => {
       const totalChats = campanhaCounts[disparo.id] || 0;
       const naoResponderam = chatsNaoResponderam[disparo.id] || 0;
-      console.log('Não Responderam:', naoResponderam);
       const responderam = totalChats - naoResponderam;
       
       return responderam;
@@ -1297,7 +1292,6 @@ campaingChats.forEach(chat => {
                         <tr><td colSpan={9} className="text-center">Nenhum dado encontrado</td></tr>
                       )}
                       {data.reportData?.slice(0, 10).filter(userData.role==='tecnico'||userData.role==='admin'?r=>r.id!==null:r=>r.user_id===userData.id).map((row, idx) => (
-                        console.log(row),
                         <tr key={idx} className={idx % 2 === 0 ? `table-light-${theme}` : ''}>
                           <td>WhatsApp</td> 
                           <td>{row.queue_id ? (data.queueMap[row.queue_id] || `Fila ${row.queue_id}`) : '-'}</td>
@@ -1486,7 +1480,6 @@ campaingChats.forEach(chat => {
                         const naoRespondidos = campaingChats.filter(chat => 
                           chat.campaing_id === disparo.id && chat.status === 'disparo'
                         ).length;
-                        console.log(campaingChats, naoRespondidos)
                         const respondidos = totalContatos - naoRespondidos;
                         
                         return (

@@ -21,6 +21,7 @@ import QuickMsgManageModal from './modalPages/Chats_mensagensRapidas';
 import CustomValuesModal from './modalPages/CustomValuesModal';
 import FinalizarAtendimentoModal from './modalPages/Chats_finalizarAtendimento';
 import DocumentUploadModal from './modalPages/Chats_uploadPdf';
+import ResumoModal from './modalPages/ResumoModal';
 import { getFileIcon } from '../utils/fileUtils';
 import { useToast } from '../contexts/ToastContext';
 
@@ -92,7 +93,7 @@ function groupMessagesByDate(messages) {
   return grouped;
 }
 
-function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, setSelectedChat, setSelectedMessages, onEditName }) {
+function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, setSelectedChat, setSelectedMessages, onEditName, showResumoModal, setShowResumoModal }) {
   const { showError, showSuccess } = useToast();
   const url = process.env.REACT_APP_URL;
   const userData = JSON.parse(localStorage.getItem('user'));
@@ -228,6 +229,13 @@ function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, set
           }}>
             Agendar mensagem
           </Dropdown.Item>
+          <Dropdown.Item onClick={(e) => {
+            e.preventDefault();
+            setShowResumoModal(true);
+            setIsDropdownOpen(false);
+          }}>
+            Criar resumo da conversa
+          </Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown>
 
@@ -337,6 +345,8 @@ function ChatPage({ theme, chat_id} ) {
   const { showError, showSuccess } = useToast();
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showResumoModal, setShowResumoModal] = useState(false);
+
 
   useEffect(() => {
     if (!showQuickMsgPopover) setQuickMsgIndex(-1);
@@ -916,7 +926,6 @@ const formatMessage = (msg) => {
   
   // Log para documentos
   if (msg.message_type === 'document' || msg.message_type === 'documentMessage' || msg.message_type === 'arquivo') {
-    console.log('Documento formatado:', formatted);
   }
   
   return formatted;
@@ -934,7 +943,6 @@ const loadMessages = async (chatId) => {
     });
 
 
-    console.log('Mensagens recebidas do backend:', res.data.messages);
     const formattedMessages = res.data.messages.map(formatMessage);
 
 
@@ -1933,6 +1941,8 @@ const handleImageUpload = async (event) => {
         setSelectedMessages={setSelectedMessages}
         onEditName={handleEditNameStart}
         editedName={editedName}
+        showResumoModal={showResumoModal}
+        setShowResumoModal={setShowResumoModal}
       />
       </div>
 
@@ -2204,11 +2214,9 @@ const handleImageUpload = async (event) => {
                 </>
               ) : (msg.message_type === 'document' || msg.message_type === 'documentMessage' || msg.message_type === 'arquivo') ? (
                 (() => {
-                  console.log('Renderizando documento:', msg);
                   const name = msg.file_name || msg.filename || msg.name || 'Documento';
                   const b64 = typeof msg.base64 === 'string' ? msg.base64 : '';
                   let mime = msg.mimetype || msg.mime || '';
-                  console.log('Documento renderizando:', { name, b64: b64 ? 'presente' : 'ausente', mime });
                   
                   // Determinar o tipo de arquivo baseado na extensão se o MIME não estiver disponível
                   if (!mime) {
@@ -2246,7 +2254,6 @@ const handleImageUpload = async (event) => {
                     else url = `data:${mime};base64,${b64}`;
                   }
                   
-                  console.log('URL gerada:', url ? 'presente' : 'ausente');
                   
 
                   
@@ -2260,7 +2267,7 @@ const handleImageUpload = async (event) => {
                           src={url}
                           title={name}
                           style={{ width: '100%', height: '320px', border: '1px solid var(--border-color)' }}
-                          onError={(e) => console.log('Erro ao carregar PDF:', e)}
+                          onError={(e) => console.error('Erro ao carregar PDF:', e)}
                         />
                       )}
                       
@@ -2292,7 +2299,6 @@ const handleImageUpload = async (event) => {
                               e.preventDefault();
                               alert('Arquivo não disponível para download');
                             } else {
-                              console.log('Tentando abrir documento:', { url: url.substring(0, 50) + '...', name, mime });
                               const link = document.createElement('a');
                               link.href = url;
                               link.download = name;
@@ -2843,6 +2849,13 @@ const handleImageUpload = async (event) => {
           setSelectedChat(null);
           setSelectedMessages([]);
         }}
+      />
+
+      <ResumoModal
+        show={showResumoModal}
+        onHide={() => setShowResumoModal(false)}
+        theme={theme}
+        chatId={selectedChat?.id}
       />
     </div>
   );

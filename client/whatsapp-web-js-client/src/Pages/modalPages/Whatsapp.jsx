@@ -3,6 +3,7 @@ import { Modal } from 'react-bootstrap';
 import WhatsappNovoContatoModal from './Whatsapp_novoContato';
 import WhatsappDeleteModal from './Whatsapp_delete';
 import WhatsappFilasModal from './Whatsapp_filas';
+import { useToast } from '../../contexts/ToastContext';
 
 import axios from 'axios';
 
@@ -13,6 +14,10 @@ function WhatsappModal({ theme, show, onHide }) {
   const [showNovoContatoModal, setShowNovoContatoModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUsuariosModal, setShowUsuariosModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const { showError, showSuccess } = useToast();
+  
 
   const userData = JSON.parse(localStorage.getItem('user')); 
   const schema = userData?.schema
@@ -21,7 +26,7 @@ function WhatsappModal({ theme, show, onHide }) {
   useEffect(() => {
     const handleConns = async()=>{
       try{
-        const response = await axios.get(`${url}/connection/get-all-connections/${schema}`,
+        const response = await axios.get(`${url}/connection/get-all-connections-status/${schema}`,
         {
       withCredentials: true
     })
@@ -40,7 +45,7 @@ function WhatsappModal({ theme, show, onHide }) {
 
   const handleDelete = (contato) => {
     try {
-      setContatos(contatos.filter(c => c.id !== contato.id));
+      setContatos(contatos.filter(c => c.connection.id !== contato.connection.id));
     } catch (error) {
       console.error('Erro ao excluir contato:', error);
     } finally {
@@ -63,6 +68,28 @@ function WhatsappModal({ theme, show, onHide }) {
           : contato
       )
     );
+  };
+
+  const handleReconnect = async (contato) => {
+    try {
+      if (!contato.connection) {
+        showError('Dados do contato não encontrados');
+        return;
+      }
+      
+      setSelectedContato(contato);
+      setShowQRModal(true);
+      
+      const response = await axios.get(`${url}/evo/generate-qrcode/${contato.connection.name}`, {}, { withCredentials: true });
+      if(response.data.data.error){
+        showError('Erro ao gerar QRcode, favor entrar em contato com o suporte')
+      }
+      setQrCodeData(response.data.data.base64);
+      
+    } catch (error) {
+      console.error('Erro ao gerar QR Code:', error);
+      showError('Erro ao gerar QRcode, favor entrar em contato com o suporte')
+    }
   };
 
 
@@ -101,21 +128,38 @@ function WhatsappModal({ theme, show, onHide }) {
                 <tr>
                   <th className={`text-start px-3 py-2 header-text-${theme}`}>Nome</th>
                   <th className={`text-start px-3 py-2 header-text-${theme}`}>Telefone</th>
+                  <th className={`text-center px-3 py-2 header-text-${theme}`}>Status</th>
                   <th className={`text-start px-3 py-2 header-text-${theme}`}>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {contatos.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="text-center px-3 py-2">
+                    <td colSpan="4" className="text-center px-3 py-2">
                       <span className={`card-subtitle-${theme}`}>Nenhum contato cadastrado.</span>
                     </td>
                   </tr>
                 ) : (
                   contatos.map((contato) => (
-                    <tr key={contato.id}>
-                      <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.label || contato.name}</td>
-                      <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.number}</td>
+                    <tr key={contato.connection?.id || contato.id}>
+                      <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.connection?.label || contato.connection?.name || 'N/A'}</td>
+                      <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.connection?.number || 'N/A'}</td>
+                      <td className="px-3 py-2 text-center">
+                        {contato.status === 'open' ? (
+                          <i className="bi bi-check-circle-fill text-success" style={{ fontSize: '1.2rem' }}></i>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary"
+                            data-bs-toggle="tooltip"
+                            data-bs-placement="top"
+                            title="Reconectar via QR Code"
+                            onClick={() => contato.connection && handleReconnect(contato)}
+                          >
+                            <i className="bi bi-qr-code"></i>
+                          </button>
+                        )}
+                      </td>
                       <td className="px-3 py-2">
                         <div className="d-flex flex-wrap gap-2">
                           <button
@@ -125,8 +169,10 @@ function WhatsappModal({ theme, show, onHide }) {
                             data-bs-placement="top"
                             title="Editar"
                             onClick={() => {
-                              setSelectedContato(contato);
-                              setShowNovoContatoModal(true);
+                              if (contato.connection) {
+                                setSelectedContato(contato);
+                                setShowNovoContatoModal(true);
+                              }
                             }}
                           >
                             <i className="bi bi-pencil-fill"></i>
@@ -137,7 +183,7 @@ function WhatsappModal({ theme, show, onHide }) {
                             data-bs-toggle="tooltip"
                             data-bs-placement="top"
                             title="Filas"
-                            onClick={() => handleVerFilas(contato)}
+                            onClick={() => contato.connection && handleVerFilas(contato)}
                           >
                             <i className="bi bi-diagram-3"></i>
                           </button>
@@ -149,8 +195,10 @@ function WhatsappModal({ theme, show, onHide }) {
                             data-bs-placement="top"
                             title="Excluir"
                             onClick={() => {
-                              setSelectedContato(contato);
-                              setShowDeleteModal(true);
+                              if (contato.connection) {
+                                setSelectedContato(contato);
+                                setShowDeleteModal(true);
+                              }
                             }}
                           >
                             <i className="bi bi-trash-fill"></i>
@@ -214,6 +262,73 @@ function WhatsappModal({ theme, show, onHide }) {
             onQueueChange={handleQueueChange}
           />
         </div>
+      )}
+      
+      {showQRModal && selectedContato && (
+        <Modal 
+          show={showQRModal} 
+          onHide={() => {
+            setShowQRModal(false);
+            setSelectedContato(null);
+            setQrCodeData(null);
+          }} 
+          size="sm" 
+          centered
+          backdrop="static"
+          style={{ zIndex: 1070 }}
+        >
+          <Modal.Header closeButton style={{ backgroundColor: `var(--bg-color-${theme})` }}>
+            <div className="d-flex align-items-center gap-3">
+              <i className={`bi bi-qr-code header-text-${theme}`}></i>
+              <h5 className={`modal-title header-text-${theme} mb-0`}>
+                Reconectar WhatsApp
+              </h5>
+            </div>
+          </Modal.Header>
+
+          <Modal.Body style={{ backgroundColor: `var(--bg-color-${theme})` }} className="text-center">
+            <p className={`card-subtitle-${theme} mb-3`}>
+              Escaneie o QR Code abaixo com seu WhatsApp para reconectar:
+            </p>
+            
+            {qrCodeData ? (
+              <div className="d-flex justify-content-center">
+                <img 
+                  src={qrCodeData} 
+                  alt="QR Code para reconexão" 
+                  style={{ maxWidth: '200px', maxHeight: '200px' }}
+                  className="border rounded"
+                />
+              </div>
+            ) : (
+              <div className="d-flex justify-content-center">
+                <div className="spinner-border text-primary" role="status">
+                  <span className="visually-hidden">Carregando...</span>
+                </div>
+              </div>
+            )}
+            
+            <div className="mt-3">
+              <small className={`text-muted`}>
+                {selectedContato?.connection?.label || selectedContato?.connection?.name || 'N/A'}
+              </small>
+            </div>
+          </Modal.Body>
+
+          <Modal.Footer style={{ backgroundColor: `var(--bg-color-${theme})` }}>
+            <button 
+              type="button" 
+              className={`btn btn-2-${theme}`} 
+              onClick={() => {
+                setShowQRModal(false);
+                setSelectedContato(null);
+                setQrCodeData(null);
+              }}
+            >
+              Fechar
+            </button>
+          </Modal.Footer>
+        </Modal>
       )}
       
 

@@ -99,10 +99,7 @@ const updateReceita = async (receita_id, nome, valor_receita, status, schema) =>
 
 const deleteReceita = async (receita_id, schema) => {
     const result = await pool.query(
-        `UPDATE ${schema}.receitas 
-         SET status = 'inativo', updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1
-         RETURNING *`,
+        `DELETE FROM ${schema}.receitas WHERE id=$1`,
         [receita_id]
     );
     

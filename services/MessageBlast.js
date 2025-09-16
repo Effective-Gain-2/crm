@@ -18,23 +18,43 @@ const replacePlaceholders = async (message, number, schema) => {
 
     for (const placeholder of placeholders) {
       const key = placeholder.replace(/{{\s*|\s*}}/g, '');
-
-      const result = await pool.query(
-        `SELECT ${key} FROM ${schema}.contacts WHERE number = $1`,
-        [number]
-      );
-
-      if (result.rows.length > 0 && result.rows[0][key]) {
-        updatedMessage = updatedMessage.replace(placeholder, result.rows[0][key]);
+      
+      let result = null;
+      
+      // Se for campo padrão (contact_name ou number), busca na tabela contacts
+      if (key === 'contact_name' || key === 'number') {
+        result = await pool.query(
+          `SELECT ${key} FROM ${schema}.contacts WHERE number = $1`,
+          [number]
+        );
+        
+        if (result.rows.length > 0 && result.rows[0][key]) {
+          updatedMessage = updatedMessage.replace(placeholder, result.rows[0][key]);
+        } else {
+          console.warn(`Valor para o placeholder "${placeholder}" não encontrado para o número ${number}.`);
+          updatedMessage = updatedMessage.replace(placeholder, `[${key}]`);
+        }
       } else {
-        console.warn(`Valor para o placeholder "${placeholder}" não encontrado.`);
-        updatedMessage = updatedMessage.replace(placeholder, ''); // Substituir por vazio se não encontrado
+        // Se for campo customizado, busca nas tabelas custom_fields e contact_custom_values
+        result = await pool.query(
+          `SELECT cc.value FROM ${schema}.custom_fields f 
+           LEFT JOIN ${schema}.contact_custom_values cc ON f.id = cc.field_id 
+           WHERE f.field_name = $1 AND cc.contact_number = $2`,
+          [key, number]
+        );
+        
+        if (result.rows.length > 0 && result.rows[0].value) {
+          updatedMessage = updatedMessage.replace(placeholder, result.rows[0].value);
+        } else {
+          console.warn(`Valor para o placeholder "${placeholder}" não encontrado para o número ${number}.`);
+          updatedMessage = updatedMessage.replace(placeholder, `[${key}]`);
+        }
       }
     }
 
     return updatedMessage;
   } catch (error) {
-    console.error('Erro ao substituir placeholders:', error.message);
+    console.error('Erro ao substituir placeholders:', error);
     throw error;
   }
 };
@@ -138,5 +158,6 @@ module.exports = {
   sendBlastMessage,
   getAllBlastMessages,
   sendMediaBlastMessage,
-  deleteAllBlastMessages
+  deleteAllBlastMessages,
+  replacePlaceholders
 };

@@ -472,7 +472,6 @@ const saveMediaMessage = async (id, fromMe, chat_id, createdAt, message_type, au
     }
     
     const result = await pool.query(query, params);
-    console.log('Mensagem salva:', result.rows[0]);
     return result.rows[0];
   } catch (error) {
     console.error('Erro ao salvar mensagem de mídia:', error.message);

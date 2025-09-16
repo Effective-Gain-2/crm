@@ -1,6 +1,6 @@
 const pool = require('../db/queries');
 const { v4: uuidv4 } = require('uuid');
-const { getContactsInKanbanStage, updateContactInKanban } = require('./KanbanService');
+const { getContactsInKanbanStage, changeContactInKanban } = require('./KanbanService');
 const { sendTextMessage, fetchInstanceEvo } = require('../requests/evolution');
 const { sendBlastMessage, sendMediaBlastMessage } = require('./MessageBlast');
 const createRedisConnection = require('../config/Redis');
@@ -8,7 +8,7 @@ const { Queue, Worker } = require('bullmq');
 const { saveMessage } = require('./MessageService');
 const { Message } = require('../entities/Message');
 const { getCurrentTimestamp, parseLocalDateTime } = require('./getCurrentTimestamp');
-const { updateChatConnection, createNewChat, updateQueue } = require('./ChatService');
+const {  createNewChat, updateQueue } = require('./ChatService');
 const { fetchInstance } = require('./ConnectionService');
 
 const bullConn = createRedisConnection();
@@ -39,7 +39,7 @@ const worker = new Worker(
         );
       }
       if(job.data.stage){
-        await updateContactInKanban(job.data.number, job.data.stage, job.data.schema);
+        await changeContactInKanban(job.data.number, job.data.stage, job.data.schema);
       }
       if(job.data.queue){
         console.log('entrou if')
@@ -257,8 +257,8 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
         continue;
       }
       
-      const messageIndex = groupIndex % totalMessages; // Rotação de mensagens por grupo
-      const connectionIdx = positionInGroup; // Cada conexão tem sua posição fixa no grupo
+      const messageIndex = groupIndex % totalMessages; 
+      const connectionIdx = positionInGroup; 
       
       const connection = connections[connectionIdx];
       const contact = contacts[contactIndex];

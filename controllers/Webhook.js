@@ -428,8 +428,15 @@ module.exports = (broadcastMessage) => {
             }else{
               const resposta = await getAssistantReply(baseChat.thread_id, payload.body, assistant_id, baseChat.id, schema)
               if(resposta){
-                await sendTextMessage(result.instance, resposta, baseChat.contact_phone)
-                await saveMessage(baseChat.id, new Message(uuidv4(), resposta, true, baseChat.id, getCurrentTimestamp()), schema, null)
+                // Verificar se a resposta é uma função executada
+                if(typeof resposta === 'object' && resposta.functionName && resposta.executed) {
+                  // Função já foi executada, não enviar mensagem
+                  console.log(`Função ${resposta.functionName} executada com sucesso`);
+                } else if(typeof resposta === 'string') {
+                  // Resposta normal de texto, enviar mensagem
+                  await sendTextMessage(result.instance, resposta, baseChat.contact_phone)
+                  await saveMessage(baseChat.id, new Message(uuidv4(), resposta, true, baseChat.id, getCurrentTimestamp()), schema, null)
+                }
               }
             }
           }

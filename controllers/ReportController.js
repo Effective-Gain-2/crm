@@ -1,4 +1,4 @@
-const { getReports } = require("../services/ReportService")
+const { getReports, summary, getSummaryByChatId } = require("../services/ReportService")
 
 const getReportsController = async (req, res) => {
     const {schema} = req.params
@@ -16,7 +16,42 @@ const getReportsController = async (req, res) => {
         })
     }
 }
+const generateSummaryController = async (req, res) => {
+    const {chat_id, schema} = req.body
+    try {
+        const result = await summary(chat_id, schema)
+        res.status(200).json({
+            success:true, 
+            data:result
+        })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            success:false
+        })
+    }
 
-module.exports = {
-    getReportsController
 }
+
+const getSummaryController = async (req, res) => {
+    const {chat_id, schema} = req.params
+
+    try {
+        const result = await getSummaryByChatId(chat_id, schema)
+        res.status(200).json({
+            success:true,
+            data:result
+        })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            success:false
+        })
+    }
+}
+module.exports = {
+    getReportsController,
+    generateSummaryController,
+    getSummaryController
+}
+

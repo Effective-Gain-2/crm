@@ -243,6 +243,40 @@ const sendMediaForBlast = async (instanceId, text, image, number) => {
   }
 };
 
+const generateQrCode = async (instance) => {
+  const options = {
+    method: 'GET',
+    headers: {
+      apikey: process.env.EVOLUTION_API_KEY,
+    },
+    body: undefined
+  };
+  try {
+    const response = await fetch(`${process.env.EVOLUTION_SERVER_URL}/instance/connect/${instance}`, options)
+    const result = await response.json();
+    return result;
+
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const getConnectionHealth = async (instance) => {
+ const options = {
+    method: 'GET',
+    headers: {
+      apikey: process.env.EVOLUTION_API_KEY,
+    },
+    body: undefined
+  };
+  try {
+    const response = await fetch(`${process.env.EVOLUTION_SERVER_URL}/instance/fetchInstances?instanceName=${instance}`, options)
+    const result = await response.json();
+    return result
+  } catch (error) {
+    console.error(error)
+  }
+}
 
 module.exports = {
   createInstance,
@@ -253,7 +287,9 @@ module.exports = {
   getBase64FromMediaMessage,
   sendImageToWhatsApp,
   deleteInstance,
-  sendMediaForBlast
+  sendMediaForBlast,
+  generateQrCode,
+  getConnectionHealth
 };
 
 
