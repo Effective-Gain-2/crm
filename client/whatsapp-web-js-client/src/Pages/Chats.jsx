@@ -21,6 +21,7 @@ import QuickMsgManageModal from './modalPages/Chats_mensagensRapidas';
 import CustomValuesModal from './modalPages/CustomValuesModal';
 import FinalizarAtendimentoModal from './modalPages/Chats_finalizarAtendimento';
 import DocumentUploadModal from './modalPages/Chats_uploadPdf';
+import ResumoModal from './modalPages/ResumoModal';
 import { getFileIcon } from '../utils/fileUtils';
 import { useToast } from '../contexts/ToastContext';
 
@@ -92,7 +93,7 @@ function groupMessagesByDate(messages) {
   return grouped;
 }
 
-function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, setSelectedChat, setSelectedMessages, onEditName }) {
+function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, setSelectedChat, setSelectedMessages, onEditName, showResumoModal, setShowResumoModal }) {
   const { showError, showSuccess } = useToast();
   const url = process.env.REACT_APP_URL;
   const userData = JSON.parse(localStorage.getItem('user'));
@@ -228,6 +229,13 @@ function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, set
           }}>
             Agendar mensagem
           </Dropdown.Item>
+          <Dropdown.Item onClick={(e) => {
+            e.preventDefault();
+            setShowResumoModal(true);
+            setIsDropdownOpen(false);
+          }}>
+            Criar resumo da conversa
+          </Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown>
 
@@ -337,6 +345,8 @@ function ChatPage({ theme, chat_id} ) {
   const { showError, showSuccess } = useToast();
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showResumoModal, setShowResumoModal] = useState(false);
+
 
   useEffect(() => {
     if (!showQuickMsgPopover) setQuickMsgIndex(-1);
@@ -1931,6 +1941,8 @@ const handleImageUpload = async (event) => {
         setSelectedMessages={setSelectedMessages}
         onEditName={handleEditNameStart}
         editedName={editedName}
+        showResumoModal={showResumoModal}
+        setShowResumoModal={setShowResumoModal}
       />
       </div>
 
@@ -2837,6 +2849,13 @@ const handleImageUpload = async (event) => {
           setSelectedChat(null);
           setSelectedMessages([]);
         }}
+      />
+
+      <ResumoModal
+        show={showResumoModal}
+        onHide={() => setShowResumoModal(false)}
+        theme={theme}
+        chatId={selectedChat?.id}
       />
     </div>
   );

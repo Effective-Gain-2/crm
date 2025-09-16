@@ -1,7 +1,8 @@
 const pool = require("../db/queries")
 const { v4: uuid4 } = require('uuid');
-const { createChatCompletion } = require("./OpenAi");
+const { createChatCompletion, getSummary } = require("./OpenAi");
 const { getMessages, getChatData } = require("../utils/getMessages");
+const { getCurrentTimestamp } = require('./getCurrentTimestamp');
 
 
 const getGptResponse = async (chat_id, schema, status) => {
@@ -26,6 +27,29 @@ const getGptResponse = async (chat_id, schema, status) => {
     return report;
 }
 
+const summary = async (chat_id, schema) => {
+    const messages = await getMessages(chat_id, schema);
+    
+    if (messages.length === 0) {
+        return null;
+    }
+    
+    const formattedMessages = messages.map(m => {
+        const sender = m.from_me ? 'Atendente' : 'Cliente';
+        return `${sender}: ${m.body}`;
+    }).join('\n');
+
+    const gpt_response = await getSummary(formattedMessages)
+    await deleteSummary(chat_id, schema)
+    await pool.query(`INSERT INTO ${schema}.summary(id, chat_id, value, created_at) VALUES ($1, $2, $3, $4)`, [uuid4(), chat_id, gpt_response, getCurrentTimestamp()])
+    if (gpt_response) {
+        return gpt_response;
+    }else{
+        return null
+    }
+    
+}
+
 const createReport = async(chat_id, gpt_response, status, schema)=>{
     const chatData = await getChatData(chat_id, schema);
 
@@ -45,9 +69,18 @@ const getReports = async(schema, user_id, user_role)=>{
         return result.rows;
     }
 }
+const getSummaryByChatId = async (chat_id, schema) => {
+    const result = await pool.query(`SELECT * FROM ${schema}.summary WHERE chat_id=$1`, [chat_id])
+    return result.rows[0]
+}
+const deleteSummary = async (chat_id, schema) => {
+    await pool.query(`DELETE FROM ${schema}.summary WHERE chat_id=$1`, [chat_id])
+}
 
 module.exports={
     createReport,
     getGptResponse,
-    getReports
+    getReports,
+    summary,
+    getSummaryByChatId
 }

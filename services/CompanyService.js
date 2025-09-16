@@ -654,6 +654,21 @@ const updateSchema = async (schema) => {
             );
         `)
         await pool.query(`
+            CREATE TABLE IF NOT EXISTS ${schema}.contacts_stage (
+            contact_number text NOT NULL REFERENCES ${schema}.contacts(number) ON DELETE CASCADE,
+            stage UUID NOT NULL,
+            PRIMARY KEY (contact_number, stage)
+            );
+        `)
+
+        await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.summary(
+            id UUID PRIMARY KEY NOT NULL,
+            chat_id UUID NOT NULL,
+            value TEXT,
+            created_at bigint 
+            )`)
+
+        await pool.query(`
             create table if not exists ${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
             `)
             
