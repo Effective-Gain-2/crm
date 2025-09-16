@@ -95,7 +95,7 @@
     const [empresa, setEmpresa] = useState('');
     const [theme, setTheme] = useTheme();
     const { preferences, updatePage } = useUserPreferences();
-    const [page, setPage] = useState(preferences.currentPage || 'chats');
+    const [page, setPage] = useState('chats');
     const [showWhatsappModal, setShowWhatsappModal] = useState(false);
     const navigate = useNavigate();
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
