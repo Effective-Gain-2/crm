@@ -212,7 +212,6 @@ function DisparosPage({ theme }) {
           <button 
             className={`btn btn-1-${theme} d-flex gap-2`}
             onClick={handleNovoDisparo}
-            disabled={!isAdmin}
 
           >
             <i className="bi-plus-lg"></i>

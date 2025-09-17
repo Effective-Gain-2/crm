@@ -96,7 +96,7 @@
     const [empresa, setEmpresa] = useState('');
     const [theme, setTheme] = useTheme();
     const { preferences, updatePage } = useUserPreferences();
-    const [page, setPage] = useState(preferences.currentPage || 'chats');
+    const [page, setPage] = useState('chats');
     const [showWhatsappModal, setShowWhatsappModal] = useState(false);
     const navigate = useNavigate();
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -588,17 +588,19 @@
                 <i className="bi bi-diagram-3"></i>
                 <span className="sidebar-label d-none">Filas</span>
               </button>
-              <button
-                id="disparos"
-                onClick={() => handlePageChange('disparos')}
-                data-bs-toggle="tooltip"
-                data-bs-placement="right"
-                data-bs-title="Disparos"
-                className={`btn ${page === 'disparos' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
-              >
-                <i className="bi bi-megaphone"></i>
-                <span className="sidebar-label d-none">Disparos</span>
-              </button>
+{(role === 'admin' || role === 'tecnico') && (
+  <button
+    id="disparos"
+    onClick={() => handlePageChange('disparos')}
+    data-bs-toggle="tooltip"
+    data-bs-placement="right"
+    data-bs-title="Disparos"
+    className={`btn ${page === 'disparos' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+  >
+    <i className="bi bi-megaphone"></i>
+    <span className="sidebar-label d-none">Disparos</span>
+  </button>
+)}
               <hr className={`hr-${theme} mx-auto my-0`} style={{ width: '50%' }} />
               <button
                 id="usuarios"
