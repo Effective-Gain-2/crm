@@ -22,6 +22,7 @@
   import AjudaPage from './Ajuda';
   import LembretesPage from './Lembretes';
   import FinanceiroPage from './Financeiro';
+  import ControleEstoque from './ControleEstoque';
   import axios from 'axios';
   import useUserPreferences from '../hooks/useUserPreferences';
   import CustomValuesModal from './modalPages/CustomValuesModal';
@@ -463,6 +464,7 @@
       switch (page) {
         case 'dashboard': return <Dashboard theme={theme} />;
         case 'financeiro': return <FinanceiroPage theme={theme} />;
+        case 'estoque': return <ControleEstoque theme={theme} />;
         case 'assistentes': return <AssistentesPage theme={theme} />;
         case 'chats': return <ChatPage theme={theme} />;
         case 'kanban': return <KanbanPage theme={theme} />;
@@ -530,6 +532,17 @@
               >
                 <i className="bi bi-cash-stack"></i>
                 <span className="sidebar-label ">Financeiro</span>
+              </button>
+              <button
+                id="estoque"
+                onClick={() => handlePageChange('estoque')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Controle de Estoque"
+                className={`btn ${page === 'estoque' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-box-seam"></i>
+                <span className="sidebar-label ">Controle de Estoque</span>
               </button>
               <button
                 id="chats"
