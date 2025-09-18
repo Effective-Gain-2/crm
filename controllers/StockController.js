@@ -1,4 +1,4 @@
-const { getAllStockItens, insertItemInStock, getItemById, alterItemQuantityInStock, updateItemInStock } = require("../services/StockService")
+const { getAllStockItens, insertItemInStock, getItemById, alterItemQuantityInStock, updateItemInStock, getStockCategories, createStockCategory, deleteStockCategory } = require("../services/StockService")
 
 const getAllStockItensController = async (req, res) => {
     const {schema} = req.params
@@ -77,10 +77,58 @@ const updateItemInStockController = async (req, res) => {
         })
     }
 }
+const getStockCategoriesController = async (req,res) => {
+    const {schema} = req.params
+    try {
+        const result = await getStockCategories(schema)
+        res.status(200).json({
+            success:true,
+            data:result
+        })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            success:false
+        })
+    }
+}
+const createStockCategoryController = async (req, res) => {
+    const {category_name, schema} = req.body
+    try {
+        const result = await createStockCategory(category_name, schema)
+        res.status(200).json({
+            success:true,
+            data:result
+        })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            success:false
+        })
+    }
+}
+const deleteStockCategoryController = async (req,res) => {
+    const {category_id, schema} = req.params
+    try {
+        const result = await deleteStockCategory(category_id, schema)
+        res.status(200).json({
+            success:true,
+            data:result
+        })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            success:false
+        })
+    }
+}
 module.exports={
     getAllStockItensController,
     insertItemInStockController,
     getItemByIdController,
     alterItemQuantityInStockController,
-    updateItemInStockController
+    updateItemInStockController,
+    getStockCategoriesController,
+    createStockCategoryController,
+    deleteStockCategoryController
 }

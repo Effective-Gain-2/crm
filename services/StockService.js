@@ -35,10 +35,26 @@ const updateItemInStock = async (item_id, item_name, category, quantity, schema)
     return result.rows[0]
 }
 
+const getStockCategories = async (schema) => {
+    const result = await pool.query(`SELECT * FROM ${schema}.stock_categories`)
+    return result.rows
+}
+
+const createStockCategory = async (category_name, schema) => {
+    const result = await pool.query(`INSERT INTO ${schema}.stock_categories(id, name) VALUES ($1, $2) RETURNING *`, [uuidv4(), category_name])
+    return result.rows[0]
+}
+
+const deleteStockCategory = async (category_id, schema) => {
+    await pool.query(`DELETE FROM ${schema}.stock_categories WHERE id=$1`, [category_id])
+}
 module.exports={
     getAllStockItens,
     insertItemInStock,
     alterItemQuantityInStock,
     getItemById,
-    updateItemInStock
+    updateItemInStock,
+    createStockCategory,
+    getStockCategories,
+    deleteStockCategory
 }

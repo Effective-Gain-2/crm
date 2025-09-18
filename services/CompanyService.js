@@ -668,16 +668,21 @@ const updateSchema = async (schema) => {
             created_at bigint 
             )`)
 
-        await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.stock(
-            id UUID PRIMARY KEY NOT NULL,
-            item text not null,
-            quantity integer not null,
-            category text
-            )`)
+        await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.stock_categories(
+                id uuid primary key,
+                name text
+                )`)
 
-        await pool.query(`
-            create table if not exists ${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
-            `)
+                
+                await pool.query(`
+                    create table if not exists ${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
+                    `)
+                    await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.stock(
+                        id UUID PRIMARY KEY NOT NULL,
+                        item text not null,
+                        quantity integer not null,
+                        category uuid references ${schema}.stock_categories(id)
+                        )`)
             
         await pool.query(`alter table ${schema}.messages add column if not exists user_id uuid`)
         await pool.query(`alter table ${schema}.queues add column if not exists stage_id uuid`)

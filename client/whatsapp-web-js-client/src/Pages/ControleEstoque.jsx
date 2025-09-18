@@ -7,8 +7,12 @@ function ControleEstoque({ theme }) {
   const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [categorias, setCategorias] = useState([]);
+  const [showNewCategoryModal, setShowNewCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [creatingCategory, setCreatingCategory] = useState(false);
   const [formData, setFormData] = useState({
-    categoria: '',
+    categoria_id: '',
     nome: '',
     quantidade: 0
   });
@@ -19,6 +23,7 @@ function ControleEstoque({ theme }) {
 
   useEffect(() => {
     loadItens();
+    loadCategorias();
   }, []);
 
   const loadItens = async () => {
@@ -40,10 +45,71 @@ function ControleEstoque({ theme }) {
     }
   };
 
+  const loadCategorias = async () => {
+    try {
+      console.log('Carregando categorias...');
+      const response = await axios.get(`${url}/stock/get-categories/${schema}`, {
+        withCredentials: true
+      });
+      
+      console.log('Resposta das categorias:', response.data);
+      
+      if (response.data.success) {
+        setCategorias(response.data.data || []);
+        console.log('Categorias carregadas:', response.data.data);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error);
+      console.error('Detalhes do erro:', error.response?.data);
+      setCategorias([]);
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    
+    setCreatingCategory(true);
+    try {
+      
+      const response = await axios.post(`${url}/stock/create-category`, {
+        category_name: newCategoryName.trim(),
+        schema: schema
+      }, {
+        withCredentials: true
+      });
+
+      console.log('Resposta da API:', response.data);
+
+      if (response.data.success) {
+        const novaCategoria = response.data.data;
+        setCategorias(prev => [...prev, novaCategoria]);
+        // Selecionar automaticamente a categoria recém-criada
+        setFormData(prev => ({
+          ...prev,
+          categoria_id: novaCategoria.id
+        }));
+        setNewCategoryName('');
+        setShowNewCategoryModal(false);
+        console.log('Categoria criada com sucesso!');
+      } else {
+        console.error('Erro na resposta da API:', response.data);
+      }
+    } catch (error) {
+      console.error('Erro ao criar categoria:', error);
+      console.error('Detalhes do erro:', error.response?.data);
+    } finally {
+      setCreatingCategory(false);
+    }
+  };
+
   const handleEdit = (item) => {
     setEditingItem(item);
+    console.log('Item para editar:', item);
+    console.log('Categorias disponíveis:', categorias);
+    
+    // O item.category já é o UUID da categoria
     setFormData({
-      categoria: item.category || '',
+      categoria_id: item.category || '',
       nome: item.item || '',
       quantidade: item.quantity || 0
     });
@@ -62,7 +128,7 @@ function ControleEstoque({ theme }) {
         response = await axios.put(`${url}/stock/update-item`,{
         item_id:editingItem.id,
         item_name:formData.nome,
-        category:formData.categoria,
+        category:formData.categoria_id,
         quantity:formData.quantidade,
         schema: schema
       }, {
@@ -70,7 +136,12 @@ function ControleEstoque({ theme }) {
         });
       } else {
         // Criar novo item
-        response = await axios.post(`${url}/stock/insert-stock-item`, payload, {
+        response = await axios.post(`${url}/stock/insert-stock-item`, {
+          nome:formData.nome,
+          quantidade:formData.quantidade,
+          categoria:formData.categoria_id,
+          schema:schema
+        }, {
           withCredentials: true
         });
       }
@@ -88,7 +159,7 @@ function ControleEstoque({ theme }) {
     setShowModal(false);
     setEditingItem(null);
     setFormData({
-      categoria: '',
+      categoria_id: '',
       nome: '',
       quantidade: 0
     });
@@ -169,10 +240,13 @@ function ControleEstoque({ theme }) {
                           </td>
                         </tr>
                       ) : (
-                        itens.map((item, index) => (
+                        itens.map((item, index) => {
+                          // Buscar o nome da categoria pelo UUID
+                          const categoria = categorias.find(cat => cat.id === item.category);
+                          return (
                           <tr key={item.id || index}>
                             <td className={`text-${theme === 'dark' ? 'light' : 'dark'}`}>
-                              {item.category}
+                              {categoria?.name || 'Categoria não encontrada'}
                             </td>
                             <td className={`text-${theme === 'dark' ? 'light' : 'dark'}`}>
                               {item.item}
@@ -215,7 +289,8 @@ function ControleEstoque({ theme }) {
                                </Button>
                              </td>
                           </tr>
-                        ))
+                          );
+                        })
                       )}
                     </tbody>
                   </Table>
@@ -238,14 +313,32 @@ function ControleEstoque({ theme }) {
                 <Form.Label className={`header-text-${theme}`}>
                   Categoria
                 </Form.Label>
-                <Form.Control
-                  type="text"
-                  name="categoria"
-                  value={formData.categoria}
-                  onChange={handleInputChange}
-                  className={`input-${theme}`}
-                  placeholder="Digite a categoria"
-                />
+                <div className="d-flex gap-2">
+                  <Form.Select
+                    name="categoria_id"
+                    value={formData.categoria_id}
+                    onChange={handleInputChange}
+                    className={`input-${theme}`}
+                  >
+                    <option value="">Selecione uma categoria</option>
+                    {categorias.map(cat => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </Form.Select>
+                  <Button
+                    type="button"
+                    variant="outline-primary"
+                    size="sm"
+                    onClick={() => setShowNewCategoryModal(true)}
+                    className={`btn-outline-${theme === 'light' ? 'primary' : 'light'}`}
+                    title="Adicionar nova categoria"
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    <i className="bi bi-plus-circle"></i>
+                  </Button>
+                </div>
               </Form.Group>
               <Form.Group className="mb-3">
                 <Form.Label className={`header-text-${theme}`}>
@@ -284,6 +377,60 @@ function ControleEstoque({ theme }) {
                {editingItem ? 'Atualizar' : 'Salvar'}
              </Button>
            </Modal.Footer>
+        </Modal>
+
+        {/* Modal para Nova Categoria */}
+        <Modal show={showNewCategoryModal} onHide={() => setShowNewCategoryModal(false)} centered>
+          <Modal.Header closeButton className={`bg-form-${theme}`}>
+            <Modal.Title className={`header-text-${theme}`}>
+              <i className="bi bi-tags me-2"></i>
+              Nova Categoria
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body className={`bg-form-${theme}`}>
+            <Form.Group className="mb-3">
+              <Form.Label className={`header-text-${theme}`}>
+                Nome da Categoria
+              </Form.Label>
+              <Form.Control
+                type="text"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                className={`input-${theme}`}
+                placeholder="Digite o nome da categoria"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleCreateCategory();
+                  }
+                }}
+              />
+            </Form.Group>
+          </Modal.Body>
+          <Modal.Footer className={`bg-form-${theme}`}>
+            <Button 
+              onClick={() => {
+                setShowNewCategoryModal(false);
+                setNewCategoryName('');
+              }} 
+              className={`btn-2-${theme} btn-sm`}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCreateCategory} 
+              className={`btn-1-${theme} btn-sm`}
+              disabled={creatingCategory || !newCategoryName.trim()}
+            >
+              {creatingCategory ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                  Criando...
+                </>
+              ) : (
+                'Criar Categoria'
+              )}
+            </Button>
+          </Modal.Footer>
         </Modal>
       </div>
     </div>
