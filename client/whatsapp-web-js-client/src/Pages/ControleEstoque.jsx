@@ -14,7 +14,9 @@ function ControleEstoque({ theme }) {
   const [formData, setFormData] = useState({
     categoria_id: '',
     nome: '',
-    quantidade: 0
+    quantidade: 0,
+    quantidade_atencao: 0,
+    quantidade_urgencia: 0
   });
 
   const userData = JSON.parse(localStorage.getItem('user'));
@@ -104,14 +106,14 @@ function ControleEstoque({ theme }) {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    console.log('Item para editar:', item);
-    console.log('Categorias disponíveis:', categorias);
     
     // O item.category já é o UUID da categoria
     setFormData({
       categoria_id: item.category || '',
       nome: item.item || '',
-      quantidade: item.quantity || 0
+      quantidade: item.quantity || 0,
+      quantidade_atencao: item.atention_quantity || 0,
+      quantidade_urgencia: item.urgent_quantity || 0
     });
     setShowModal(true);
   };
@@ -130,6 +132,8 @@ function ControleEstoque({ theme }) {
         item_name:formData.nome,
         category:formData.categoria_id,
         quantity:formData.quantidade,
+        atention_quantity:formData.quantidade_atencao,
+        urgent_quantity:formData.quantidade_urgencia,
         schema: schema
       }, {
           withCredentials: true
@@ -140,6 +144,8 @@ function ControleEstoque({ theme }) {
           nome:formData.nome,
           quantidade:formData.quantidade,
           categoria:formData.categoria_id,
+          atention_quantity:formData.quantidade_atencao,
+          urgent_quantity:formData.quantidade_urgencia,
           schema:schema
         }, {
           withCredentials: true
@@ -161,7 +167,9 @@ function ControleEstoque({ theme }) {
     setFormData({
       categoria_id: '',
       nome: '',
-      quantidade: 0
+      quantidade: 0,
+      quantidade_atencao: 0,
+      quantidade_urgencia: 0
     });
   };
 
@@ -169,7 +177,9 @@ function ControleEstoque({ theme }) {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'quantidade' ? parseInt(value) || 0 : value
+      [name]: ['quantidade', 'quantidade_atencao', 'quantidade_urgencia'].includes(name) 
+        ? parseInt(value) || 0 
+        : value
     }));
   };
 
@@ -194,109 +204,167 @@ function ControleEstoque({ theme }) {
     }
   };
 
+  // Função para filtrar itens por status
+  const getItensByStatus = (status) => {
+    return itens.filter(item => {
+      const quantidade = item.quantity || 0;
+      const quantidadeAtencao = item.atention_quantity || 0;
+      const quantidadeUrgencia = item.urgent_quantity || 0;
+      
+      switch (status) {
+        case 'normal':
+          return quantidade > quantidadeAtencao;
+        case 'atencao':
+          return quantidade <= quantidadeAtencao && quantidade > quantidadeUrgencia;
+        case 'urgencia':
+          return quantidade <= quantidadeUrgencia;
+        default:
+          return true;
+      }
+    });
+  };
+
+  const renderTabela = (titulo, itensFiltrados, corIcone, tipoStatus) => (
+    <Card className={`bg-form-${theme} border-0 shadow h-100`}>
+      <Card.Header className={`bg-form-${theme} border-0`}>
+        <h5 className={`header-text-${theme} mb-0`}>
+          <i className={`bi ${corIcone} me-2`}></i>
+          {titulo}
+        </h5>
+      </Card.Header>
+      <Card.Body className={`bg-form-${theme}`}>
+        {isLoading ? (
+          <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
+            <div className="spinner-border" role="status">
+              <span className="visually-hidden">Carregando...</span>
+            </div>
+          </div>
+        ) : (
+          <Table responsive striped hover className={`table-${theme}`}>
+            <thead>
+              <tr>
+                <th className={`header-text-${theme}`}>Categoria</th>
+                <th className={`header-text-${theme}`}>Nome</th>
+                <th className={`header-text-${theme}`}>Quantidade</th>
+                <th className={`header-text-${theme}`}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itensFiltrados.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="text-center text-muted py-4">
+                    Nenhum item encontrado
+                  </td>
+                </tr>
+              ) : (
+                itensFiltrados.map((item, index) => {
+                  // Buscar o nome da categoria pelo UUID
+                  const categoria = categorias.find(cat => cat.id === item.category);
+                  return (
+                  <tr 
+                    key={item.id || index}
+                    style={{
+                      backgroundColor: tipoStatus === 'atencao' ? 'rgba(246, 254, 1, 0.38)' : 
+                                     tipoStatus === 'urgencia' ? 'rgba(220, 53, 69, 0.2)' : 
+                                     'transparent'
+                    }}
+                  >
+                    <td className={`text-${theme === 'dark' ? 'light' : 'dark'}`}>
+                      {categoria?.name || 'Categoria não encontrada'}
+                    </td>
+                    <td className={`text-${theme === 'dark' ? 'light' : 'dark'}`}>
+                      {item.item}
+                    </td>
+                     <td className={`text-${theme === 'dark' ? 'light' : 'dark'}`}>
+                       <div className="d-flex align-items-center gap-2">
+                         <Button
+                           variant="outline-danger"
+                           size="sm"
+                           onClick={() => handleQuantityChange(item, 1, false)}
+                           className={`btn btn-sm btn-outline-danger`}
+                           disabled={item.quantity <= 0}
+                           style={{ padding: '0.2rem 0.4rem' }}
+                         >
+                           <i className="bi bi-dash" style={{ fontSize: '0.7rem' }}></i>
+                         </Button>
+                         <span 
+                           className="fw-bold" 
+                           style={{ 
+                             minWidth: '25px', 
+                             textAlign: 'center', 
+                             fontSize: '0.9rem',
+                             color: tipoStatus === 'atencao' ? '#ffc107' : 
+                                    tipoStatus === 'urgencia' ? '#dc3545' : 
+                                    'inherit'
+                           }}
+                         >
+                           {item.quantity}
+                         </span>
+                         <Button
+                           variant="outline-success"
+                           size="sm"
+                           onClick={() => handleQuantityChange(item, 1, true)}
+                           className={`btn btn-sm btn-outline-success`}
+                           style={{ padding: '0.2rem 0.4rem' }}
+                         >
+                           <i className="bi bi-plus" style={{ fontSize: '0.7rem' }}></i>
+                         </Button>
+                       </div>
+                     </td>
+                     <td>
+                       <Button
+                         variant="outline-primary"
+                         size="sm"
+                         onClick={() => handleEdit(item)}
+                         className={`btn btn-sm btn-2-${theme}`}
+                         style={{ padding: '0.2rem 0.4rem' }}
+                       >
+                         <i className="bi bi-pencil-fill" style={{ fontSize: '0.7rem' }}></i>
+                       </Button>
+                     </td>
+                  </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </Table>
+        )}
+      </Card.Body>
+    </Card>
+  );
+
   return (
     <div className={`bg-${theme} min-vh-100`}>
       <div className="container-fluid p-4">
+        {/* Header com botão de novo item */}
         <Row className="mb-4">
           <Col>
-            <Card className={`bg-form-${theme} border-0 shadow`}>
-              <Card.Header className={`bg-form-${theme} border-0`}>
-                <div className="d-flex justify-content-between align-items-center">
-                  <h4 className={`header-text-${theme} mb-0`}>
-                    <i className="bi bi-box-seam me-2"></i>
-                    Controle de Estoque
-                  </h4>
-                   <Button
-                     onClick={() => setShowModal(true)}
-                     className={`btn-1-${theme} btn-sm`}
-                   >
-                     <i className="bi bi-plus-circle me-1"></i>
-                     Novo Item
-                   </Button>
-                </div>
-              </Card.Header>
-              <Card.Body className={`bg-form-${theme}`}>
-                {isLoading ? (
-                  <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
-                    <div className="spinner-border" role="status">
-                      <span className="visually-hidden">Carregando...</span>
-                    </div>
-                  </div>
-                ) : (
-                  <Table responsive striped hover className={`table-${theme}`}>
-                    <thead>
-                      <tr>
-                        <th className={`header-text-${theme}`}>Categoria</th>
-                        <th className={`header-text-${theme}`}>Nome</th>
-                        <th className={`header-text-${theme}`}>Quantidade</th>
-                        <th className={`header-text-${theme}`}>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {itens.length === 0 ? (
-                        <tr>
-                          <td colSpan="4" className="text-center text-muted py-4">
-                            Nenhum item encontrado
-                          </td>
-                        </tr>
-                      ) : (
-                        itens.map((item, index) => {
-                          // Buscar o nome da categoria pelo UUID
-                          const categoria = categorias.find(cat => cat.id === item.category);
-                          return (
-                          <tr key={item.id || index}>
-                            <td className={`text-${theme === 'dark' ? 'light' : 'dark'}`}>
-                              {categoria?.name || 'Categoria não encontrada'}
-                            </td>
-                            <td className={`text-${theme === 'dark' ? 'light' : 'dark'}`}>
-                              {item.item}
-                            </td>
-                             <td className={`text-${theme === 'dark' ? 'light' : 'dark'}`}>
-                               <div className="d-flex align-items-center gap-2">
-                                 <Button
-                                   variant="outline-danger"
-                                   size="sm"
-                                   onClick={() => handleQuantityChange(item, 1, false)}
-                                   className={`btn btn-sm btn-outline-danger`}
-                                   disabled={item.quantity <= 0}
-                                   style={{ padding: '0.2rem 0.4rem' }}
-                                 >
-                                   <i className="bi bi-dash" style={{ fontSize: '0.7rem' }}></i>
-                                 </Button>
-                                 <span className="fw-bold" style={{ minWidth: '25px', textAlign: 'center', fontSize: '0.9rem' }}>
-                                   {item.quantity}
-                                 </span>
-                                 <Button
-                                   variant="outline-success"
-                                   size="sm"
-                                   onClick={() => handleQuantityChange(item, 1, true)}
-                                   className={`btn btn-sm btn-outline-success`}
-                                   style={{ padding: '0.2rem 0.4rem' }}
-                                 >
-                                   <i className="bi bi-plus" style={{ fontSize: '0.7rem' }}></i>
-                                 </Button>
-                               </div>
-                             </td>
-                             <td>
-                               <Button
-                                 variant="outline-primary"
-                                 size="sm"
-                                 onClick={() => handleEdit(item)}
-                                 className={`btn btn-sm btn-2-${theme}`}
-                                 style={{ padding: '0.2rem 0.4rem' }}
-                               >
-                                 <i className="bi bi-pencil-fill" style={{ fontSize: '0.7rem' }}></i>
-                               </Button>
-                             </td>
-                          </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </Table>
-                )}
-              </Card.Body>
-            </Card>
+            <div className="d-flex justify-content-between align-items-center">
+              <h4 className={`header-text-${theme} mb-0`}>
+                <i className="bi bi-box-seam me-2"></i>
+                Controle de Estoque
+              </h4>
+              <Button
+                onClick={() => setShowModal(true)}
+                className={`btn-1-${theme} btn-sm`}
+              >
+                <i className="bi bi-plus-circle me-1"></i>
+                Novo Item
+              </Button>
+            </div>
+          </Col>
+        </Row>
+
+        {/* 3 colunas de estoque */}
+        <Row className="g-4">
+          <Col md={4}>
+            {renderTabela('Estoque Normal', getItensByStatus('normal'), 'bi-check-circle text-success', 'normal')}
+          </Col>
+          <Col md={4}>
+            {renderTabela('Atenção', getItensByStatus('atencao'), 'bi-exclamation-triangle text-warning', 'atencao')}
+          </Col>
+          <Col md={4}>
+            {renderTabela('Urgência', getItensByStatus('urgencia'), 'bi-x-circle text-danger', 'urgencia')}
           </Col>
         </Row>
 
@@ -355,7 +423,7 @@ function ControleEstoque({ theme }) {
               </Form.Group>
               <Form.Group className="mb-3">
                 <Form.Label className={`header-text-${theme}`}>
-                  Quantidade
+                  Quantidade Atual
                 </Form.Label>
                 <Form.Control
                   type="number"
@@ -363,9 +431,43 @@ function ControleEstoque({ theme }) {
                   value={formData.quantidade}
                   onChange={handleInputChange}
                   className={`input-${theme}`}
-                  placeholder="Digite a quantidade"
+                  placeholder="Digite a quantidade atual"
                   min="0"
                 />
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label className={`header-text-${theme}`}>
+                  Quantidade para Atenção
+                </Form.Label>
+                <Form.Control
+                  type="number"
+                  name="quantidade_atencao"
+                  value={formData.quantidade_atencao}
+                  onChange={handleInputChange}
+                  className={`input-${theme}`}
+                  placeholder="Digite a quantidade mínima para atenção"
+                  min="0"
+                />
+                <Form.Text className="text-muted">
+                  Quando a quantidade atual chegar neste valor, será exibido um aviso de atenção.
+                </Form.Text>
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label className={`header-text-${theme}`}>
+                  Quantidade para Urgência
+                </Form.Label>
+                <Form.Control
+                  type="number"
+                  name="quantidade_urgencia"
+                  value={formData.quantidade_urgencia}
+                  onChange={handleInputChange}
+                  className={`input-${theme}`}
+                  placeholder="Digite a quantidade mínima para urgência"
+                  min="0"
+                />
+                <Form.Text className="text-muted">
+                  Quando a quantidade atual chegar neste valor, será exibido um aviso de urgência.
+                </Form.Text>
               </Form.Group>
             </Form>
           </Modal.Body>

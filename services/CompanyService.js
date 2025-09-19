@@ -681,7 +681,9 @@ const updateSchema = async (schema) => {
                         id UUID PRIMARY KEY NOT NULL,
                         item text not null,
                         quantity integer not null,
-                        category uuid references ${schema}.stock_categories(id)
+                        category uuid references ${schema}.stock_categories(id),
+                        atention_quantity integer,
+                        urgent_quantity integer
                         )`)
             
         await pool.query(`alter table ${schema}.messages add column if not exists user_id uuid`)

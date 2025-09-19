@@ -17,9 +17,9 @@ const getAllStockItensController = async (req, res) => {
 }
 
 const insertItemInStockController = async (req, res) => {
-    const {nome, quantidade, categoria, schema} = req.body
+    const {nome, quantidade, categoria, atention_quantity, urgent_quantity, schema} = req.body
     try {
-        const result = await insertItemInStock(nome, quantidade, categoria, schema)
+        const result = await insertItemInStock(nome, quantidade, categoria, atention_quantity, urgent_quantity, schema)
         res.status(200).json({
             success:true,
             data:result
@@ -63,9 +63,9 @@ const alterItemQuantityInStockController = async (req, res) => {
 }
 
 const updateItemInStockController = async (req, res) => {
-    const {item_id, item_name, category, quantity, schema} = req.body
+    const {item_id, item_name, category, quantity, atention_quantity, urgent_quantity, schema} = req.body
     try {
-        const result = await updateItemInStock(item_id, item_name, category, quantity, schema)
+        const result = await updateItemInStock(item_id, item_name, category, quantity, atention_quantity, urgent_quantity, schema)
         res.status(200).json({
             success:true,
             data:result

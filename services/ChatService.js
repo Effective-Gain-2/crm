@@ -10,6 +10,7 @@ const { Message } = require('../entities/Message');
 const { createLembrete } = require('./LembreteService');
 const { getGptResponse } = require('./ReportService');
 const { act } = require('react');
+const { default: axios } = require('axios');
 
 const bullConn = createRedisConnection()
 const messageQueue = new Queue('message', {connection: bullConn});
@@ -733,6 +734,24 @@ const activeBot = async (chat_id, schema) => {
   await pool.query(`UPDATE ${schema}.chats set isboton=true where id=$1`,[chat_id])
 }
 
+const sendApiWhatsappMessage = async (message, number) => {
+  const result = await axios.post('https://graph.facebook.com/v22.0/722737154266393/messages',{
+    messaging_product:'whatsapp',
+    to: number,
+    type:'text',
+    text:{
+      body:message
+    },
+    
+
+  },
+{headers:{
+      Authorization: 'Bearer EAAiJWRJb1lgBPQMYuF0yxKEWxPZCxShZBxxE805cJXl0VqCGHl0ydOOunRtwoXvxNlF6MYIPvXrKQRqvbtS4swoaHSuOTZA5LX6SAqyXobCdL46ZBVjxOHKuiLXEDeyOHmhuqIV4ZAEZCXtX6m1jz5LpNozKf5EOU10uN4h5vKcATe1mNxBHpM2P86qz7wX2k2ZB2x4vM5DcZCURPsaSOlNEnMcZBGN4UDkEzEIHibwTE1AcKey8ZD'
+    }})
+
+    return result
+}
+
 
 
 
@@ -767,5 +786,6 @@ module.exports = {
   getStatus,
   getClosedChats,
   getAverageTimeToClose,
-  activeBot
+  activeBot,
+  sendApiWhatsappMessage
 };

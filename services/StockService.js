@@ -8,8 +8,8 @@ const getAllStockItens = async (schema) => {
     return result.rows 
 }
 
-const insertItemInStock = async (item, quantity, category, schema) => {
-    const result = await pool.query(`INSERT INTO ${schema}.stock (id, item, quantity, category) VALUES ($1, $2, $3, $4) RETURNING *`, [uuidv4(), item, quantity, category])
+const insertItemInStock = async (item, quantity, category, atention_quantity, urgent_quantity, schema) => {
+    const result = await pool.query(`INSERT INTO ${schema}.stock (id, item, quantity, category, atention_quantity, urgent_quantity) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`, [uuidv4(), item, quantity, category, atention_quantity||null, urgent_quantity||null])
     return result.rows[0]
 }
 
@@ -30,8 +30,8 @@ const alterItemQuantityInStock = async (item_id, quantity, isSum, schema) => {
 
 }
 
-const updateItemInStock = async (item_id, item_name, category, quantity, schema) => {
-    const result = await pool.query(`UPDATE ${schema}.stock set item=$1, category=$2, quantity=$3 where id=$4 RETURNING *`,[item_name, category, quantity, item_id])
+const updateItemInStock = async (item_id, item_name, category, quantity, atention_quantity, urgent_quantity, schema) => {
+    const result = await pool.query(`UPDATE ${schema}.stock set item=$1, category=$2, quantity=$3, atention_quantity=$5, urgent_quantity=$6 where id=$4 RETURNING *`,[item_name, category, quantity, item_id, atention_quantity || null, urgent_quantity || null])
     return result.rows[0]
 }
 
