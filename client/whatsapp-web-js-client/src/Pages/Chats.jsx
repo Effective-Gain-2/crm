@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useMemo } from 'react';
+
 import axios from 'axios';
 import EmojiPicker from 'emoji-picker-react';
 import NewContactModal from './modalPages/Chats_novoContato';
@@ -346,6 +348,13 @@ function ChatPage({ theme, chat_id} ) {
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showResumoModal, setShowResumoModal] = useState(false);
+
+  //Use States para filtros
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterNome, setFilterNome] = useState('');
+  const [filterNumero, setFilterNumero] = useState('');
+  const [filterUsuario, setFilterUsuario] = useState('');
+  const [filterData, setFilterData] = useState('');
 
 
   useEffect(() => {
@@ -1619,13 +1628,35 @@ const handleImageUpload = async (event) => {
       .slice(0, 2);
   };
 
+  
   // Função para obter o nome do usuário pelo ID
   const getUserName = (userId) => {
     if (!userId) return null;
-    // Try to find user by id with both string and number comparison
     const user = users.find(u => u.id === userId || u.id === String(userId) || u.id === Number(userId));
     return user ? (user.nome || user.username || user.name) : null;
   };
+  const filteredChats = useMemo(() => {
+    return getFilteredChats().filter(chat => {
+      const nomeOk = filterNome ? (chat.contact_name || '').toLowerCase().includes(filterNome.toLowerCase()) : true;
+      const numeroOk = filterNumero ? (chat.contact_phone || '').includes(filterNumero) : true;
+      const usuarioOk = filterUsuario ? (getUserName(chat.assigned_user || chat.user_id || '') || '') === filterUsuario : true;
+      const dataOk = filterData
+        ? (() => {
+            const created = chat.created_at || chat.timestamp || '';
+            if (!created) return false;
+            const date = new Date(Number(created));
+            const filterDate = new Date(filterData);
+            return (
+              date.getFullYear() === filterDate.getFullYear() &&
+              date.getMonth() === filterDate.getMonth() &&
+              date.getDate() === filterDate.getDate()
+            );
+          })()
+        : true;
+      return nomeOk && numeroOk && usuarioOk && dataOk;
+    });
+  }, [chatList, selectedTab, filtrosAtivos, filterNome, filterNumero, filterUsuario, filterData, users]);
+
 
   // Função para obter o avatar da mensagem
   const getMessageAvatar = (message) => {
@@ -1675,11 +1706,86 @@ const handleImageUpload = async (event) => {
           <i className="bi-plus-lg"></i>
           Novo Contato
         </button>
+  <button
+    className={`btn btn-sm btn-2-${theme} d-flex align-items-center gap-1`}
+    onClick={() => setShowFilter(v => !v)}
+    title="Filtrar chats"
+  >
+    <i className="bi bi-funnel"></i>
+  </button>
+{showFilter && (
+  <div
+    style={{
+      background: `var(--bg-color-${theme})`,
+      border: `1px solid var(--border-color-${theme})`,
+      borderRadius: 8,
+      padding: 12,
+      marginTop: 200,
+      marginLeft:0,
+      marginBottom: 8,
+      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+      zIndex: 100000000,
+    }}
+  >
+    <div className="mb-2">
+      <input
+        className={`form-control form-control-sm input-${theme}`}
+        placeholder="Filtrar por nome"
+        value={filterNome}
+        onChange={e => setFilterNome(e.target.value)}
+      />
+    </div>
+    <div className="mb-2">
+      <input
+        className={`form-control form-control-sm input-${theme}`}
+        placeholder="Filtrar por número"
+        value={filterNumero}
+        onChange={e => setFilterNumero(e.target.value)}
+      />
+    </div>
+
+     <div className={`mb-2 ${userData.role==='user'?'d-none':''}`}>
+       <select
+         className={`form-select form-select-sm input-${theme}`}
+         value={filterUsuario}
+         onChange={e => setFilterUsuario(e.target.value)}
+       >
+         <option value="">Todos os usuários</option>
+         {users.map(user => (
+           <option key={user.id} value={user.nome || user.username || user.name}>
+             {user.nome || user.username || user.name}
+           </option>
+         ))}
+       </select>
+     </div>
+    <div className="mb-2">
+      <input
+        type="date"
+        className={`form-control form-control-sm input-${theme}`}
+        placeholder="Filtrar por data"
+        value={filterData}
+        onChange={e => setFilterData(e.target.value)}
+      />
+    </div>
+    <button
+      className={`btn btn-sm btn-outline-secondary`}
+      onClick={() => {
+        setFilterNome('');
+        setFilterNumero('');
+        setFilterUsuario('');
+        setFilterData('');
+      }}
+    >
+      Limpar filtros
+    </button>
+  </div>
+)}
       </div>
       <div 
         className={`chat chat-${theme} w-100 d-flex flex-row`}
         style={{ height: '100%', overflow: 'hidden' }}
       >
+        
         {/* LISTA DE CONTATOS */}
         <div className={`col-3 chat-list-${theme} bg-color-${theme} d-flex flex-column`}
           style={{ 
@@ -1755,7 +1861,7 @@ const handleImageUpload = async (event) => {
               overflowY: 'auto'
             }}
           >
-            {getFilteredChats().map((chat) => (
+            {filteredChats.map((chat) => (
                 <div className='msg d-flex flex-row' key={chat.id}>
                   <div
                     className={`selectedBar ${selectedChatId === chat.id ? '' : 'd-none'}`}
