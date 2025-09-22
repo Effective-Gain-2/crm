@@ -7,7 +7,7 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { Chat } = require('../entities/Chat');
 const { Message } = require('../entities/Message');
-const { createChat, getChatService, setChatQueue, setUserChat, saveMediaMessage, getChatByUser, setMessageIsUnread, getChatIfUserIsNull, getChatById } = require('../services/ChatService');
+const { createChat, getChatService, setChatQueue, setUserChat, saveMediaMessage, getChatByUser, setMessageIsUnread, getChatIfUserIsNull, getChatById, updateCacheMessages } = require('../services/ChatService');
 const { saveMessage } = require('../services/MessageService');
 const pool = require('../db/queries');
 const { getCurrentTimestamp } = require('../services/getCurrentTimestamp');
@@ -303,7 +303,7 @@ module.exports = (broadcastMessage) => {
           }
           
           if (imageBase64) {
-            await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, 'image', imageBase64, schema);
+            const resultt = await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, 'image', imageBase64, schema);
             messageBody = '[imagem recebida]';
             const payload = {
             chatId: chatDb.id,
@@ -314,7 +314,7 @@ module.exports = (broadcastMessage) => {
             timestamp,
             message_type: result.data.messageType
           };
-
+          await updateCacheMessages(resultt.id, chatDb.id, payload.fromMe, messageBody, timestamp, payload.message_type, payload.midiaBase64 || null, null, null, null)
           if (serverTest.io) {
             // Emitir chats atualizados baseado no status
             if (baseChat.assigned_user !== null) {
@@ -374,7 +374,8 @@ module.exports = (broadcastMessage) => {
             user_id: baseChat.assigned_user,
             status: baseChat.status
           };
-     
+          await updateCacheMessages(result.data.key.id, chatDb.id, payload.fromMe, messageBody, timestamp, payload.message_type, payload.midiaBase64 || null, null, null, null)
+          
       
         if (serverTest.io) {
           // Emitir chats atualizados baseado no status

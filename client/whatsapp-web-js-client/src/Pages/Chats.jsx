@@ -1178,6 +1178,7 @@ useEffect(() => {
     }
 
     try {
+      setNewMessage('');
       await axios.post(`${url}/evo/sendText`, {
         instanceId: selectedChat.connection_id,
         number: selectedChat.contact_phone,
@@ -1190,7 +1191,6 @@ useEffect(() => {
       withCredentials: true
     });
   
-      setNewMessage('');
     } catch (error) {
       console.error('Erro ao enviar a mensagem:', error);
       showError('Erro ao enviar mensagem. Tente novamente.');
@@ -1238,10 +1238,10 @@ const handleImageUpload = async (event) => {
           id: newImageUrl,
           text: null,
           from_me: true,
-          timestamp:  new Date().toISOString(),
+          timestamp:  Date.now(),
           message_type: 'image',
           base64:newImageUrl
-          }
+          };
       if (socketInstance) {
         socketInstance.emit('message', message);
 

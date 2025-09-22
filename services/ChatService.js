@@ -250,11 +250,17 @@ const updateChatMessages = async (chat, schema, message) => {
 };
 
 const getMessages = async(chat_Id, schema)=>{
+  const MessagesCache = await bullConn.get(`getMessages_${chat_Id}`)
+  if(MessagesCache){
+    return JSON.parse(MessagesCache)
+  }else{
     const result = await pool.query(
       `SELECT * FROM ${schema}.messages WHERE chat_id=$1 ORDER BY created_at ASC`,
       [chat_Id]
     );
+    await bullConn.set(`getMessages_${chat_Id}`, JSON.stringify(result.rows))
     return result.rows
+  }
 }
 
 const getChatService = async(chat_id, connection_id, schema)=>{
@@ -742,8 +748,6 @@ const sendApiWhatsappMessage = async (message, number) => {
     text:{
       body:message
     },
-    
-
   },
 {headers:{
       Authorization: 'Bearer EAAiJWRJb1lgBPQMYuF0yxKEWxPZCxShZBxxE805cJXl0VqCGHl0ydOOunRtwoXvxNlF6MYIPvXrKQRqvbtS4swoaHSuOTZA5LX6SAqyXobCdL46ZBVjxOHKuiLXEDeyOHmhuqIV4ZAEZCXtX6m1jz5LpNozKf5EOU10uN4h5vKcATe1mNxBHpM2P86qz7wX2k2ZB2x4vM5DcZCURPsaSOlNEnMcZBGN4UDkEzEIHibwTE1AcKey8ZD'
@@ -752,6 +756,19 @@ const sendApiWhatsappMessage = async (message, number) => {
     return result
 }
 
+
+const updateCacheMessages = async (message_id, chat_id, from_me, text, created_at, message_type, base64, user_id, file_name, mimetype) => {
+  let array = []
+  const MessagesCache = await bullConn.get(`getMessages_${chat_id}`)
+  if(!MessagesCache) return
+  array = JSON.parse(MessagesCache)
+  array.push({"id":message_id,"body":text,"from_me":from_me,"chat_id":chat_id,"created_at":created_at,"message_type":message_type || null,"base64":base64 || null,"isquoted":null,"quote_id":null,"user_id":user_id || null,"filename":file_name || null,"mimetype":mimetype || null})
+  await bullConn.set(`getMessages_${chat_id}`, JSON.stringify(array))
+}
+
+const deleteCacheMessages = async (chat_id) => {
+  await bullConn.del(`getMessages_${chat_id}`)
+}
 
 
 
@@ -787,5 +804,7 @@ module.exports = {
   getClosedChats,
   getAverageTimeToClose,
   activeBot,
-  sendApiWhatsappMessage
+  sendApiWhatsappMessage,
+  updateCacheMessages,
+  deleteCacheMessages
 };

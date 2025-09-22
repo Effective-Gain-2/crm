@@ -1,10 +1,10 @@
 const { generateQrCode, getConnectionHealth } = require("./requests/evolution");
-const { sendApiWhatsappMessage } = require("./services/ChatService");
+const { sendApiWhatsappMessage, addTestMessage } = require("./services/ChatService");
 const { replacePlaceholders } = require("./services/MessageBlast");
 const { messageAnAssistant, runOpenAi, getAssistantReply, listRuns, cancelRun } = require("./services/OpenAi");
 
 const test = async () => {
-    const result = await sendApiWhatsappMessage('teste', '+55(75988040003')
+    const result = await addTestMessage('38c77f3c-263a-4a6e-9fc0-b59b0316a7b8', 'BLZ')
     console.log(result)
 };
 

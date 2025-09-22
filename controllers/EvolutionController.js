@@ -5,6 +5,7 @@ const { createConnection, fetchInstance, searchConnById } = require('../services
 const { saveMessage } = require('../services/MessageService');
 const { Message } = require('../entities/Message');
 const { getCurrentTimestamp } = require('../services/getCurrentTimestamp');
+const { updateCacheMessages } = require('../services/ChatService');
 
 const createInstanceController = async (req, res) => {
     try {
@@ -86,7 +87,7 @@ const sendTextMessageController = async (req, res) => {
             body.replyTo || null,
             body.replyTo ? true : false
         );
-
+        await updateCacheMessages(result.key.id, chatId, result.key.fromMe, body.text, getCurrentTimestamp(),'conversation', null, user_id, null, null)
         message.isQuoted = body.replyTo ? true : false;
 
         if (body.replyTo) {

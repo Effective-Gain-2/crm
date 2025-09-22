@@ -1,5 +1,5 @@
 
-const { setUserChat, getChats, getMessages, getChatData, getChatByUser, updateQueue, getChatById, saveMediaMessage, setMessageAsRead, closeChat, setSpecificUser, scheduleMessage, getScheduledMessages, deleteScheduledMessage, disableBot, closeChatContact, createStatus, getStatus, getClosedChats, getAverageTimeToClose, activeBot } = require('../services/ChatService');
+const { setUserChat, getChats, getMessages, getChatData, getChatByUser, updateQueue, getChatById, saveMediaMessage, setMessageAsRead, closeChat, setSpecificUser, scheduleMessage, getScheduledMessages, deleteScheduledMessage, disableBot, closeChatContact, createStatus, getStatus, getClosedChats, getAverageTimeToClose, activeBot, deleteCacheMessages, updateCacheMessages } = require('../services/ChatService');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
@@ -12,6 +12,7 @@ const { sendAudioToWhatsApp } = require('../requests/evolution');
 const { searchConnById } = require('../services/ConnectionService');
 const { getCurrentTimestamp } = require('../services/getCurrentTimestamp');
 const { getAllUsers } = require('../services/UserService');
+const { chat } = require('googleapis/build/src/apis/chat');
 
 const bullConn = createRedisConnection();
 const closeChatQueue = new Queue('closeQueue', { connection: bullConn });
@@ -20,6 +21,7 @@ new Worker('closeQueue', async (job) => {
   const { chat_id, status, schema } = job.data;
   try { 
     await closeChatContact(chat_id, status, schema);
+    await deleteCacheMessages(chat_id)
     } catch (error) {
     console.error('Erro ao processar o fechamento do chat:', error);
   }
@@ -99,6 +101,7 @@ const sendImageController = async (req, res) => {
     const evolutionResponse = await sendImageToWhatsApp(chat_id.contact_phone, imageBase64, instanceId.name);
     
     await saveMediaMessage(evolutionResponse.key.id, 'true', chatId, getCurrentTimestamp(), 'image', imageBase64, schema);
+    await updateCacheMessages(evolutionResponse.key.id, chatId, evolutionResponse.key.fromMe, null, getCurrentTimestamp(),'image', imageBase64, null, null, null)
     
     res.status(200).json({ success: true, message: 'Imagem processada e enviada com sucesso', evolutionResponse });
   } catch (error) {
