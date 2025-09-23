@@ -1314,7 +1314,7 @@ const handleImageUpload = async (event) => {
               id: audioBlob,
               text: null,
               from_me: true,
-              timestamp:  new Date().toISOString(),
+              timestamp:  Date.now(),
               message_type: 'audio',
               base64:newAudioUrl
             }
@@ -1637,6 +1637,7 @@ const handleImageUpload = async (event) => {
   };
   const filteredChats = useMemo(() => {
     return getFilteredChats().filter(chat => {
+      console.log(chat);
       const nomeOk = filterNome ? (chat.contact_name || '').toLowerCase().includes(filterNome.toLowerCase()) : true;
       const numeroOk = filterNumero ? (chat.contact_phone || '').includes(filterNumero) : true;
       const usuarioOk = filterUsuario ? (getUserName(chat.assigned_user || chat.user_id || '') || '') === filterUsuario : true;

@@ -281,6 +281,7 @@ module.exports = (broadcastMessage) => {
             schema: schema
           };
           serverTest.io.to(`schema_${schema}`).emit('message', messagePayload);
+          await updateCacheMessages(result.data.key.id, chatDb.id, payload.fromMe, messageBody, timestamp, payload.message_type, payload.base64 || null, null, null, null)
         }
           await chatQueue.add('message', payload, { removeOnComplete: true });
           } else {
@@ -304,7 +305,7 @@ module.exports = (broadcastMessage) => {
           
           if (imageBase64) {
             const resultt = await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, 'image', imageBase64, schema);
-            messageBody = '[imagem recebida]';
+            messageBody = result.data.message.imageMessage.caption;
             const payload = {
             chatId: chatDb.id,
             body: messageBody,
@@ -314,7 +315,7 @@ module.exports = (broadcastMessage) => {
             timestamp,
             message_type: result.data.messageType
           };
-          await updateCacheMessages(resultt.id, chatDb.id, payload.fromMe, messageBody, timestamp, payload.message_type, payload.midiaBase64 || null, null, null, null)
+          await updateCacheMessages(resultt.id, chatDb.id, payload.fromMe, result.data.message.imageMessage.caption || null, timestamp, payload.message_type, payload.midiaBase64 || null, null, null, null)
           if (serverTest.io) {
             // Emitir chats atualizados baseado no status
             if (baseChat.assigned_user !== null) {
@@ -464,6 +465,8 @@ module.exports = (broadcastMessage) => {
           
           // Salvar com informações adicionais
           await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, 'document', documentBase64, schema, filename, mimetype);
+          await updateCacheMessages(result.data.key.id, chatDb.id, result.data.key.fromMe, messageBody, timestamp, 'document', documentBase64 || null, null, filename, mimetype);
+
         }
       }
 

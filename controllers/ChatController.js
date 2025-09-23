@@ -216,7 +216,7 @@ const getChatDataController = async (req, res) => {
 
 const getChatByUserController = async (req, res) => {
   const { userId, role} = req.params;
-  const schema = req.params.schema || 'effective_gain';
+  const schema = req.params.schema;
 
   if (!userId) {
     return res.status(400).json({ error: 'O parâmetro userId é obrigatório.' });
@@ -269,6 +269,8 @@ const sendAudioController = async (req, res) => {
     const evolutionResponse = await sendAudioToWhatsApp(chat_id.contact_phone, audioBase64, instanceId.name);
 
     await saveMediaMessage(evolutionResponse.key.id, 'true', chatId, getCurrentTimestamp(), 'audio', audioBase64, schema);
+    await updateCacheMessages(evolutionResponse.key.id, chatId, evolutionResponse.key.fromMe, null, getCurrentTimestamp(),'audio', audioBase64, null, null, null)
+
 
     res.status(200).json({ success: true, message: 'Áudio processado e enviado com sucesso', evolutionResponse });
   } catch (error) {
