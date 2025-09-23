@@ -1706,13 +1706,13 @@ const handleImageUpload = async (event) => {
           <i className="bi-plus-lg"></i>
           Novo Contato
         </button>
-  <button
-    className={`btn btn-sm btn-2-${theme} d-flex align-items-center gap-1`}
-    onClick={() => setShowFilter(v => !v)}
-    title="Filtrar chats"
-  >
-    <i className="bi bi-funnel"></i>
-  </button>
+    <button
+      className={`btn btn-sm btn-2-${theme} d-flex align-items-center gap-1`}
+      onClick={() => setShowFilter(v => !v)}
+      title="Filtrar chats"
+    >
+      <i class="bi bi-filter"></i>
+    </button>
 {showFilter && (
   <div
     style={{

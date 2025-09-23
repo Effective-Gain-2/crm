@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useMemo } from 'react';
+
 import NovoFunilModal from './modalPages/Kanban_novoFunil';
 import GerirEtapaModal from './modalPages/Kanban_gerirEtapa';
 import { Dropdown } from 'react-bootstrap';
@@ -194,6 +196,14 @@ function KanbanPage({ theme }) {
   const [selectedCustomField, setSelectedCustomField] = useState(null);
   const [customFieldColor, setCustomFieldColor] = useState('#007bff');
 
+
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterNome, setFilterNome] = useState('');
+  const [filterNumero, setFilterNumero] = useState('');
+  
+
+
+
   // Restaurar funil selecionado das preferências
   useEffect(() => {
     if (preferences.kanbanFunnel && funis.includes(preferences.kanbanFunnel)) {
@@ -349,6 +359,15 @@ function KanbanPage({ theme }) {
       console.error('Erro ao buscar contatos do kanban:', error);
     }
   };
+
+
+  const filteredContacts = useMemo(()=>{
+    return cards.filter(contact =>{
+      const nomeOk = filterNome?(contact.contact_name || '').toLowerCase().includes(filterNome.toLowerCase()):true
+      const numeroOk = filterNumero?(contact.number || '').toLowerCase().includes(filterNumero.toLowerCase()):true
+      return nomeOk && numeroOk
+    })
+  }, [cards, filterNome, filterNumero])
 
   // Adiciona/remover listeners globais para mousemove/mouseup
   useEffect(() => {
@@ -712,6 +731,58 @@ useEffect(() => {
   ))}
 </select>
             </div>
+            <div>
+
+
+  <button
+    className={`btn btn-sm btn-2-${theme} d-flex align-items-center gap-1`}
+    onClick={() => setShowFilter(v => !v)}
+    title="Filtrar contatos"
+  >
+    <i class="bi bi-filter"></i>
+  </button>
+  {showFilter && (
+  <div
+    style={{
+      background: `var(--bg-color-${theme})`,
+      border: `1px solid var(--border-color-${theme})`,
+      borderRadius: 8,
+      padding: 12,
+      position: 'absolute',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+      zIndex: 100000000,
+    }}
+  >
+    <div className="mb-2">
+      <input
+        className={`form-control form-control-sm input-${theme}`}
+        placeholder="Filtrar por nome"
+        value={filterNome}
+        onChange={e => setFilterNome(e.target.value)}
+      />
+    </div>
+    <div className="mb-2">
+      <input
+        className={`form-control form-control-sm input-${theme}`}
+        placeholder="Filtrar por número"
+        value={filterNumero}
+        onChange={e => setFilterNumero(e.target.value)}
+      />
+    </div>
+
+    <button
+      className={`btn btn-sm btn-outline-secondary`}
+      onClick={() => {
+        setFilterNome('');
+        setFilterNumero('');
+        
+      }}
+    >
+      Limpar filtros
+    </button>
+  </div>
+)}
+            </div>
 
             <button className={`btn btn-1-${theme}`} style={{ minWidth: 140 }} onClick={() => setShowNovoFunilModal(true)}>
                 <i className="bi bi-funnel me-2"></i>Novo Funil
@@ -894,7 +965,7 @@ useEffect(() => {
                       overflowY: 'auto',
                     }}>
                       {/* Renderizando os leads filtrados */}
-                      {(cards.filter(lead => lead.etapa_id === etapa.id) || []).map(lead => (
+                      {(filteredContacts.filter(lead => lead.etapa_id === etapa.id) || []).map(lead => (
                         <div key={lead.number} className={`kanban-card card-${theme} border border-${theme} mb-2 py-2 px-3`}
                           draggable
                           onDragStart={() => onDragStart(lead)}
