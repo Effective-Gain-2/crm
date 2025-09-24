@@ -1057,7 +1057,7 @@ useEffect(() => {
     useLayoutEffect(() => {
       if (!containerRef.current) return;
 
-      const source = audioSrc.startsWith('blob:') ? audioSrc : `data:audio/ogg;base64,${audioSrc}`;
+      const source = audioSrc && audioSrc.startsWith('blob:') ? audioSrc : `data:audio/ogg;base64,${audioSrc}`;
 
       const ws = WaveSurfer.create({
         container: containerRef.current,
@@ -1381,7 +1381,7 @@ const handleImageUpload = async (event) => {
   const handleQuickMsgClick = useCallback((msg, comando) => {
     const messageWithPlaceholders = replacePlaceholders(msg, selectedChat);
     setNewMessage(prev => {
-      if (prev.startsWith('/')) {
+      if (prev && prev.startsWith('/')) {
         // Substitui o comando digitado (da barra até espaço ou fim) pela mensagem
         return prev.replace(/^\/[^\s]*/, messageWithPlaceholders);
       }
@@ -1426,7 +1426,7 @@ const handleImageUpload = async (event) => {
   const [searchInputRef, setSearchInputRef] = useState(null);
   const [originalStyles, setOriginalStyles] = useState({});
 
-  const quickMsgFilter = newMessage.startsWith('/') ? newMessage.slice(1).toLowerCase() : '';
+  const quickMsgFilter = newMessage && newMessage.startsWith('/') ? newMessage.slice(1).toLowerCase() : '';
   const quickMsgFiltered = quickMsgFilter
     ? quickMsgList.filter(opt => opt.comando.slice(1).toLowerCase().includes(quickMsgFilter))
     : quickMsgList;
@@ -2302,7 +2302,7 @@ const handleImageUpload = async (event) => {
                   <img
                     src={
                       typeof msg.base64 === 'string'
-                        ? msg.base64.startsWith('blob:')
+                        ? msg.base64 && msg.base64.startsWith('blob:')
                           ? msg.base64
                           : `data:image/jpeg;base64,${msg.base64}`
                         : msg.base64
@@ -2349,15 +2349,15 @@ const handleImageUpload = async (event) => {
                     }
                   }
                   
-                  if (!mime && b64 && b64.startsWith('data:')) {
+                  if (!mime && b64 && b64.startsWith && b64.startsWith('data:')) {
                     const m = b64.match(/^data:([^;]+);base64,/);
                     if (m && m[1]) mime = m[1];
                   }
                   
                   let url = '';
                   if (b64 && b64 !== 'presente') {
-                    if (b64.startsWith('blob:') || b64.startsWith('http')) url = b64;
-                    else if (b64.startsWith('data:')) url = b64;
+                    if (b64.startsWith && (b64.startsWith('blob:') || b64.startsWith('http'))) url = b64;
+                    else if (b64.startsWith && b64.startsWith('data:')) url = b64;
                     else url = `data:${mime};base64,${b64}`;
                   }
                   
@@ -2762,14 +2762,14 @@ const handleImageUpload = async (event) => {
         value={isRecording ? '' : newMessage}
         onChange={e => {
           setNewMessage(e.target.value);
-          if (e.target.value.startsWith('/') && !showQuickMsgPopover) {
+          if (e.target.value && e.target.value.startsWith('/') && !showQuickMsgPopover) {
             setShowQuickMsgPopover(true);
-          } else if (!e.target.value.startsWith('/') && showQuickMsgPopover) {
+          } else if (!e.target.value || !e.target.value.startsWith('/') && showQuickMsgPopover) {
             setShowQuickMsgPopover(false);
           }
         }}
         onFocus={e => {
-          if (e.target.value.startsWith('/')) {
+          if (e.target.value && e.target.value.startsWith('/')) {
             setShowQuickMsgPopover(true);
           }
         }}
