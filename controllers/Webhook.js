@@ -181,7 +181,9 @@ module.exports = (broadcastMessage) => {
       let messageBody = '';
       let audioBase64 = null;
       let imageBase64 = null;
-      
+      let payload = null;
+      let midiaType = null;
+
       const createChats = await createChat(chat, result.instance, result.data.message.conversation, null, null);
       const chatDb = await getChatService(createChats.chat.id, createChats.chat.connection_id, createChats.schema);
       const schema = createChats.schema
@@ -195,6 +197,8 @@ module.exports = (broadcastMessage) => {
         await setMessageIsUnread(baseChat.id, schema)
         await updateChatStatusFromDisparo(baseChat.id, schema)
       }
+
+      //Emitindo os chats para os admins / tecnicos
       if (baseChat.assigned_user !== null) {
         const userChat = await getChatByUser(baseChat.assigned_user, baseChat.permission, schema)
         if (serverTest.io) {
@@ -218,259 +222,51 @@ module.exports = (broadcastMessage) => {
       } else {
         await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
       }
-
-      if (result.data.message?.conversation) {
-      } else if (result.data.message?.audioMessage) {
-        try {
-          if (result.data.message.audioMessage.base64) {
-            audioBase64 = result.data.message.audioMessage.base64;
-          } else if (result.data.message.audioMessage.url) {
-            const audioResponse = await axios.get(result.data.message.audioMessage.url, {
-              responseType: 'arraybuffer',
-            });
-            audioBase64 = Buffer.from(audioResponse.data).toString('base64');
-          }
-
-          if (audioBase64) {
-            const base64Formatado = await getBase64FromMediaMessage(result.instance, result.data.key.id)
-            await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, 'audio', base64Formatado.base64, schema);
-
-           messageBody = '[áudio recebido]';
-           const payload = {
-            chatId: chatDb.id,
-            body: messageBody,
-            midiaBase64: base64Formatado.base64,
-            fromMe: result.data.key.fromMe,
-            from: result.data.pushName,
-            timestamp,
-            message_type: result.data.messageType
-          };
-          if (serverTest.io) {
-          // Emitir chats atualizados baseado no status
-          if (baseChat.assigned_user !== null) {
-            const userChat = await getChatByUser(baseChat.assigned_user, baseChat.permission, schema)
-            serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', userChat)
-            
-            // Emitir para admins e técnicos
-            const adminUsersQuery = await pool.query(
-              `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico') AND online = true AND id != $1`,
-              [baseChat.assigned_user]
-            );
-            
-            if (adminUsersQuery.rowCount > 0) {
-              const adminUsers = adminUsersQuery.rows.map(row => row.id);
-              for (const adminId of adminUsers) {
-                const adminChats = await getChatByUser(adminId, 'admin', schema);
-                if (adminChats && adminChats.length > 0) {
-                  serverTest.io.to(`user_${adminId}`).emit('chats_updated', adminChats);
-                }
-              }
-            }
-          } else {
-            await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
-          }
-          const messagePayload = {
-            chatId: chatDb.id,
-            fromMe: result.data.key.fromMe,
-            from: result.data.pushName,
-            timestamp,
-            message_type: result.data.messageType,
-            user_id: baseChat.assigned_user,
-            base64: base64Formatado.base64,
-            status: baseChat.status,
-            schema: schema
-          };
-          serverTest.io.to(`schema_${schema}`).emit('message', messagePayload);
-          await updateCacheMessages(result.data.key.id, chatDb.id, payload.fromMe, messageBody, timestamp, payload.message_type, payload.base64 || null, null, null, null)
-        }
-          await chatQueue.add('message', payload, { removeOnComplete: true });
-          } else {
-            throw new Error('Áudio não encontrado ou não processado.');
-          }
-        } catch (err) {
-          console.error('Erro ao processar áudio:', err);
-          messageBody = '[erro ao processar áudio]';
-        }
-      }
-
-      if (result.data.message?.imageMessage) {
-        try {
-          let imageBase64 = null;
-
-          // Se não conseguiu pela URL, tenta via API
-          if (!imageBase64) {
-            const base64Formatado = await getBase64FromMediaMessage(result.instance, result.data.key.id)
-            imageBase64 = base64Formatado.base64;
-          }
-          
-          if (imageBase64) {
-            const resultt = await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, 'image', imageBase64, schema);
-            messageBody = result.data.message.imageMessage.caption;
-            const payload = {
-            chatId: chatDb.id,
-            body: messageBody,
-            midiaBase64: imageBase64,
-            fromMe: result.data.key.fromMe,
-            from: result.data.pushName,
-            timestamp,
-            message_type: result.data.messageType
-          };
-          await updateCacheMessages(resultt.id, chatDb.id, payload.fromMe, result.data.message.imageMessage.caption || null, timestamp, payload.message_type, payload.midiaBase64 || null, null, null, null)
-          if (serverTest.io) {
-            // Emitir chats atualizados baseado no status
-            if (baseChat.assigned_user !== null) {
-              const userChat = await getChatByUser(baseChat.assigned_user, baseChat.permission, schema)
-              serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', userChat)
-              
-              // Emitir para admins e técnicos
-              const adminUsersQuery = await pool.query(
-                `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico') AND online = true AND id != $1`,
-                [baseChat.assigned_user]
-              );
-              
-              if (adminUsersQuery.rowCount > 0) {
-                const adminUsers = adminUsersQuery.rows.map(row => row.id);
-                for (const adminId of adminUsers) {
-                  const adminChats = await getChatByUser(adminId, 'admin', schema);
-                  if (adminChats && adminChats.length > 0) {
-                    serverTest.io.to(`user_${adminId}`).emit('chats_updated', adminChats);
-                  }
-                }
-              }
-            } else {
-              await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
-            }
-            const messagePayload = {
-              chatId: chatDb.id,
-              fromMe: result.data.key.fromMe,
-              from: result.data.pushName,
-              timestamp,
-              message_type: result.data.messageType,
-              user_id: baseChat.assigned_user,
-              base64: imageBase64,
-              status: baseChat.status,
-              schema: schema
-            };
-            serverTest.io.to(`schema_${schema}`).emit('message', messagePayload);
-          }
-
-          await chatQueue.add('message', payload, { removeOnComplete: true });
-          } else {
-            throw new Error('Imagem não encontrada ou não processada.');
-          }
-        } catch (err) {
-          console.error('Erro ao processar imagem:', err);
-          messageBody = '[erro ao processar imagem]';
-        }
-      }
-      if(result.data.messageType==='conversation'){
+      if (result.data.message.conversation) {
+        // Mensagem de texto
         messageBody = result.data.message.conversation;
-        const payload = {
-            chatId: chatDb.id,
-            body: messageBody,
-            fromMe: result.data.key.fromMe,
-            from: result.data.pushName,
-            timestamp,
-            message_type: result.data.messageType,
-            user_id: baseChat.assigned_user,
-            status: baseChat.status
-          };
-          await updateCacheMessages(result.data.key.id, chatDb.id, payload.fromMe, messageBody, timestamp, payload.message_type, payload.midiaBase64 || null, null, null, null)
-          
-      
-        if (serverTest.io) {
-          // Emitir chats atualizados baseado no status
-          if (baseChat.assigned_user !== null) {
-            const userChat = await getChatByUser(baseChat.assigned_user, baseChat.permission, schema)
-            serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', userChat)
-            
-            // Emitir para admins e técnicos
-            const adminUsersQuery = await pool.query(
-              `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico') AND online = true AND id != $1`,
-              [baseChat.assigned_user]
-            );
-            
-            if (adminUsersQuery.rowCount > 0) {
-              const adminUsers = adminUsersQuery.rows.map(row => row.id);
-              for (const adminId of adminUsers) {
-                const adminChats = await getChatByUser(adminId, 'admin', schema);
-                if (adminChats && adminChats.length > 0) {
-                  serverTest.io.to(`user_${adminId}`).emit('chats_updated', adminChats);
-                }
-              }
-            }
-          } else {
-            await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
-          }
-          const messagePayload = {
-            chatId: chatDb.id,
-            body: messageBody,
-            fromMe: result.data.key.fromMe,
-            from: result.data.pushName,
-            timestamp,
-            message_type: result.data.messageType,
-            user_id: baseChat.assigned_user,
-            status: baseChat.status,
-            schema: schema
-          };
-          serverTest.io.to(`schema_${schema}`).emit('message', messagePayload);
+      } else if (result.data.message.audioMessage) {
+        // Mensagem de áudio
+        if (result.data.message.audioMessage.base64) {
+          audioBase64 = result.data.message.audioMessage.base64;
+        } else if (result.data.message.audioMessage.url) {
+          const audioResponse = await axios.get(result.data.message.audioMessage.url, {
+            responseType: 'arraybuffer',
+          });
+          audioBase64 = Buffer.from(audioResponse.data).toString('base64');
         }
-      
-        await chatQueue.add('message', payload, { removeOnComplete: true });
-        
-        const queue = await getQueueById(baseChat.queue_id, schema)
-        if(queue[0].stage_id){
-          await updateContactInKanban(baseChat.contact_phone, queue[0].stage_id, schema)
-        }
-        if(queue[0].assistant_id){
-        if(baseChat.isboton==='on' || baseChat.isboton===true || baseChat.botchating===true){
-            const assistant_id = queue[0].assistant_id
-            if(!baseChat.thread_id){
-              await createThread(payload.body, assistant_id, baseChat.id, schema)
-            }else{
-              const resposta = await getAssistantReply(baseChat.thread_id, payload.body, assistant_id, baseChat.id, schema)
-              if(resposta){
-                // Verificar se a resposta é uma função executada
-                if(typeof resposta === 'object' && resposta.functionName && resposta.executed) {
-                  // Função já foi executada, não enviar mensagem
-                  console.log(`Função ${resposta.functionName} executada com sucesso`);
-                } else if(typeof resposta === 'string') {
-                  // Resposta normal de texto, enviar mensagem
-                  await sendTextMessage(result.instance, resposta, baseChat.contact_phone)
-                  await saveMessage(baseChat.id, new Message(uuidv4(), resposta, true, baseChat.id, getCurrentTimestamp()), schema, null)
-                }
-              }
-            }
-          }
+        audioBase64 = await getBase64FromMediaMessage(result.instance, result.data.key.id);
+        midiaType = 'audio';
+      } else if (result.data.message.imageMessage) {
+        // Mensagem de imagem
+        imageBase64 = await getBase64FromMediaMessage(result.instance, result.data.key.id);
+        midiaType = 'image';
+        messageBody = result.data.message.imageMessage.caption ? result.data.message.imageMessage.caption : null;
       }
+    payload = {
+      chatId: baseChat.id,
+      body: messageBody || null,
+      midiaBase64: imageBase64 || audioBase64 || null,
+      fromMe: result.data.key.fromMe,
+      from: result.data.pushName,
+      timestamp,
+      message_type: result.data.messageType
+    }
+
+
+    console.log(messageBody)
+    payload.midiaBase64 ? await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, midiaType, payload.midiaBase64, schema):null
+    await updateCacheMessages(result.data.key.id, baseChat.id, payload.fromMe, messageBody || null, timestamp, midiaType, payload.midiaBase64 || null, null, null, null)
+    if(serverTest.io){
+      if(baseChat.assigned_user){
+        const userChat = await getChatByUser(baseChat.assigned_user, baseChat.permission, schema)
+        serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', userChat)
+      }else{
+        await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
       }
-      if (!chat || !result.instance) {
-        throw new Error('Dados obrigatórios ausentes para createChat');
-      }
+    }
 
-      
-      if(result.data.message.messageType === 'documentMessage' || result.data.message.documentMessage || result.data.messageType === 'documentMessage' || result.data.messageType === 'document'){
-        let documentBase64 = null
-        let documentInfo = null
-        const base64Formatado = await getBase64FromMediaMessage(result.instance, result.data.key.id)
-        documentBase64 = base64Formatado.base64;
-        documentInfo = base64Formatado;
-        
-
-        if(documentBase64){
-          // Extrair informações do documento
-          const filename = documentInfo.fileName || documentInfo.filename || documentInfo.name || 'documento';
-          const mimetype = documentInfo.mimetype || documentInfo.mimeType || documentInfo.type || 'application/octet-stream';
-          
-          
-          // Salvar com informações adicionais
-          await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, 'document', documentBase64, schema, filename, mimetype);
-          await updateCacheMessages(result.data.key.id, chatDb.id, result.data.key.fromMe, messageBody, timestamp, 'document', documentBase64 || null, null, filename, mimetype);
-
-        }
-      }
-
-      const existingMessage = await pool.query(
+    const existingMessage = await pool.query(
         `SELECT id FROM ${schema}.messages WHERE id = $1`,
         [result.data.key.id]
       );
@@ -510,7 +306,34 @@ module.exports = (broadcastMessage) => {
           console.error(error);
         }
       }
+      await chatQueue.add('new_message', data)
 
+    
+      if (!chat || !result.instance) {
+        throw new Error('Dados obrigatórios ausentes para createChat');
+      }
+
+      
+      if(result.data.message.messageType === 'documentMessage' || result.data.message.documentMessage || result.data.messageType === 'documentMessage' || result.data.messageType === 'document'){
+        let documentBase64 = null
+        let documentInfo = null
+        const base64Formatado = await getBase64FromMediaMessage(result.instance, result.data.key.id)
+        documentBase64 = base64Formatado.base64;
+        documentInfo = base64Formatado;
+        
+
+        if(documentBase64){
+          // Extrair informações do documento
+          const filename = documentInfo.fileName || documentInfo.filename || documentInfo.name || 'documento';
+          const mimetype = documentInfo.mimetype || documentInfo.mimeType || documentInfo.type || 'application/octet-stream';
+          
+          
+          // Salvar com informações adicionais
+          await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, 'document', documentBase64, schema, filename, mimetype);
+          await updateCacheMessages(result.data.key.id, chatDb.id, result.data.key.fromMe, messageBody, timestamp, 'document', documentBase64 || null, null, filename, mimetype);
+
+        }
+      }
 
       res.status(200).json({ result });
 
