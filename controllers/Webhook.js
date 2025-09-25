@@ -145,6 +145,35 @@ module.exports = (broadcastMessage) => {
       console.error(error)
     }
   }, {connection: bullConn})
+  const gptQueue = new Queue('gpt', {connection: bullConn });
+  
+  new Worker('gpt', async(job)=>{
+    try {
+      const resposta = job.data.thread_id?await getAssistantReply(job.data.thread_id, job.data.body, job.data.assistant_id, job.data.chat_id, job.data.schema):await createThread(job.data.body, job.data.assistant_id, job.data.chat_id, job.data.schema)
+      if(resposta){
+        if(typeof resposta === 'object' && resposta.functionName && resposta.executed) {
+        } else if(typeof resposta === 'string') {
+          const message = new Message(uuidv4(), resposta, true, job.data.chat_id, getCurrentTimestamp());
+          await sendTextMessage(job.data.instance, resposta, job.data.number)
+          await saveMessage(job.data.chat_id, message, job.data.schema, null)
+          await updateCacheMessages(message.id, job.data.chat_id, message.fromMe, message.message, getCurrentTimestamp(), null, null, null, null, null)
+          if(serverTest.io){
+            serverTest.io.to(`schema_${job.data.schema}`).emit('message', {
+              chatId: job.data.chat_id,
+              body: resposta,
+              fromMe: true,
+              timestamp: getCurrentTimestamp(),
+              user_id: job.data.user_id || null,
+              status: job.data.status || null,
+              schema: job.data.schema || null
+            })
+            }
+        }
+        }
+    } catch (error) {
+      console.error(error)
+    }
+  }, {connection: bullConn})
 
   app.post('/chat', async (req, res) => {
     const result = req.body;
@@ -197,16 +226,17 @@ module.exports = (broadcastMessage) => {
       }
 
       const baseChat = await getChatService(createChats.chat.id, createChats.chat.connection_id, createChats.schema)
+      console.log('BC',baseChat)
       if(result.data.key.fromMe===false){
         await setMessageIsUnread(baseChat.id, schema)
         await updateChatStatusFromDisparo(baseChat.id, schema)
       }
 
-      //Emitindo os chats para os admins / tecnicos
+      //Emitindo apenas o chat específico que foi atualizado
       if (baseChat.assigned_user !== null) {
-        const userChat = await getChatByUser(baseChat.assigned_user, baseChat.permission, schema)
         if (serverTest.io) {
-          serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', userChat)
+          // Envia apenas o chat específico que foi atualizado, não todos os chats do usuário
+          serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', baseChat)
           
           const adminUsersQuery = await pool.query(
             `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico') AND online = true AND id != $1`,
@@ -216,10 +246,8 @@ module.exports = (broadcastMessage) => {
           if (adminUsersQuery.rowCount > 0) {
             const adminUsers = adminUsersQuery.rows.map(row => row.id);
             for (const adminId of adminUsers) {
-              const adminChats = await getChatByUser(adminId, 'admin', schema);
-              if (adminChats && adminChats.length > 0) {
-                serverTest.io.to(`user_${adminId}`).emit('chats_updated', adminChats);
-              }
+              // Para admins, também envia apenas o chat específico
+              serverTest.io.to(`user_${adminId}`).emit('chats_updated', baseChat);
             }
           }
         }
@@ -276,8 +304,8 @@ module.exports = (broadcastMessage) => {
     await updateCacheMessages(result.data.key.id, baseChat.id, payload.fromMe, messageBody || null, timestamp, midiaType, payload.midiaBase64 || null, null, payload.fileName || null, payload.mimeType || null, schema)
     if(serverTest.io){
       if(baseChat.assigned_user){
-        const userChat = await getChatByUser(baseChat.assigned_user, baseChat.permission, schema)
-        serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', userChat)
+        // Envia apenas o chat específico que foi atualizado
+        serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', baseChat)
       }else{
         await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
       }
@@ -327,6 +355,15 @@ module.exports = (broadcastMessage) => {
       }
       await chatQueue.add('new_message', data)
 
+      queueById[0].assistant_id && baseChat.isboton?await gptQueue.add('gpt', {
+        chat_id: baseChat.id,
+        thread_id: baseChat.thread_id || null,
+        body: messageBody,
+        assistant_id: queueById[0].assistant_id,
+        instance: result.instance,
+        number: numberLimpo,
+        schema: schema
+      }):null
     
       if (!chat || !result.instance) {
         throw new Error('Dados obrigatórios ausentes para createChat');

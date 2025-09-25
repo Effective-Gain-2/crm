@@ -145,6 +145,7 @@ const createChat = async (chat, instance, message, etapa, io) => {
     }
 
     if (io) {
+      console.log('entrou IO')
       io.to(schema).emit("chat:new-message", {
         chatId: chat.getChatId(),
         message,
@@ -238,9 +239,10 @@ const updateChatMessages = async (chat, schema, message) => {
     const result = await pool.query(
       `UPDATE ${schema}.chats 
        SET messages = messages || $1::jsonb, updated_time=$2
-       WHERE chat_id = $3 
+       WHERE chat_id = $3
+       and connection_id = $4
        RETURNING *`,
-      [JSON.stringify([message]), getCurrentTimestamp(), chat.getChatId()]
+      [JSON.stringify([message]), getCurrentTimestamp(), chat.getChatId(), chat.getConnectionId()]
     );
     return result.rows[0];
   } catch (error) {
