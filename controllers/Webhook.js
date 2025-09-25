@@ -183,6 +183,10 @@ module.exports = (broadcastMessage) => {
       let imageBase64 = null;
       let payload = null;
       let midiaType = null;
+      let documentBase64 = null;
+      let documentInfo = null;
+      let fileName = null
+      let mimeType = null
 
       const createChats = await createChat(chat, result.instance, result.data.message.conversation, null, null);
       const chatDb = await getChatService(createChats.chat.id, createChats.chat.connection_id, createChats.schema);
@@ -236,27 +240,40 @@ module.exports = (broadcastMessage) => {
           audioBase64 = Buffer.from(audioResponse.data).toString('base64');
         }
         audioBase64 = await getBase64FromMediaMessage(result.instance, result.data.key.id);
+        audioBase64 = audioBase64.base64
         midiaType = 'audio';
-      } else if (result.data.message.imageMessage) {
-        // Mensagem de imagem
+      }else if (result.data.message.imageMessage) {
+        // Mensagem com imagem
         imageBase64 = await getBase64FromMediaMessage(result.instance, result.data.key.id);
         midiaType = 'image';
         messageBody = result.data.message.imageMessage.caption ? result.data.message.imageMessage.caption : null;
+        imageBase64 = imageBase64.base64
+      }else if(result.data.message.messageType === 'documentMessage' || result.data.message.documentMessage || result.data.messageType === 'documentMessage' || result.data.messageType === 'document'){
+        // Mensagem com documento
+        documentBase64 = await getBase64FromMediaMessage(result.instance, result.data.key.id)
+        documentInfo = documentBase64;
+        documentBase64 = documentBase64.base64
+        midiaType = 'document';
+        if(documentInfo){
+          fileName = documentInfo.fileName || documentInfo.filename || documentInfo.name || 'documento';
+          mimeType = documentInfo.mimetype || documentInfo.mimeType || documentInfo.type || 'application/octet-stream';
+        }
       }
+
     payload = {
       chatId: baseChat.id,
       body: messageBody || null,
-      midiaBase64: imageBase64 || audioBase64 || null,
+      midiaBase64: imageBase64 || audioBase64 || documentBase64 || null,
       fromMe: result.data.key.fromMe,
       from: result.data.pushName,
       timestamp,
-      message_type: result.data.messageType
+      message_type: result.data.messageType,
+      fileName: fileName || null,
+      mimeType: mimeType || null,
     }
 
-
-    console.log(messageBody)
-    payload.midiaBase64 ? await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, midiaType, payload.midiaBase64, schema):null
-    await updateCacheMessages(result.data.key.id, baseChat.id, payload.fromMe, messageBody || null, timestamp, midiaType, payload.midiaBase64 || null, null, null, null)
+    payload.midiaBase64 ? await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, midiaType, payload.midiaBase64, schema, payload.fileName, payload.mimeType):null
+    await updateCacheMessages(result.data.key.id, baseChat.id, payload.fromMe, messageBody || null, timestamp, midiaType, payload.midiaBase64 || null, null, payload.fileName || null, payload.mimeType || null, schema)
     if(serverTest.io){
       if(baseChat.assigned_user){
         const userChat = await getChatByUser(baseChat.assigned_user, baseChat.permission, schema)
@@ -265,6 +282,8 @@ module.exports = (broadcastMessage) => {
         await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
       }
     }
+    serverTest.io.to(`schema_${schema}`).emit('message', payload);
+
 
     const existingMessage = await pool.query(
         `SELECT id FROM ${schema}.messages WHERE id = $1`,
@@ -312,39 +331,12 @@ module.exports = (broadcastMessage) => {
       if (!chat || !result.instance) {
         throw new Error('Dados obrigatórios ausentes para createChat');
       }
-
-      
-      if(result.data.message.messageType === 'documentMessage' || result.data.message.documentMessage || result.data.messageType === 'documentMessage' || result.data.messageType === 'document'){
-        let documentBase64 = null
-        let documentInfo = null
-        const base64Formatado = await getBase64FromMediaMessage(result.instance, result.data.key.id)
-        documentBase64 = base64Formatado.base64;
-        documentInfo = base64Formatado;
-        
-
-        if(documentBase64){
-          // Extrair informações do documento
-          const filename = documentInfo.fileName || documentInfo.filename || documentInfo.name || 'documento';
-          const mimetype = documentInfo.mimetype || documentInfo.mimeType || documentInfo.type || 'application/octet-stream';
-          
-          
-          // Salvar com informações adicionais
-          await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, 'document', documentBase64, schema, filename, mimetype);
-          await updateCacheMessages(result.data.key.id, chatDb.id, result.data.key.fromMe, messageBody, timestamp, 'document', documentBase64 || null, null, filename, mimetype);
-
-        }
-      }
-
       res.status(200).json({ result });
 
   } catch (error) {
     console.error('Erro ao enviar para o próximo webhook:', error);
   }
   });
-
-  // ENVIO DE MENSAGEM DE TEXTO
-  //atualizando aqui
-  
 
   app.post('/chat/sendMessage', async (req, res) => {
     const { chatId, message, schema } = req.body;
