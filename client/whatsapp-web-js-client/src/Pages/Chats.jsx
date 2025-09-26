@@ -812,10 +812,21 @@ const handleRedistributeWaitingChats = async () => {
   
   if (chats.length > 0) {
     setChats(prevChats => {
+      // Criar um mapa dos chats atualizados para facilitar a busca
       const updatedMap = new Map(chats.map(chat => [chat.id, chat]));
-      const merged = prevChats.map(chat => updatedMap.get(chat.id) || chat);
       
-      // Adiciona novos chats que não existiam antes
+      // Atualizar chats existentes e adicionar novos
+      const merged = prevChats.map(chat => {
+        const updatedChat = updatedMap.get(chat.id);
+        if (updatedChat) {
+          // Chat foi atualizado, usar a versão atualizada
+          return updatedChat;
+        }
+        // Chat não foi atualizado, manter o existente
+        return chat;
+      });
+      
+      // Adicionar novos chats que não existiam antes
       chats.forEach(chat => {
         if (!prevChats.some(c => c.id === chat.id)) {
           merged.push(chat);
@@ -828,11 +839,35 @@ const handleRedistributeWaitingChats = async () => {
   }
 });
   socketInstance.on('removeChat', (data)=>{
+    console.log('Removendo chat:', data);
     setChats(prevChats => sortChatsByTimestamp(prevChats.filter(chat => chat.id !== data.id)));
     setSelectedChat(null);
     setSelectedChatId(null);
     setSelectedMessages([]);
   })
+
+  // Listener para remoção seletiva de chat baseado no assigned_user
+  socketInstance.on('remove_chat', (data) => {
+    console.log(data)
+    const [chatId, assignedUserId] = data;
+    const currentUserId = userData.id;
+    
+    // Só remove o chat se o usuário atual NÃO for o assigned_user
+    if (assignedUserId !== currentUserId) {
+      setChats(prevChats => {
+        const filteredChats = prevChats.filter(chat => chat.id !== chatId);
+        
+        // Se o chat removido estava selecionado, limpar a seleção
+        if (selectedChatId === chatId) {
+          setSelectedChat(null);
+          setSelectedChatId(null);
+          setSelectedMessages([]);
+        }
+        
+        return sortChatsByTimestamp(filteredChats);
+      });
+    }
+  });
 
     // Escutar evento de transferência de chat
     socketInstance.on('chatTransferred', (data) => {
@@ -872,6 +907,8 @@ const handleRedistributeWaitingChats = async () => {
     if (socketInstance) {
       socketInstance.off('connect');
       socketInstance.off('chats_updated');
+      socketInstance.off('removeChat');
+      socketInstance.off('remove_chat');
       socketInstance.off('chatTransferred');
       socketInstance.emit('leave', `schema_${schema}`);
     }

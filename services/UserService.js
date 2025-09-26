@@ -128,6 +128,12 @@ const searchUser = async (userMail, userPassword) => {
     return result.rows[0] || null;
   };
   const updateLastAssignedUser = async (queue, user_id, schema) => {
+    // Validar parâmetros antes de executar
+    if (!queue || !user_id || !schema) {
+      console.error('Erro: Parâmetros inválidos para updateLastAssignedUser:', { queue, user_id, schema });
+      throw new Error('Parâmetros inválidos para updateLastAssignedUser');
+    }
+    
     await pool.query(
       `DELETE FROM ${schema}.last_assigned_user WHERE queue_id = $1`,
       [queue]

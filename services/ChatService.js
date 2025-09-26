@@ -301,25 +301,29 @@ const setUserChat = async (chatId, schema) => {
         [queueId]
       );
       const userIdsInQueue = queueUsersQuery.rows.map(row => row.user_id);
-      const eligibleUsers = onlineUsers.filter(user =>
-        user.permission === 'user' && userIdsInQueue.includes(user.id)
-      );
-      if (eligibleUsers.length === 0){
+      if (userIdsInQueue.length === 0){
         await putChatInWaiting(chatId, schema);
         return;
       } 
       const lastAssigned = await getLastAssignedUser(queueId, schema);
       let nextUser;
       if (!lastAssigned) {
-        nextUser = eligibleUsers[0];
+        nextUser = userIdsInQueue[0];
       } else {
-        const lastIndex = eligibleUsers.findIndex(u => u.id === lastAssigned.user_id);
-        nextUser = eligibleUsers[(lastIndex + 1) % eligibleUsers.length];
+        const lastIndex = userIdsInQueue.findIndex(u => u.id === lastAssigned.user_id);
+        nextUser = userIdsInQueue[(lastIndex + 1) % userIdsInQueue.length];
       }
-      await updateLastAssignedUser(queueId, nextUser.id, schema);
+      // Validar se nextUser é válido antes de chamar updateLastAssignedUser
+      if (!nextUser) {
+        console.error('Erro: nextUser é inválido:', nextUser);
+        await putChatInWaiting(chatId, schema);
+        return;
+      }
+      
+      await updateLastAssignedUser(queueId, nextUser, schema);
      const result =  await pool.query(
         `UPDATE ${schema}.chats SET assigned_user=$1 WHERE id=$2 RETURNING *`,
-        [nextUser.id, chatId]
+        [nextUser, chatId]
       );
       return result.rows[0]
     }else{

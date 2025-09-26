@@ -124,11 +124,12 @@ const transferQueueController = async (req, res) => {
     const result = await transferQueue(chatId, newQueueId, schema);
     const updatedChat = await setUserChat(chatId, schema);
     if (updatedChat.assigned_user) {
-      global.socketIoServer.to(`user_${updatedChat.assigned_user}`).emit('chats_updated', [updatedChat]);
+        global.socketIoServer.to(`schema_${schema}`).emit('remove_chat', [chatId, updatedChat.assigned_user]);
+        global.socketIoServer.to(`user_${updatedChat.assigned_user}`).emit('chats_updated', [updatedChat]);
     }
     res.status(200).json({ result });
   } catch (error) {
-    console.error('Erro ao transferir fila:', error.message);
+    console.error('Erro ao transferir fila:', error);
     res.status(500).json({ error: 'Erro ao transferir fila' });
   }
 };
