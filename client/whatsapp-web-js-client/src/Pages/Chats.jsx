@@ -800,15 +800,14 @@ const handleRedistributeWaitingChats = async () => {
       socketInstance.emit('join', `schema_${schema}`);
       socketInstance.emit('join', `user_${userData.id}`);
     });
-    socketInstance.on('chats_updated', (updatedChats) => {
-      let chats = [];
-      if (Array.isArray(updatedChats)) {
-        playNotificationSound()
-        chats = updatedChats;
-  } else if (updatedChats && typeof updatedChats === 'object') {
-        playNotificationSound()
-    chats = [updatedChats];
-  }
+      socketInstance.on('chats_updated', (updatedChats) => {
+        let chats = [];
+        if (Array.isArray(updatedChats)) {
+          chats = updatedChats;
+          // playNotificationSound()
+        } else if (updatedChats && typeof updatedChats === 'object') {
+          chats = [updatedChats];
+        }
   
   if (chats.length > 0) {
     setChats(prevChats => {
@@ -833,8 +832,50 @@ const handleRedistributeWaitingChats = async () => {
         }
       });
       
-      // Aplica ordenação por timestamp mais recente
-      return sortChatsByTimestamp(merged);
+      // Se apenas um chat foi atualizado, reposiciona apenas ele sem reordenar toda a lista
+      if (chats.length === 1) {
+        const updatedChat = chats[0];
+        const existingChatIndex = merged.findIndex(c => c.id === updatedChat.id);
+        
+        if (existingChatIndex !== -1) {
+          // Verifica se o chat realmente precisa ser reposicionado
+          const currentChat = merged[existingChatIndex];
+          const currentTimestamp = currentChat.updated_time || currentChat.timestamp || currentChat.updated_at || currentChat.created_at || currentChat.last_message_time || currentChat.last_message_at || 0;
+          const updatedTimestamp = updatedChat.updated_time || updatedChat.timestamp || updatedChat.updated_at || updatedChat.created_at || updatedChat.last_message_time || updatedChat.last_message_at || 0;
+          
+          const currentTime = typeof currentTimestamp === 'string' ? parseInt(currentTimestamp) : currentTimestamp;
+          const updatedTime = typeof updatedTimestamp === 'string' ? parseInt(updatedTimestamp) : updatedTimestamp;
+          
+          // Se o timestamp não mudou significativamente, apenas atualiza o chat na posição atual
+          if (Math.abs(updatedTime - currentTime) < 1000) { // Menos de 1 segundo de diferença
+            merged[existingChatIndex] = updatedChat;
+          } else {
+            // Remove o chat da posição atual
+            merged.splice(existingChatIndex, 1);
+            
+            // Encontra a posição correta baseada no timestamp
+            let insertIndex = 0;
+            for (let i = 0; i < merged.length; i++) {
+              const chatTimestamp = merged[i].updated_time || merged[i].timestamp || merged[i].updated_at || merged[i].created_at || merged[i].last_message_time || merged[i].last_message_at || 0;
+              const chatTime = typeof chatTimestamp === 'string' ? parseInt(chatTimestamp) : chatTimestamp;
+              
+              if (updatedTime >= chatTime) {
+                insertIndex = i;
+                break;
+              }
+              insertIndex = i + 1;
+            }
+            
+            // Insere o chat na posição correta
+            merged.splice(insertIndex, 0, updatedChat);
+          }
+        }
+      } else {
+        // Se múltiplos chats foram atualizados, aplica ordenação completa
+        merged = sortChatsByTimestamp(merged);
+      }
+      
+      return merged;
     });
   }
 });
@@ -1674,7 +1715,6 @@ const handleImageUpload = async (event) => {
   };
   const filteredChats = useMemo(() => {
     return getFilteredChats().filter(chat => {
-      console.log(chat);
       const nomeOk = filterNome ? (chat.contact_name || '').toLowerCase().includes(filterNome.toLowerCase()) : true;
       const numeroOk = filterNumero ? (chat.contact_phone || '').includes(filterNumero) : true;
       const usuarioOk = filterUsuario ? (getUserName(chat.assigned_user || chat.user_id || '') || '') === filterUsuario : true;
