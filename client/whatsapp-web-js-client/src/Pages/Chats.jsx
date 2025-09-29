@@ -294,7 +294,6 @@ function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, set
 
 function ChatPage({ theme, chat_id} ) {
   const [chatList, setChats] = useState([]);
-  const [chat] = useState([])
   const [selectedMessages, setSelectedMessages] = useState([]);
   const previousMessagesRef = useRef(selectedMessages);
   const [selectedChat, setSelectedChat] = useState(null);
@@ -313,9 +312,7 @@ function ChatPage({ theme, chat_id} ) {
   const recordingIntervalRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [activeAudioId, setActiveAudioId] = useState(null);
-  const [audioProgress, setAudioProgress] = useState({});
   const [selectedImage, setSelectedImage] = useState(null);
-  const [messages, setMessages] = useState([])
   const [audioUrl, setAudioUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('')
   const selectedChatIdRef = useRef(null);
@@ -332,7 +329,6 @@ function ChatPage({ theme, chat_id} ) {
   const url = process.env.REACT_APP_URL;
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [sideMenuActive, setSideMenuActive] = useState(false);
-  const [showFiltros, setShowFiltros] = useState(false);
   const [filtrosAtivos, setFiltrosAtivos] = useState(preferences.chatFilters || {});
   const { playNotificationSound, audioRef } = useNotificationSound();
   const navigate = useNavigate();
@@ -348,6 +344,7 @@ function ChatPage({ theme, chat_id} ) {
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showResumoModal, setShowResumoModal] = useState(false);
+  const [apiChats, setApiChats] = useState([])
 
   //Use States para filtros
   const [showFilter, setShowFilter] = useState(false);
@@ -986,13 +983,17 @@ const loadChats = async () => {
     try {
       const res = await axios.get(`${url}/chat/getChat/${userData.id}/${schema}/${userData.role}`,
         {withCredentials:true});
-      const chats = Array.isArray(res.data.messages) ? res.data.messages : [];
-      setChats(sortChatsByTimestamp(chats));
+        const chats = Array.isArray(res.data.messages) ? res.data.messages : [];
+        setChats(sortChatsByTimestamp(chats));
+        setApiChats(sortChatsByTimestamp(res.data.api_ofc))
     } catch (err) {
       console.error('Erro ao carregar chats:', err);
     }
   };
-
+const apiChatsComFlag = apiChats.map(chat => ({
+  ...chat,
+  isApi: true
+}));
 useEffect(() => {
     loadChats();
   }, [schema, userData.id, url]);
@@ -1023,6 +1024,7 @@ const loadMessages = async (chatId) => {
   try {
     const res = await axios.post(`${url}/chat/getMessages`, {
       chat_id: chatId.id,
+      isApi: chatId.isApi || false,
       schema,
     },
   {
@@ -1048,6 +1050,7 @@ const loadMessages = async (chatId) => {
     console.error('Erro ao carregar mensagens:', error);
   }
 };
+  console.log(apiChats)
 
 useEffect(() => {
     return () => {
@@ -1939,15 +1942,16 @@ const handleImageUpload = async (event) => {
               overflowY: 'auto'
             }}
           >
-            {filteredChats.map((chat) => (
-                <div className='msg d-flex flex-row' key={chat.id}>
+            {[...filteredChats, ...apiChatsComFlag].map(chat => (
+                <div className='msg d-flex flex-row' key={chat.id} style={{
+                }}>
                   <div
                     className={`selectedBar ${selectedChatId === chat.id ? '' : 'd-none'}`}
                     style={{ width: '2.5%', maxWidth: '5px', backgroundColor: 'var(--primary-color)' }}></div>
                   <div
                     className={`h-100 w-100 input-${theme}`}
                     onClick={() => handleChatClick(chat)}
-                    style={{ cursor: 'pointer', padding: '10px', borderBottom: `1px solid var(--border-color-${theme})` }}
+                    style={{ cursor: 'pointer', padding: '10px', borderBottom: `1px solid var(--border-color-${theme})`}}
                   >
                     <div
   style={{
@@ -1958,7 +1962,34 @@ const handleImageUpload = async (event) => {
     marginBottom: 2,
   }}
 >
-  <strong>{chat.contact_name || chat.id || 'Sem Nome'}</strong>
+  <div style={{
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px'
+}}>
+  <div style={{
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+    backgroundColor: chat.isApi ? '#25D366' : '#128C7E',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'white',
+    fontSize: '18px'
+  }}>
+    {chat.isApi ? <i className="bi bi-whatsapp"></i> : <i className="bi bi-globe"></i>}
+  </div>
+    <strong style={{ 
+      fontWeight: 'bold', 
+      fontSize: '0.9rem', 
+      color: 'black',
+      maxWidth: '150px',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }}>{chat.contact_name || chat.name || 'Sem Nome'} </strong>
+</div>
   <span
   title={getQueueName(chat.queue_id)}
   style={{
@@ -2065,11 +2096,11 @@ const handleImageUpload = async (event) => {
     style={{ fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer' }}
     onClick={handleEditNameStart}
   >
-    {selectedChat?.contact_name || 'Sem Nome'}
+    {selectedChat?.contact_name || selectedChat?.name ||'Sem Nome'}
   </strong>
 )}
       <div style={{ fontSize: '0.95rem', opacity: 0.8 }}>
-        {selectedChat?.contact_phone || selectedChat?.id || ''}
+        {selectedChat?.contact_phone || selectedChat?.number ||selectedChat?.id || ''}
       </div>
     </div>
 

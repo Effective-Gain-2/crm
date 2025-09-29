@@ -18,7 +18,7 @@ const { Queue, Worker } = require('bullmq');
 const { getQueueById } = require('../services/QueueService');
 const { createThread, messageAnAssistant, getAssistantReply } = require('../services/OpenAi');
 const { updateContactInKanban } = require('../services/KanbanService');
-const { createApiOfcChat } = require('../services/ChatApiOfc');
+const { createApiOfcChat, setApiChatQueue } = require('../services/ChatApiOfc');
 
 // Função para emitir chats para as filas específicas
 const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
@@ -466,7 +466,8 @@ app.post('/resposta', async(req, res)=>{
     }
 })
 app.get('/api-ofc', async(req, res)=>{
-  const verifyToken = 'EAAiJWRJb1lgBPhMQmtpL4Y9xCMuG432eZBczlanWJiI9yGukVDdHt5ATuk5vDZAamROf9nGxXavkss8dMNdKehHHSAJQMVhWiYfnEuFrDMQqFvpaSOZCxA9ywBu3K6cEhXZCALuKUzHcnVX57l3PZAs3ZAvSZBXZCvBe4FuMZAslbGZBpIuWanVnItKqdVJn8q8zaZAAgA2pZBc2YJSvCCbLUDXG5dtct7Py6v7zsHoVuCWmFg1TKQZDZD'
+  //Esse token serve apenas para teste, não se trata do valor real que utilizaremos
+  const verifyToken = 'EAAiJWRJb1lgBPq22oe4Ebb1N4kA6sD94rAin7Nq2LxlPXNqVv8M8ZBp91NO1tsYLL1cZAMJSZBezxspGbZBninImVu3EvwRCulZApy5Nj5kVpK9cve4DXGtJMU8pcLcXjbmCYp8ZCAXZAzgHvAH6nghErXl4gaUBv6xwKV63yH9EmH3dZB7ZBAVm0vByxXEVKtWZC4bjzajPWLUkNPiKmRxZCwbsVClAT8OqnfdJZCXdT99rmenozwZDZD'
   const { 'hub.mode': mode, 'hub.challenge': challenge, 'hub.verify_token': token } = req.query;
 
     if (mode === 'subscribe' && token === verifyToken) {
@@ -478,7 +479,24 @@ app.get('/api-ofc', async(req, res)=>{
 })
 app.post('/api-ofc', async(req, res)=>{
   const changes = req.body.entry[0].changes;
-  const chat = createApiOfcChat(changes[0].value.metadata.phone_number_id, req.body.entry[0].id, changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, 'effective_gain' )
+  const chat = await createApiOfcChat(changes[0].value.metadata.phone_number_id, '6e76f2ff-d60b-46da-9db4-693dfbda7f9a', changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, 'effective_gain' )
+  if(!chat){
+    res.status(500).json({success:false, message: 'Chat não encontrado ou não vinculado a nenhuma conexão'})
+    return
+  }
+  const message = await saveMessage(chat.id, new Message(uuidv4(), changes[0].value.messages[0].text.body, false, chat.id, getCurrentTimestamp()), 'effective_gain', null)
+  await updateCacheMessages(message.id, chat.id, false, changes[0].value.messages[0].text.body, getCurrentTimestamp(), null, null, null, null, null)
+  if(!serverTest.io){
+    return
+  }
+  serverTest.io.to(`schema_effective_gain`).emit('chats_updated', chat)
+  serverTest.io.to(`schema_effective_gain`).emit('message', {
+    chatId: chat.id,
+    body: changes[0].value.messages[0].text.body,
+    fromMe: false,
+    timestamp: getCurrentTimestamp(),
+    user_id: changes[0].value.contacts[0].wa_id
+  })
   res.status(200).json({success:true, chat})
 })
 

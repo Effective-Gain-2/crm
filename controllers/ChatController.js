@@ -13,6 +13,7 @@ const { searchConnById } = require('../services/ConnectionService');
 const { getCurrentTimestamp } = require('../services/getCurrentTimestamp');
 const { getAllUsers } = require('../services/UserService');
 const { chat } = require('googleapis/build/src/apis/chat');
+const { getApiChats } = require('../services/ChatApiOfc');
 
 const bullConn = createRedisConnection();
 const closeChatQueue = new Queue('closeQueue', { connection: bullConn });
@@ -156,9 +157,10 @@ const processReceivedAudio = async (req, res) => {
 
 const getChatsController = async (req, res) => {
   try {
-    const schema = req.params?.schema || 'effective_gain';
+    const schema = req.params?.schema;
     const result = await getChats(schema);
-    res.status(201).json(result);
+    const api_ofc_chats = await getApiChats(schema);
+    res.status(201).json({ result, api_ofc_chats });
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -224,7 +226,8 @@ const getChatByUserController = async (req, res) => {
 
   try {
     const result = await getChatByUser(userId, role, schema);
-    res.status(200).json({ messages: result });
+    const api_ofc_chats = await getApiChats(schema);
+    res.status(200).json({ messages: result, api_ofc:api_ofc_chats });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao buscar chats do usuário.' });
   }

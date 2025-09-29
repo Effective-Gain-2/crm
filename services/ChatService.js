@@ -253,9 +253,9 @@ const updateChatMessages = async (chat, schema, message) => {
 
 const getMessages = async(chat_Id, schema)=>{
   const MessagesCache = await bullConn.get(`getMessages_${chat_Id}`)
-  if(MessagesCache){
-    return JSON.parse(MessagesCache)
-  }else{
+  if (MessagesCache && JSON.parse(MessagesCache).length > 0) {
+    return JSON.parse(MessagesCache);
+  } else {
     const result = await pool.query(
       `SELECT * FROM ${schema}.messages WHERE chat_id=$1 ORDER BY created_at ASC`,
       [chat_Id]

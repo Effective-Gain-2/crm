@@ -99,7 +99,7 @@ const getQueueByIdController = async(req, res)=> {
             });
         }
         
-        if(queue_id === null || queue_id === 'null' || queue_id === undefined){
+        if(queue_id === null || queue_id === 'null' || queue_id === 'undefined'){
             res.status(200).json({
                 success:true,
                 message:'Conexão sem fila'
