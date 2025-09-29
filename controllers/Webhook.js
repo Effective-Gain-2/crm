@@ -18,6 +18,7 @@ const { Queue, Worker } = require('bullmq');
 const { getQueueById } = require('../services/QueueService');
 const { createThread, messageAnAssistant, getAssistantReply } = require('../services/OpenAi');
 const { updateContactInKanban } = require('../services/KanbanService');
+const { createApiOfcChat } = require('../services/ChatApiOfc');
 
 // Função para emitir chats para as filas específicas
 const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
@@ -476,22 +477,9 @@ app.get('/api-ofc', async(req, res)=>{
     }
 })
 app.post('/api-ofc', async(req, res)=>{
-  const messages = req.body.entry[0].changes;
-  console.log(req.body.entry[0].changes[0].value.contacts[0])
-  const chat = await createChat(new Chat(
-    uuidv4(),
-    req.body.entry[0].changes[0].value.contacts[0].wa_id,
-    '6e76f2ff-d60b-46da-9db4-693dfbda7f9a',
-    null,
-    false,
-    req.body.entry[0].changes[0].value.contacts[0].profile.name,
-    null,
-    'open',
-    getCurrentTimestamp(),
-    []
-  ), req.body.entry[0].id, null, null, null)
-  console.log(chat)
-  console.log(JSON.stringify(req.body, null, 2));
+  const changes = req.body.entry[0].changes;
+  const chat = createApiOfcChat(changes[0].value.metadata.phone_number_id, req.body.entry[0].id, changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, 'effective_gain' )
+  res.status(200).json({success:true, chat})
 })
 
   return app;

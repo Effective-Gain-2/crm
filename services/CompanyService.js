@@ -685,6 +685,22 @@ const updateSchema = async (schema) => {
                         atention_quantity integer,
                         urgent_quantity integer
                         )`)
+
+            await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.api_ofc_chats(
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                chat_id TEXT,
+                connection_id TEXT,
+                number TEXT,
+                name TEXT,
+                queue_id UUID,
+                user_id UUID,
+                status TEXT,
+                created_at BIGINT,
+                updated_at BIGINT,
+                is_bot_on BOOLEAN DEFAULT TRUE,
+                thread_id TEXT
+
+                )`)
             
         await pool.query(`alter table ${schema}.messages add column if not exists user_id uuid`)
         await pool.query(`alter table ${schema}.queues add column if not exists stage_id uuid`)
