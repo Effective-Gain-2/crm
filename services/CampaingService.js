@@ -85,7 +85,7 @@ const getAllCampaingConnections = async (campaing_id, schema) => {
   return result.rows
 }
 
-const createCampaing = async (campaing_id, campName, sector, kanbanStage, connectionId, startDate, schema, intervalo) => {
+const createCampaing = async (campaing_id, campName, sector, kanbanStage, connectionId, startDate, schema, intervalo, init_time, end_time) => {
   try {
     const unixStartDate = parseLocalDateTime(startDate);
 
@@ -141,9 +141,9 @@ const createCampaing = async (campaing_id, campName, sector, kanbanStage, connec
       if(intervalMinEmSegundos){
         result = await pool.query(
         `UPDATE ${schema}.campaing 
-         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8
+         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, init_time=$9, end_time=$10
          WHERE id=$6  RETURNING *`,
-        [campName, sector, kanbanStage, unixStartDate, null, campaing_id, intervalMinEmSegundos, intervalMaxEmSegundos]
+        [campName, sector, kanbanStage, unixStartDate, null, campaing_id, intervalMinEmSegundos, intervalMaxEmSegundos, init_time, end_time]
       );
       campaing = result.rows[0];
       await deleteAllConnectionsFromCampaing(campaing.id, schema)
@@ -151,9 +151,9 @@ const createCampaing = async (campaing_id, campName, sector, kanbanStage, connec
       }else{
          result = await pool.query(
         `UPDATE ${schema}.campaing 
-         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8
+         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, init_time=$9, end_time=$10
          WHERE id=$6 RETURNING *`,
-        [campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, campaing_id, null, null]
+        [campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, campaing_id, null, null, init_time, end_time]
       );
       campaing = result.rows[0];
       await deleteAllConnectionsFromCampaing(campaing.id, schema)
@@ -163,15 +163,15 @@ const createCampaing = async (campaing_id, campName, sector, kanbanStage, connec
     } else {
       if(intervalMinEmSegundos) {
         result = await pool.query(
-          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, min, max) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-          [uuidv4(), campName, sector, kanbanStage, unixStartDate, null, intervalMinEmSegundos, intervalMaxEmSegundos]
+          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, min, max, init_time, end_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+          [uuidv4(), campName, sector, kanbanStage, unixStartDate, null, intervalMinEmSegundos, intervalMaxEmSegundos, init_time, end_time]
         );
         campaing = result.rows[0];
         await insertConnectionsForCampaing(campaing.id,connectionId, schema)
       } else {
         result = await pool.query(
-          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-          [uuidv4(), campName, sector, kanbanStage, unixStartDate, intervalEmSegundos]
+          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, init_time, end_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+          [uuidv4(), campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, init_time, end_time]
         );
         campaing = result.rows[0];
         await insertConnectionsForCampaing(campaing.id,connectionId, schema)
@@ -186,6 +186,7 @@ const createCampaing = async (campaing_id, campName, sector, kanbanStage, connec
 };
 
 const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_stage, queue_id) => {
+
   try { 
     const startDate = Number(campaing.start_date);
     const now = Date.now();
@@ -244,32 +245,106 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
 
     let accumulatedDelay = baseDelay;
 
+    // --- NOVO BLOCO PARA RESPEITAR init_time e end_time ---
+    let currentDate = new Date(startDate);
+    let disparosAgendadosHoje = 0;
+    let dailyWindowMs = null;
+    let intervalMs = null;
+    let maxDisparosPorDia = null;
+    let contatosRestantes = totalContacts;
+    let isFirstDay = true;
+
+    if (campaing.init_time && campaing.end_time) {
+      // Parse horários
+      const [initHour, initMinute] = campaing.init_time.split(':').map(Number);
+      const [endHour, endMinute] = campaing.end_time.split(':').map(Number);
+
+      // Calcula janela diária completa em minutos
+      const dailyWindowMinutes = (endHour * 60 + endMinute) - (initHour * 60 + initMinute);
+      dailyWindowMs = dailyWindowMinutes * 60 * 1000;
+      
+      // Usa o timer configurado como intervalo (em segundos)
+      intervalEmSegundos = Number(campaing.timer) || 30;
+      intervalMs = intervalEmSegundos * 1000;
+      
+      // Calcula quantos contatos cabem no primeiro dia
+      const startDateTime = new Date(startDate);
+      const startHour = startDateTime.getHours();
+      const startMinute = startDateTime.getMinutes();
+      const startTimeInMinutes = startHour * 60 + startMinute;
+      const initTimeInMinutes = initHour * 60 + initMinute;
+      const endTimeInMinutes = endHour * 60 + endMinute;
+      
+      let firstDayWindowMinutes = 0;
+      
+      if (startTimeInMinutes >= initTimeInMinutes && startTimeInMinutes < endTimeInMinutes) {
+        // Start_date está dentro da janela de horário
+        firstDayWindowMinutes = endTimeInMinutes - startTimeInMinutes;
+        currentDate = new Date(startDate);
+      } else if (startTimeInMinutes < initTimeInMinutes) {
+        // Start_date é antes do init_time, aguarda até init_time
+        firstDayWindowMinutes = dailyWindowMinutes;
+        currentDate = new Date(startDate);
+        currentDate.setHours(initHour, initMinute, 0, 0);
+      } else {
+        // Start_date é após end_time, vai para o próximo dia
+        firstDayWindowMinutes = 0;
+        currentDate = new Date(startDate);
+        currentDate.setDate(currentDate.getDate() + 1);
+        currentDate.setHours(initHour, initMinute, 0, 0);
+      }
+      
+      // Calcula quantos contatos cabem no primeiro dia
+      const contatosNoPrimeiroDia = Math.floor(firstDayWindowMinutes * 60 / intervalEmSegundos);
+      maxDisparosPorDia = Math.min(contatosNoPrimeiroDia, contatosRestantes);
+      
+    }
+
     for (let jobIndex = 0; jobIndex < totalJobs; jobIndex++) {
+      // --- NOVO BLOCO: calcula delay respeitando janela diária ---
+      if (campaing.init_time && campaing.end_time) {
+        if (disparosAgendadosHoje >= maxDisparosPorDia) {
+          // Avança para o próximo dia útil no horário de início
+          currentDate.setDate(currentDate.getDate() + 1);
+          const [initHour, initMinute] = campaing.init_time.split(':').map(Number);
+          currentDate.setHours(initHour, initMinute, 0, 0);
+          disparosAgendadosHoje = 0;
+          isFirstDay = false;
+          
+          // Recalcula quantos contatos cabem no dia atual
+          const [initHourRecalc, initMinuteRecalc] = campaing.init_time.split(':').map(Number);
+          const [endHourRecalc, endMinuteRecalc] = campaing.end_time.split(':').map(Number);
+          const dailyWindowMinutes = (endHourRecalc * 60 + endMinuteRecalc) - (initHourRecalc * 60 + initMinuteRecalc);
+          const contatosNoDia = Math.floor(dailyWindowMinutes * 60 / intervalEmSegundos);
+          maxDisparosPorDia = Math.min(contatosNoDia, contatosRestantes);
+          
+        }
+        accumulatedDelay = currentDate.getTime() - Date.now();
+        disparosAgendadosHoje++;
+        contatosRestantes--;
+      }
+      // --- FIM DO NOVO BLOCO ---
+
       // Calcula o grupo atual e a posição dentro do grupo
       const groupIndex = Math.floor(jobIndex / totalConnections);
       const positionInGroup = jobIndex % totalConnections;
-      
-      // Calcula qual contato e qual conexão para este job
       const contactIndex = groupIndex * totalConnections + positionInGroup;
-      
-      // Se o contato não existe, pula
-      if (contactIndex >= totalContacts) {
-        continue;
-      }
-      
-      const messageIndex = groupIndex % totalMessages; 
-      const connectionIdx = positionInGroup; 
-      
+
+      if (contactIndex >= totalContacts) continue;
+
+      const messageIndex = groupIndex % totalMessages;
+      const connectionIdx = positionInGroup;
       const connection = connections[connectionIdx];
       const contact = contacts[contactIndex];
       const contactPhone = contact.number;
       const contactName = contact.contact_name;
       const message = messageList[messageIndex];
 
-      if(campaing.min){
+      if (campaing.min) {
         const min = Number(campaing.min);
         const max = Number(campaing.max);
         intervalEmSegundos = Math.floor(Math.random() * (max - min + 1)) + min;
+        intervalMs = intervalEmSegundos * 1000;
       }
 
       // Buscar a instância da conexão
@@ -280,39 +355,33 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
         console.error('Conexão não encontrada para a campanha');
         continue;
       }
-      
+
       // Verificar se existe chat para o contato na conexão sorteada
       const existingChatQuery = await pool.query(
         `SELECT * FROM ${schema}.chats WHERE contact_phone=$1 AND connection_id=$2 AND status<>'closed' LIMIT 1`,
         [contactPhone, instance.rows[0].id]
       );
-      
+
       let chatToUse = null;
       if (existingChatQuery.rowCount > 0) {
-        // Chat existe - usa ele
         chatToUse = existingChatQuery.rows[0];
       } else {
-        // Chat não existe - cria um novo para o contato na conexão sorteada
         try {
           chatToUse = await createNewChat(
-            contactName, 
-            contactPhone, 
-            instance.rows[0].id, 
-            instance.rows[0].queue_id, 
-            null, 
+            contactName,
+            contactPhone,
+            instance.rows[0].id,
+            instance.rows[0].queue_id,
+            null,
             schema,
-            'disparo' // Status específico para chats criados por disparo
+            'disparo'
           );
         } catch (error) {
           console.error(`Erro ao criar chat para contato ${contactPhone}:`, error.message);
           continue;
         }
       }
-      
-      // O delay é calculado por job
-      const messageDelay = accumulatedDelay;
-      accumulatedDelay += intervalEmSegundos * 1000;
-      
+
       const job = await blastQueue.add('sendMessage', {
         instance: instance.rows[0].id,
         number: contactPhone,
@@ -323,18 +392,37 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
         schema: schema,
         stage: new_stage || null,
         queue: queue_id || null
-      }, { 
-        delay: messageDelay, 
+      }, {
+        delay: Math.max(0, accumulatedDelay),
         attempts: 1,
         backoff: {
           type: 'exponential',
           delay: 2000
         }
-      }); 
-        console.log(`Agendando mensagem ${messageIndex + 1}/${totalMessages} para conexão ${connectionIdx + 1}/${connections.length} (contato ${contactPhone}) para:`, new Date(Date.now() + messageDelay).toLocaleString());
-        console.log(`Job ${job.id} agendado com sucesso, enviando pelo numero ${instance.rows[0].id}, para o ${contactPhone}`);
+      });
+
+      console.log(`Agendando mensagem ${messageIndex + 1}/${totalMessages} para conexão ${connectionIdx + 1}/${connections.length} (contato ${contactPhone}) para:`, new Date(Date.now() + Math.max(0, accumulatedDelay)).toLocaleString());
+      console.log(`Job ${job.id} agendado com sucesso, enviando pelo numero ${instance.rows[0].id}, para o ${contactPhone}`);
 
       jobCount++;
+
+      // --- NOVO BLOCO: avança o horário do próximo disparo ---
+      if (campaing.init_time && campaing.end_time) {
+        currentDate = new Date(currentDate.getTime() + intervalMs);
+        // Se passou do horário de fim, pula para o próximo dia útil
+        const [endHour, endMinute] = campaing.end_time.split(':').map(Number);
+        const endOfDay = new Date(currentDate);
+        endOfDay.setHours(endHour, endMinute, 0, 0);
+        if (currentDate > endOfDay) {
+          currentDate.setDate(currentDate.getDate() + 1);
+          const [initHour, initMinute] = campaing.init_time.split(':').map(Number);
+          currentDate.setHours(initHour, initMinute, 0, 0);
+          disparosAgendadosHoje = 0;
+          isFirstDay = false;
+        }
+      } else {
+        accumulatedDelay += intervalEmSegundos * 1000;
+      }
     }
     console.log(`Campanha ${campaing.campaing_name} agendada com ${jobCount} mensagens`);
   } catch (error) {

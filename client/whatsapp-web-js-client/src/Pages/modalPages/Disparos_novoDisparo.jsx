@@ -30,6 +30,11 @@ function DisparoModal({ theme, disparo = null, onSave }) {
   const [intervaloUnidadeMax, setIntervaloUnidadeMax] = useState('segundos');
   const [conexao, setConexao] = useState([]);
   const [customFields ,setCustomFields] = useState([])
+  const [isDynamicTime, setIsDynamicTime] = useState(true);
+  const [customTimeRange, setCustomTimeRange] = useState({
+    startTime: '',
+    endTime: ''
+  });
   const textAreasRef = useRef([]);
   const [mensagensImagens, setMensagensImagens] = useState([]);
   // Estados para transferência de contatos
@@ -540,6 +545,8 @@ useEffect(() => {
     setTagsSelecionadas(selectedOptions);
   };
 
+
+
   const insertVariable = (index, variable) => {
   const textarea = textAreasRef.current[index];
   if (!textarea) return;
@@ -630,7 +637,12 @@ useEffect(() => {
     transferir_contato: transferirContato,
     ...(transferirContato && etapaDestino ? { new_stage: etapaDestino } : {}),
     enviar_para_fila_unica: enviarParaFila,
-    ...(enviarParaFila && filaDestino ? { queue_id: filaDestino } : {})
+    ...(enviarParaFila && filaDestino ? { queue_id: filaDestino } : {}),
+    // Horário personalizado
+    ...(!isDynamicTime && customTimeRange.startTime && customTimeRange.endTime ? {
+      init_time: customTimeRange.startTime,
+      end_time: customTimeRange.endTime
+    } : {})
 };
 
     try {
@@ -1184,6 +1196,52 @@ useEffect(() => {
                   {errors.horaInicio && (
                     <div className="text-danger small mt-1">
                       Este campo é obrigatório
+                    </div>
+                  )}
+                </div>
+
+                {/* Horário Personalizado */}
+                <div className="mb-3">
+                  <label className={`form-label card-subtitle-${theme}`}>Horário Personalizado</label>
+                  
+                  {/* Toggle para horário personalizado */}
+                  <div className="mb-2">
+                    <div className="form-check form-switch">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="horarioPersonalizado"
+                        checked={!isDynamicTime}
+                        onChange={(e) => {
+                          setIsDynamicTime(!e.target.checked);
+                          if (e.target.checked) {
+                            // Resetar horários quando ativar
+                            setCustomTimeRange({ startTime: '', endTime: '' });
+                          }
+                        }}
+                      />
+                      <label className={`form-check-label card-subtitle-${theme}`} htmlFor="horarioPersonalizado">
+                        Definir horário de funcionamento
+                      </label>
+                    </div>
+                  </div>
+
+                  {!isDynamicTime && (
+                    <div className="d-flex gap-2">
+                      <input
+                        type="time"
+                        className={`form-control input-${theme}`}
+                        value={customTimeRange.startTime}
+                        onChange={e => setCustomTimeRange(prev => ({ ...prev, startTime: e.target.value }))}
+                        placeholder="Início"
+                      />
+                      <input
+                        type="time"
+                        className={`form-control input-${theme}`}
+                        value={customTimeRange.endTime}
+                        onChange={e => setCustomTimeRange(prev => ({ ...prev, endTime: e.target.value }))}
+                        placeholder="Fim"
+                      />
                     </div>
                   )}
                 </div>
