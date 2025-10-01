@@ -181,6 +181,7 @@ useEffect(() => {
 
     // Carregar dados do intervalo dinâmico se existir
     if (disparo.min) {
+      setIsDynamicTime(true)
       setIntervaloDinamico(true);
       if (disparo.min) {
         const minEmSegundos = Number(disparo.min) || 30;
@@ -208,6 +209,15 @@ useEffect(() => {
           setIntervaloUnidadeMax('segundos');
         }
       }
+    }
+
+    if(disparo.init_time!==null && disparo.end_time!==null){
+      setIsDynamicTime(false)
+      setIntervaloDinamico(false)
+      setCustomTimeRange({
+        startTime: disparo.init_time,
+        endTime: disparo.end_time
+      })
     }
 
     try {
@@ -1213,6 +1223,7 @@ useEffect(() => {
                         id="horarioPersonalizado"
                         checked={!isDynamicTime}
                         onChange={(e) => {
+                          setIntervaloDinamico(false); // Desativa intervalo dinâmico ao ativar horário personalizado
                           setIsDynamicTime(!e.target.checked);
                           if (e.target.checked) {
                             // Resetar horários quando ativar
@@ -1257,7 +1268,11 @@ useEffect(() => {
                         type="checkbox"
                         id="intervaloDinamico"
                         checked={intervaloDinamico}
-                        onChange={(e) => setIntervaloDinamico(e.target.checked)}
+                        onChange={(e) =>{
+                          setIsDynamicTime(true); // Desativa horário personalizado ao ativar intervalo dinâmico
+                          setIntervaloDinamico(e.target.checked)}
+                        } 
+                          
                       />
                       <label className={`form-check-label card-subtitle-${theme}`} htmlFor="intervaloDinamico">
                         Dinâmico
