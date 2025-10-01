@@ -23,17 +23,17 @@ const { createApiOfcChat, setApiChatQueue } = require('../services/ChatApiOfc');
 // Função para emitir chats para as filas específicas
 const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
   if (!serverTest.io) return;
-  
+
   try {
     // Buscar usuários da fila do chat
     const queueUsersQuery = await pool.query(
       `SELECT user_id FROM ${schema}.queue_users WHERE queue_id = $1`,
       [chat.queue_id]
     );
-    
+
     if (queueUsersQuery.rowCount > 0) {
       const userIds = queueUsersQuery.rows.map(row => row.user_id);
-      
+
       // Para cada usuário da fila, buscar seus chats atualizados
       for (const userId of userIds) {
         const userChats = await getChatByUser(userId, 'user', schema);
@@ -49,16 +49,16 @@ const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
 
 const emitWaitingChatsToQueue = async (serverTest, schema, connectionId, queueId) => {
   if (!serverTest.io) return;
-  
+
   try {
     // Buscar todos os usuários online
     const onlineUsersQuery = await pool.query(
       `SELECT id, permission FROM ${schema}.users WHERE online = true`,
     );
-    
+
     if (onlineUsersQuery.rowCount > 0) {
       const onlineUsers = onlineUsersQuery.rows;
-      
+
       for (const user of onlineUsers) {
         if (user.permission === 'admin' || user.permission === 'tecnico') {
           // Admins e técnicos veem todos os chats na sala de espera
@@ -72,11 +72,11 @@ const emitWaitingChatsToQueue = async (serverTest, schema, connectionId, queueId
             `SELECT queue_id FROM ${schema}.queue_users WHERE user_id = $1`,
             [user.id]
           );
-          
+
           if (userQueuesQuery.rowCount > 0) {
             const userQueues = userQueuesQuery.rows.map(row => ({ id: row.queue_id }));
             const waitingChats = await getChatIfUserIsNull(connectionId, 'user', schema, userQueues);
-            
+
             if (waitingChats && waitingChats.length > 0) {
               serverTest.io.to(`user_${user.id}`).emit('chats_updated', waitingChats);
             }
@@ -96,21 +96,21 @@ const updateChatStatusFromDisparo = async (chatId, schema) => {
       `SELECT queue_id FROM ${schema}.chats WHERE id = $1`,
       [chatId]
     );
-    
+
     if (chatInfo.rowCount > 0 && chatInfo.rows[0].queue_id) {
       // Buscar informações da fila
       const queueInfo = await pool.query(
         `SELECT distribution FROM ${schema}.queues WHERE id = $1`,
         [chatInfo.rows[0].queue_id]
       );
-      
+
       let newStatus = 'waiting'; // Padrão
-      
+
       if (queueInfo.rowCount > 0 && queueInfo.rows[0].distribution) {
         // Se a fila tem distribuição automática ligada, usa 'open'
         newStatus = 'open';
       }
-      
+
       // Atualiza o status baseado na configuração da fila
       await pool.query(
         `UPDATE ${schema}.chats SET status = $1 WHERE id = $2 AND status = 'disparo'`,
@@ -126,7 +126,7 @@ ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 module.exports = (broadcastMessage) => {
   const app = express.Router();
-  
+
   // Usar a instância global do socket
   const serverTest = { io: global.socketIoServer };
 
@@ -135,30 +135,30 @@ module.exports = (broadcastMessage) => {
 
   const bullConn = createRedisConnection();
 
-  const chatQueue = new Queue('chat', {connection: bullConn });
+  const chatQueue = new Queue('chat', { connection: bullConn });
 
-  new Worker('chat', async(job)=>{
-    try{
-      if(job.data.chatId){
+  new Worker('chat', async (job) => {
+    try {
+      if (job.data.chatId) {
         broadcastMessage({ type: 'message', payload: job.data });
       }
-    }catch(error){
+    } catch (error) {
       console.error(error)
     }
-  }, {connection: bullConn})
-  const gptQueue = new Queue('gpt', {connection: bullConn });
-  
-  new Worker('gpt', async(job)=>{
+  }, { connection: bullConn })
+  const gptQueue = new Queue('gpt', { connection: bullConn });
+
+  new Worker('gpt', async (job) => {
     try {
-      const resposta = job.data.thread_id?await getAssistantReply(job.data.thread_id, job.data.body, job.data.assistant_id, job.data.chat_id, job.data.schema):await createThread(job.data.body, job.data.assistant_id, job.data.chat_id, job.data.schema)
-      if(resposta){
-        if(typeof resposta === 'object' && resposta.functionName && resposta.executed) {
-        } else if(typeof resposta === 'string') {
+      const resposta = job.data.thread_id ? await getAssistantReply(job.data.thread_id, job.data.body, job.data.assistant_id, job.data.chat_id, job.data.schema) : await createThread(job.data.body, job.data.assistant_id, job.data.chat_id, job.data.schema)
+      if (resposta) {
+        if (typeof resposta === 'object' && resposta.functionName && resposta.executed) {
+        } else if (typeof resposta === 'string') {
           const message = new Message(uuidv4(), resposta, true, job.data.chat_id, getCurrentTimestamp());
           await sendTextMessage(job.data.instance, resposta, job.data.number)
           await saveMessage(job.data.chat_id, message, job.data.schema, null)
           await updateCacheMessages(message.id, job.data.chat_id, message.fromMe, message.message, getCurrentTimestamp(), null, null, null, null, null)
-          if(serverTest.io){
+          if (serverTest.io) {
             serverTest.io.to(`schema_${job.data.schema}`).emit('message', {
               chatId: job.data.chat_id,
               body: resposta,
@@ -168,22 +168,22 @@ module.exports = (broadcastMessage) => {
               status: job.data.status || null,
               schema: job.data.schema || null
             })
-            }
+          }
         }
-        }
+      }
     } catch (error) {
       console.error(error)
     }
-  }, {connection: bullConn})
+  }, { connection: bullConn })
 
   app.post('/chat', async (req, res) => {
     const result = req.body;
     if (!result?.data?.key?.remoteJid) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
-    const num = result.data.key.remoteJid.split('@')[0]; 
-    const numberLimpo = num.length === 12 
-      ? num 
+    const num = result.data.key.remoteJid.split('@')[0];
+    const numberLimpo = num.length === 12
+      ? num
       : num.slice(0, 4) + num.slice(5);
     const contact = result.data.key.fromMe
       ? numberLimpo
@@ -222,12 +222,12 @@ module.exports = (broadcastMessage) => {
       const chatDb = await getChatService(createChats.chat.id, createChats.chat.connection_id, createChats.schema);
       const schema = createChats.schema
 
-      if(chatDb.assigned_user===null){
+      if (chatDb.assigned_user === null) {
         await setUserChat(chatDb.id, schema)
       }
 
       const baseChat = await getChatService(createChats.chat.id, createChats.chat.connection_id, createChats.schema)
-      if(result.data.key.fromMe===false){
+      if (result.data.key.fromMe === false) {
         await setMessageIsUnread(baseChat.id, schema)
         await updateChatStatusFromDisparo(baseChat.id, schema)
       }
@@ -237,12 +237,12 @@ module.exports = (broadcastMessage) => {
         if (serverTest.io) {
           // Envia apenas o chat específico que foi atualizado, não todos os chats do usuário
           serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', baseChat)
-          
+
           const adminUsersQuery = await pool.query(
             `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico') AND online = true AND id != $1`,
             [baseChat.assigned_user]
           );
-          
+
           if (adminUsersQuery.rowCount > 0) {
             const adminUsers = adminUsersQuery.rows.map(row => row.id);
             for (const adminId of adminUsers) {
@@ -270,50 +270,50 @@ module.exports = (broadcastMessage) => {
         audioBase64 = await getBase64FromMediaMessage(result.instance, result.data.key.id);
         audioBase64 = audioBase64.base64
         midiaType = 'audio';
-      }else if (result.data.message.imageMessage) {
+      } else if (result.data.message.imageMessage) {
         // Mensagem com imagem
         imageBase64 = await getBase64FromMediaMessage(result.instance, result.data.key.id);
         midiaType = 'image';
         messageBody = result.data.message.imageMessage.caption ? result.data.message.imageMessage.caption : null;
         imageBase64 = imageBase64.base64
-      }else if(result.data.message.messageType === 'documentMessage' || result.data.message.documentMessage || result.data.messageType === 'documentMessage' || result.data.messageType === 'document'){
+      } else if (result.data.message.messageType === 'documentMessage' || result.data.message.documentMessage || result.data.messageType === 'documentMessage' || result.data.messageType === 'document') {
         // Mensagem com documento
         documentBase64 = await getBase64FromMediaMessage(result.instance, result.data.key.id)
         documentInfo = documentBase64;
         documentBase64 = documentBase64.base64
         midiaType = 'document';
-        if(documentInfo){
+        if (documentInfo) {
           fileName = documentInfo.fileName || documentInfo.filename || documentInfo.name || 'documento';
           mimeType = documentInfo.mimetype || documentInfo.mimeType || documentInfo.type || 'application/octet-stream';
         }
       }
 
-    payload = {
-      chatId: baseChat.id,
-      body: messageBody || null,
-      midiaBase64: imageBase64 || audioBase64 || documentBase64 || null,
-      fromMe: result.data.key.fromMe,
-      from: result.data.pushName,
-      timestamp,
-      message_type: result.data.messageType,
-      fileName: fileName || null,
-      mimeType: mimeType || null,
-    }
-
-    payload.midiaBase64 ? await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, midiaType, payload.midiaBase64, schema, payload.fileName, payload.mimeType):null
-    await updateCacheMessages(result.data.key.id, baseChat.id, payload.fromMe, messageBody || null, timestamp, midiaType, payload.midiaBase64 || null, null, payload.fileName || null, payload.mimeType || null, schema)
-    if(serverTest.io){
-      if(baseChat.assigned_user){
-        // Envia apenas o chat específico que foi atualizado
-        serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', baseChat)
-      }else{
-        await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
+      payload = {
+        chatId: baseChat.id,
+        body: messageBody || null,
+        midiaBase64: imageBase64 || audioBase64 || documentBase64 || null,
+        fromMe: result.data.key.fromMe,
+        from: result.data.pushName,
+        timestamp,
+        message_type: result.data.messageType,
+        fileName: fileName || null,
+        mimeType: mimeType || null,
       }
-    }
-    serverTest.io.to(`schema_${schema}`).emit('message', payload);
+
+      payload.midiaBase64 ? await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, midiaType, payload.midiaBase64, schema, payload.fileName, payload.mimeType) : null
+      await updateCacheMessages(result.data.key.id, baseChat.id, payload.fromMe, messageBody || null, timestamp, midiaType, payload.midiaBase64 || null, null, payload.fileName || null, payload.mimeType || null, schema)
+      if (serverTest.io) {
+        if (baseChat.assigned_user) {
+          // Envia apenas o chat específico que foi atualizado
+          serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', baseChat)
+        } else {
+          await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
+        }
+      }
+      serverTest.io.to(`schema_${schema}`).emit('message', payload);
 
 
-    const existingMessage = await pool.query(
+      const existingMessage = await pool.query(
         `SELECT id FROM ${schema}.messages WHERE id = $1`,
         [result.data.key.id]
       );
@@ -333,7 +333,7 @@ module.exports = (broadcastMessage) => {
       }
       const data = {
         chatId: chatDb.id,
-        instance:result.instance,
+        instance: result.instance,
         body: messageBody,
         fromMe: result.data.key.fromMe,
         from: result.data.pushName,
@@ -346,7 +346,7 @@ module.exports = (broadcastMessage) => {
 
       const queueById = await getQueueById(chatDb.queue_id, schema);
 
-      if(queueById[0].is_webhook_on === true && queueById[0].webhook_url !== null){
+      if (queueById[0].is_webhook_on === true && queueById[0].webhook_url !== null) {
         try {
           await axios.post(queueById[0].webhook_url, data)
         } catch (error) {
@@ -355,7 +355,7 @@ module.exports = (broadcastMessage) => {
       }
       await chatQueue.add('new_message', data)
 
-      queueById[0].assistant_id && baseChat.isboton?await gptQueue.add('gpt', {
+      queueById[0].assistant_id && baseChat.isboton ? await gptQueue.add('gpt', {
         chat_id: baseChat.id,
         thread_id: baseChat.thread_id || null,
         body: messageBody,
@@ -363,16 +363,16 @@ module.exports = (broadcastMessage) => {
         instance: result.instance,
         number: numberLimpo,
         schema: schema
-      }):null
-    
+      }) : null
+
       if (!chat || !result.instance) {
         throw new Error('Dados obrigatórios ausentes para createChat');
       }
       res.status(200).json({ result });
 
-  } catch (error) {
-    console.error('Erro ao enviar para o próximo webhook:', error);
-  }
+    } catch (error) {
+      console.error('Erro ao enviar para o próximo webhook:', error);
+    }
   });
 
   app.post('/chat/sendMessage', async (req, res) => {
@@ -407,68 +407,68 @@ module.exports = (broadcastMessage) => {
 
   const upload = multer({ storage });
 
-// FUNÇÃO PRA GARANTIR QUE A PASTA DE AUDIO EXISTE
+  // FUNÇÃO PRA GARANTIR QUE A PASTA DE AUDIO EXISTE
 
   app.post('/chat/sendAudio', upload.single('audio'), async (req, res) => {
     const { chatId, schema } = req.body;
     const audioFile = req.file;
 
     try {
-        if (!audioFile) {
-            return res.status(400).json({ error: 'Áudio não encontrado' });
-        }
+      if (!audioFile) {
+        return res.status(400).json({ error: 'Áudio não encontrado' });
+      }
 
-        const audioBase64 = audioFile.buffer.toString('base64');
+      const audioBase64 = audioFile.buffer.toString('base64');
 
-        const sentAudio = {
-            chatId,
-            body: audioBase64,
-            audioUrl: null,
-            fromMe: true,
-            timestamp: Date.now(),
-        };
+      const sentAudio = {
+        chatId,
+        body: audioBase64,
+        audioUrl: null,
+        fromMe: true,
+        timestamp: Date.now(),
+      };
 
-        broadcastMessage({ type: 'message', payload: sentAudio });
+      broadcastMessage({ type: 'message', payload: sentAudio });
 
-        res.status(200).json({ success: true, message: sentAudio });
+      res.status(200).json({ success: true, message: sentAudio });
     } catch (err) {
-        console.error('Erro ao enviar áudio:', err);
-        res.status(500).json({ error: err.message });
+      console.error('Erro ao enviar áudio:', err);
+      res.status(500).json({ error: err.message });
     }
-});
+  });
 
-app.post('/resposta', async(req, res)=>{
+  app.post('/resposta', async (req, res) => {
     try {
-        const message = new Message(
-          uuidv4(),
-          req.body.body,
-          true,
-          req.body.id,
-          getCurrentTimestamp(req.body.timestamp)
-        )
-        await saveMessage(req.body.id, message, req.body.schema)
-        await sendTextMessage(req.body.instance, req.body.body, req.body.number)
-        const payload = {
-            chatId: req.body.id,
-            body: req.body.body,
-            fromMe: true,
-            timestamp: getCurrentTimestamp(req.body.timestamp),
-            user_id: req.body.assigned_user
-          };
-        
-        // Emitir via socket para aparecer diretamente na interface
-        serverTest.io.to(`schema_${req.body.schema}`).emit('message', payload);
-        
-        res.status(200).json({success:true})
+      const message = new Message(
+        uuidv4(),
+        req.body.body,
+        true,
+        req.body.id,
+        getCurrentTimestamp(req.body.timestamp)
+      )
+      await saveMessage(req.body.id, message, req.body.schema)
+      await sendTextMessage(req.body.instance, req.body.body, req.body.number)
+      const payload = {
+        chatId: req.body.id,
+        body: req.body.body,
+        fromMe: true,
+        timestamp: getCurrentTimestamp(req.body.timestamp),
+        user_id: req.body.assigned_user
+      };
+
+      // Emitir via socket para aparecer diretamente na interface
+      serverTest.io.to(`schema_${req.body.schema}`).emit('message', payload);
+
+      res.status(200).json({ success: true })
     } catch (error) {
-        console.error(error)
-        res.status(500).json({error: error.message})
+      console.error(error)
+      res.status(500).json({ error: error.message })
     }
-})
-app.get('/api-ofc', async(req, res)=>{
-  //Esse token serve apenas para teste, não se trata do valor real que utilizaremos
-  const verifyToken = 'EAAiJWRJb1lgBPq22oe4Ebb1N4kA6sD94rAin7Nq2LxlPXNqVv8M8ZBp91NO1tsYLL1cZAMJSZBezxspGbZBninImVu3EvwRCulZApy5Nj5kVpK9cve4DXGtJMU8pcLcXjbmCYp8ZCAXZAzgHvAH6nghErXl4gaUBv6xwKV63yH9EmH3dZB7ZBAVm0vByxXEVKtWZC4bjzajPWLUkNPiKmRxZCwbsVClAT8OqnfdJZCXdT99rmenozwZDZD'
-  const { 'hub.mode': mode, 'hub.challenge': challenge, 'hub.verify_token': token } = req.query;
+  })
+  app.get('/api-ofc', async (req, res) => {
+    //Esse token serve apenas para teste, não se trata do valor real que utilizaremos
+    const verifyToken = 'EAAiJWRJb1lgBPhG955O88llZBNbM38oJBQZBTPTO7RlNQ5fbzo4DohlKMnKCKZCG6YB7doZBXBTkWPbf3KFADVwXe0PcZC51YzQJBZBNXsK3hZClTBXMeUPepABia1Eb1J4VtDvaZCnXZCZBMRYeZBZCxi5UzUfVRXdCcrcD24zaoAkadnFjAfT8Ohsp0f8wH1BqfpJ8ZCAsIQjRIhIZBFeY4sHSqiNoUBJaLWo6qwf8JOZAup9UOqZBSQZDZD'
+    const { 'hub.mode': mode, 'hub.challenge': challenge, 'hub.verify_token': token } = req.query;
 
     if (mode === 'subscribe' && token === verifyToken) {
       console.log('WEBHOOK VERIFIED');
@@ -476,29 +476,29 @@ app.get('/api-ofc', async(req, res)=>{
     } else {
       res.status(403).end();
     }
-})
-app.post('/api-ofc', async(req, res)=>{
-  const changes = req.body.entry[0].changes;
-  const chat = await createApiOfcChat(changes[0].value.metadata.phone_number_id, '6e76f2ff-d60b-46da-9db4-693dfbda7f9a', changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, 'effective_gain' )
-  if(!chat){
-    res.status(500).json({success:false, message: 'Chat não encontrado ou não vinculado a nenhuma conexão'})
-    return
-  }
-  const message = await saveMessage(chat.id, new Message(uuidv4(), changes[0].value.messages[0].text.body, false, chat.id, getCurrentTimestamp()), 'effective_gain', null)
-  await updateCacheMessages(message.id, chat.id, false, changes[0].value.messages[0].text.body, getCurrentTimestamp(), null, null, null, null, null)
-  if(!serverTest.io){
-    return
-  }
-  serverTest.io.to(`schema_effective_gain`).emit('chats_updated', chat)
-  serverTest.io.to(`schema_effective_gain`).emit('message', {
-    chatId: chat.id,
-    body: changes[0].value.messages[0].text.body,
-    fromMe: false,
-    timestamp: getCurrentTimestamp(),
-    user_id: changes[0].value.contacts[0].wa_id
   })
-  res.status(200).json({success:true, chat})
-})
+  app.post('/api-ofc', async (req, res) => {
+    const changes = req.body.entry[0].changes;
+    const chat = await createApiOfcChat(changes[0].value.metadata.phone_number_id, '6e76f2ff-d60b-46da-9db4-693dfbda7f9a', changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, 'effective_gain')
+    if (!chat) {
+      res.status(500).json({ success: false, message: 'Chat não encontrado ou não vinculado a nenhuma conexão' })
+      return
+    }
+    const message = await saveMessage(chat.id, new Message(uuidv4(), changes[0].value.messages[0].text.body, false, chat.id, getCurrentTimestamp()), 'effective_gain', null)
+    await updateCacheMessages(message.id, chat.id, false, changes[0].value.messages[0].text.body, getCurrentTimestamp(), null, null, null, null, null)
+    if (!serverTest.io) {
+      return
+    }
+    serverTest.io.to(`schema_effective_gain`).emit('chats_updated', chat)
+    serverTest.io.to(`schema_effective_gain`).emit('message', {
+      chatId: chat.id,
+      body: changes[0].value.messages[0].text.body,
+      fromMe: false,
+      timestamp: getCurrentTimestamp(),
+      user_id: changes[0].value.contacts[0].wa_id
+    })
+    res.status(200).json({ success: true, chat })
+  })
 
   return app;
 };

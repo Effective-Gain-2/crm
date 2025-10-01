@@ -53,7 +53,7 @@ const sendTextMessageController = async (req, res) => {
         const body = req.body;
         const user_id = req.body.user_id || req.user_id;
         const chatId = body.chatId || body.chat_id;
-        const schema = body.schema || 'effective_gain';
+        const schema = body.schema;
 
         const instance = await searchConnById(body.instanceId, schema);
 
@@ -64,7 +64,7 @@ const sendTextMessageController = async (req, res) => {
         const payload = {
             text: body.text,
             number: body.number,
-            replyTo: body.replyTo || null, 
+            replyTo: body.replyTo || null,
         };
 
         const result = await sendTextMessage(
@@ -87,7 +87,7 @@ const sendTextMessageController = async (req, res) => {
             body.replyTo || null,
             body.replyTo ? true : false
         );
-        await updateCacheMessages(result.key.id, chatId, result.key.fromMe, body.text, getCurrentTimestamp(),'conversation', null, user_id, null, null)
+        await updateCacheMessages(result.key.id, chatId, result.key.fromMe, body.text, getCurrentTimestamp(), 'conversation', null, user_id, null, null)
         message.isQuoted = body.replyTo ? true : false;
 
         if (body.replyTo) {
@@ -104,18 +104,18 @@ const sendTextMessageController = async (req, res) => {
 };
 
 const generateQrCodeController = async (req, res) => {
-    const {instance} = req.params
+    const { instance } = req.params
     try {
         const result = await generateQrCode(instance)
         res.status(200).json({
-            success:true,
-            data:result
+            success: true,
+            data: result
         })
     } catch (error) {
         console.error(error)
         res.status(500).json({
-            success:false,
-            message:'Erro ao gerar QR Code, favor entrar em contato com suporte'
+            success: false,
+            message: 'Erro ao gerar QR Code, favor entrar em contato com suporte'
         })
     }
 }

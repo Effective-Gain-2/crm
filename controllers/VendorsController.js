@@ -12,7 +12,7 @@ const createVendorController = async (req, res) => {
     }
 }
 
-const getVendorsController = async (req,res)=>{
+const getVendorsController = async (req, res) => {
     const schema = req.params.schema;
 
     try {

@@ -39,7 +39,7 @@ exports.uploadExcel = async (req, res) => {
 
     await processExcelFile(sector, schema);
 
-    res.status(200).json({success:true, message: 'Arquivo enviado e processado com sucesso!', file: path.basename(filePath) });
+    res.status(200).json({ success: true, message: 'Arquivo enviado e processado com sucesso!', file: path.basename(filePath) });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao salvar ou processar arquivo.' });
