@@ -293,6 +293,7 @@ const CustomDropdownMotivo = ({ statusList, value, onChange, loading, theme }) =
 };
 
 const FinalizarAtendimentoModal = ({ show, onHide, theme, selectedChat, onFinish }) => {
+  console.log(selectedChat)
   const [status, setStatus] = useState('');
   const [statusList, setStatusList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -337,7 +338,8 @@ const FinalizarAtendimentoModal = ({ show, onHide, theme, selectedChat, onFinish
       await axios.post(`${url}/chat/close`, {
         chat_id: selectedChat.id,
         schema,
-        status
+        status,
+        isApi:selectedChat.isApi || false
       }, { withCredentials: true });
       if (onFinish) onFinish();
       onHide();

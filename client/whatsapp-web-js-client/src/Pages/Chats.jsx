@@ -878,7 +878,7 @@ function ChatPage({ theme, chat_id }) {
       });
       socketInstance.on('removeChat', (data) => {
         console.log('Removendo chat:', data);
-        setChats(prevChats => sortChatsByTimestamp(prevChats.filter(chat => chat.id !== data.id)));
+        setChats(prevChats => sortChatsByTimestamp(prevChats.filter(chat => chat.id !== data?.id)));
         setSelectedChat(null);
         setSelectedChatId(null);
         setSelectedMessages([]);
@@ -886,7 +886,6 @@ function ChatPage({ theme, chat_id }) {
 
       // Listener para remoção seletiva de chat baseado no assigned_user
       socketInstance.on('remove_chat', (data) => {
-        console.log(data)
         const [chatId, assignedUserId] = data;
         const currentUserId = userData.id;
 
@@ -1274,8 +1273,10 @@ function ChatPage({ theme, chat_id }) {
         number: selectedChat.contact_phone,
         text: newMessage,
         chatId: selectedChat.id,
+        number: selectedChat.contact_phone || selectedChat.number,
         schema: schema,
-        user_id: userData.id
+        user_id: userData.id,
+        isApi: selectedChat.isApi || false
       },
         {
           withCredentials: true

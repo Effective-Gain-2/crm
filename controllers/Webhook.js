@@ -19,6 +19,8 @@ const { getQueueById } = require('../services/QueueService');
 const { createThread, messageAnAssistant, getAssistantReply } = require('../services/OpenAi');
 const { updateContactInKanban } = require('../services/KanbanService');
 const { createApiOfcChat, setApiChatQueue } = require('../services/ChatApiOfc');
+require('dotenv').config({ path: '../.env' });
+
 
 // Função para emitir chats para as filas específicas
 const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
@@ -467,7 +469,7 @@ module.exports = (broadcastMessage) => {
   })
   app.get('/api-ofc', async (req, res) => {
     //Esse token serve apenas para teste, não se trata do valor real que utilizaremos
-    const verifyToken = 'EAAiJWRJb1lgBPhG955O88llZBNbM38oJBQZBTPTO7RlNQ5fbzo4DohlKMnKCKZCG6YB7doZBXBTkWPbf3KFADVwXe0PcZC51YzQJBZBNXsK3hZClTBXMeUPepABia1Eb1J4VtDvaZCnXZCZBMRYeZBZCxi5UzUfVRXdCcrcD24zaoAkadnFjAfT8Ohsp0f8wH1BqfpJ8ZCAsIQjRIhIZBFeY4sHSqiNoUBJaLWo6qwf8JOZAup9UOqZBSQZDZD'
+    const verifyToken = process.env.WHATSAPP_API_TOKEN;
     const { 'hub.mode': mode, 'hub.challenge': challenge, 'hub.verify_token': token } = req.query;
 
     if (mode === 'subscribe' && token === verifyToken) {
@@ -479,7 +481,7 @@ module.exports = (broadcastMessage) => {
   })
   app.post('/api-ofc', async (req, res) => {
     const changes = req.body.entry[0].changes;
-    const chat = await createApiOfcChat(changes[0].value.metadata.phone_number_id, '6e76f2ff-d60b-46da-9db4-693dfbda7f9a', changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, 'effective_gain')
+    const chat = await createApiOfcChat(changes[0].value.contacts[0].wa_id, '6e76f2ff-d60b-46da-9db4-693dfbda7f9a', changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, 'effective_gain')
     if (!chat) {
       res.status(500).json({ success: false, message: 'Chat não encontrado ou não vinculado a nenhuma conexão' })
       return

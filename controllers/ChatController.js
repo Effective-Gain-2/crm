@@ -19,9 +19,9 @@ const bullConn = createRedisConnection();
 const closeChatQueue = new Queue('closeQueue', { connection: bullConn });
 
 new Worker('closeQueue', async (job) => {
-  const { chat_id, status, schema } = job.data;
+  const { chat_id, status, schema, isApi } = job.data;
   try { 
-    await closeChatContact(chat_id, status, schema);
+    await closeChatContact(chat_id, status, schema, isApi);
     await deleteCacheMessages(chat_id)
     } catch (error) {
     console.error('Erro ao processar o fechamento do chat:', error);
@@ -333,11 +333,11 @@ const getStatusController = async (req, res) => {
 }
 const closeChatContoller = async(req, res)=>{
   try{
-    const {chat_id, status} = req.body
+    const {chat_id, status, isApi} = req.body
     const schema = req.body.schema
-    
-    const result = await closeChat(chat_id, schema)
-    const job = await closeChatQueue.add('closeChat', { chat_id, status, schema },{attempts: 3});
+
+    const result = await closeChat(chat_id, schema, isApi)
+    const job = await closeChatQueue.add('closeChat', { chat_id, status, schema, isApi },{attempts: 3});
     global.socketIoServer.to(`schema_${schema}`).emit('removeChat', result)
 
    res.status(200).json({
