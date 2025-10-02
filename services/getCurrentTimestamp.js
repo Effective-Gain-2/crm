@@ -3,6 +3,7 @@ const getCurrentTimestamp = () => {
 };
 
 const parseLocalDateTime = (dateTimeString) => {
+  console.log('parseLocalDateTime: recebendo dateTimeString:', dateTimeString);
   // Validação se a string existe
   if (!dateTimeString) {
     console.error('parseLocalDateTime: dateTimeString é undefined ou null');
