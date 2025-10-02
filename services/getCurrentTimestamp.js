@@ -3,16 +3,49 @@ const getCurrentTimestamp = () => {
 };
 
 const parseLocalDateTime = (dateTimeString) => {
-  // Parse da string de data/hora no formato brasileiro (DD/MM/YYYY HH:mm:ss)
-  // e converte para timestamp considerando timezone local
-  const [datePart, timePart] = dateTimeString.split(' ');
-  const [day, month, year] = datePart.split('/');
-  const [hour, minute, second] = timePart.split(':');
+  // Validação se a string existe
+  if (!dateTimeString) {
+    console.error('parseLocalDateTime: dateTimeString é undefined ou null');
+    return Date.now(); // Retorna timestamp atual como fallback
+  }
   
-  // Cria a data no timezone local
-  const localDate = new Date(year, month - 1, day, hour, minute, second || 0);
-  
-  return localDate.getTime();
+  try {
+    // Primeiro tenta parsear como ISO string (formato do frontend)
+    if (dateTimeString.includes('T') && dateTimeString.includes('-')) {
+      const isoDate = new Date(dateTimeString);
+      if (!isNaN(isoDate.getTime())) {
+        return isoDate.getTime();
+      }
+    }
+    
+    // Se não for ISO, tenta o formato brasileiro (DD/MM/YYYY HH:mm:ss)
+    const parts = dateTimeString.split(' ');
+    
+    if (parts.length < 2) {
+      console.error('parseLocalDateTime: formato de data inválido, esperado DD/MM/YYYY HH:mm:ss ou ISO');
+      return Date.now();
+    }
+    
+    const [datePart, timePart] = parts;
+    const dateComponents = datePart.split('/');
+    const timeComponents = timePart.split(':');
+    
+    if (dateComponents.length < 3 || timeComponents.length < 2) {
+      console.error('parseLocalDateTime: formato de data/hora inválido');
+      return Date.now();
+    }
+    
+    const [day, month, year] = dateComponents;
+    const [hour, minute, second] = timeComponents;
+    
+    // Cria a data no timezone local
+    const localDate = new Date(year, month - 1, day, hour, minute, second || 0);
+    
+    return localDate.getTime();
+  } catch (error) {
+    console.error('parseLocalDateTime: erro ao processar data:', error.message);
+    return Date.now();
+  }
 };
   
 module.exports = { getCurrentTimestamp, parseLocalDateTime };
