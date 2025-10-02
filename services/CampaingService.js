@@ -292,11 +292,10 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
         currentDate = new Date(startDate);
         currentDate.setHours(initHour, initMinute, 0, 0);
       } else {
-        // Start_date é após end_time, vai para o próximo dia
+        // Start_date é após end_time - respeita a data original do usuário
         firstDayWindowMinutes = 0;
         currentDate = new Date(startDate);
-        currentDate.setDate(currentDate.getDate() + 1);
-        currentDate.setHours(initHour, initMinute, 0, 0);
+        // Não ajusta para o próximo dia, mantém a data original
       }
       
       console.log('DEBUG - startTimeInMinutes:', startTimeInMinutes);
@@ -329,7 +328,15 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
           maxDisparosPorDia = Math.min(contatosNoDia, contatosRestantes);
           
         }
-        accumulatedDelay = currentDate.getTime() - Date.now();
+        
+        // Se é o primeiro job e a data original está fora da janela, usa a data original
+        if (jobIndex === 0 && startTimeInMinutes > endTimeInMinutes) {
+          accumulatedDelay = startDate - Date.now();
+          console.log('DEBUG - Usando data original (fora da janela):', new Date(startDate).toLocaleString());
+        } else {
+          accumulatedDelay = currentDate.getTime() - Date.now();
+        }
+        
         console.log('DEBUG - currentDate ajustado:', currentDate.toLocaleString());
         console.log('DEBUG - accumulatedDelay calculado:', accumulatedDelay);
         disparosAgendadosHoje++;
