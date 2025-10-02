@@ -258,6 +258,9 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
     let maxDisparosPorDia = null;
     let contatosRestantes = totalContacts;
     let isFirstDay = true;
+    let startTimeInMinutes = 0;
+    let initTimeInMinutes = 0;
+    let endTimeInMinutes = 0;
 
     if (campaing.init_time && campaing.end_time) {
       // Parse horários
@@ -276,9 +279,9 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
       const startDateTime = new Date(startDate);
       const startHour = startDateTime.getHours();
       const startMinute = startDateTime.getMinutes();
-      const startTimeInMinutes = startHour * 60 + startMinute;
-      const initTimeInMinutes = initHour * 60 + initMinute;
-      const endTimeInMinutes = endHour * 60 + endMinute;
+      startTimeInMinutes = startHour * 60 + startMinute;
+      initTimeInMinutes = initHour * 60 + initMinute;
+      endTimeInMinutes = endHour * 60 + endMinute;
       
       let firstDayWindowMinutes = 0;
       
