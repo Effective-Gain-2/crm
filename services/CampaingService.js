@@ -190,6 +190,11 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
   try { 
     const startDate = Number(campaing.start_date);
     const now = Date.now();
+    
+    console.log('DEBUG - startDate timestamp:', startDate);
+    console.log('DEBUG - startDate como Date:', new Date(startDate).toLocaleString());
+    console.log('DEBUG - now timestamp:', now);
+    console.log('DEBUG - now como Date:', new Date(now).toLocaleString());
 
     if (startDate < now) {
       console.log('Data de início já passou, não agendando campanha');
@@ -401,7 +406,11 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
         }
       });
 
-      console.log(`Agendando mensagem ${messageIndex + 1}/${totalMessages} para conexão ${connectionIdx + 1}/${connections.length} (contato ${contactPhone}) para:`, new Date(Date.now() + Math.max(0, accumulatedDelay)).toLocaleString());
+      const scheduledTime = Date.now() + Math.max(0, accumulatedDelay);
+      console.log(`DEBUG - accumulatedDelay:`, accumulatedDelay);
+      console.log(`DEBUG - scheduledTime timestamp:`, scheduledTime);
+      console.log(`DEBUG - scheduledTime como Date:`, new Date(scheduledTime).toLocaleString());
+      console.log(`Agendando mensagem ${messageIndex + 1}/${totalMessages} para conexão ${connectionIdx + 1}/${connections.length} (contato ${contactPhone}) para:`, new Date(scheduledTime).toLocaleString());
       console.log(`Job ${job.id} agendado com sucesso, enviando pelo numero ${instance.rows[0].id}, para o ${contactPhone}`);
 
       jobCount++;
