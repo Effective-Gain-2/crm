@@ -299,6 +299,11 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
         currentDate.setHours(initHour, initMinute, 0, 0);
       }
       
+      console.log('DEBUG - startTimeInMinutes:', startTimeInMinutes);
+      console.log('DEBUG - initTimeInMinutes:', initTimeInMinutes);
+      console.log('DEBUG - endTimeInMinutes:', endTimeInMinutes);
+      console.log('DEBUG - currentDate após ajuste:', currentDate.toLocaleString());
+      
       // Calcula quantos contatos cabem no primeiro dia
       const contatosNoPrimeiroDia = Math.floor(firstDayWindowMinutes * 60 / intervalEmSegundos);
       maxDisparosPorDia = Math.min(contatosNoPrimeiroDia, contatosRestantes);
@@ -325,6 +330,8 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
           
         }
         accumulatedDelay = currentDate.getTime() - Date.now();
+        console.log('DEBUG - currentDate ajustado:', currentDate.toLocaleString());
+        console.log('DEBUG - accumulatedDelay calculado:', accumulatedDelay);
         disparosAgendadosHoje++;
         contatosRestantes--;
       }
