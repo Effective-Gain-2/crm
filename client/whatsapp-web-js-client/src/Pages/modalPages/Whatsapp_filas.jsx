@@ -17,18 +17,23 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
   useEffect(()=>{
     const handleQueues = async()=>{
       if (!contato) return;
-      
       setLoading(true);
       try{  
+        if(!contato.connection.queue_id){
+          setFilaAtual(null);
+        }else{
+
+          const responseFilaAtual = await axios.get(`${url}/queue/get-conn-queues/${contato.connection.queue_id}/${schema}`,
+          {
+        withCredentials: true
         // Buscar fila atual do contato
-        const responseFilaAtual = await axios.get(`${url}/queue/get-conn-queues/${contato.queue_id}/${schema}`,
-        {
-      withCredentials: true
-    })
-        const filaAtualData = Array.isArray(responseFilaAtual.data.result) 
-          ? responseFilaAtual.data.result[0] 
-          : responseFilaAtual.data.result;
-        setFilaAtual(filaAtualData);
+      })
+      const filaAtualData = Array.isArray(responseFilaAtual.data.result) 
+        ? responseFilaAtual.data.result[0] 
+        : responseFilaAtual.data.result;
+      setFilaAtual(filaAtualData);
+
+        }
         
         // Buscar todas as filas disponíveis
         const responseTodasFilas = await axios.get(`${url}/queue/get-all-queues/${schema}`,
