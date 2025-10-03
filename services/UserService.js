@@ -116,7 +116,7 @@ const searchUser = async (userMail, userPassword) => {
   }
 
   const getOnlineUsers = async(schema)=>{
-    const result = await pool.query(`SELECT * FROM ${schema}.users WHERE online=true`);
+    const result = await pool.query(`SELECT * FROM ${schema}.users WHERE online=true and permission ='user'`);
     return result.rows;
   }
 
