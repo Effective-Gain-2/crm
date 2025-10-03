@@ -40,11 +40,26 @@ const updateContactInKanban = async (number, stage_id, schema) => {
     return result;
   }
 }
-
 const changeContactInKanban = async (number, stage_id, schema) => {
-  const result = await pool.query(`UPDATE ${schema}.contacts_stage SET stage=$1 WHERE contact_number=$2 RETURNING *`, [stage_id, number])
-  return result.rows[0]
-}
+  const result = await pool.query(
+    `SELECT * FROM ${schema}.contacts_stage WHERE contact_number=$1 AND stage=$2`,
+    [number, stage_id]
+  );
+
+  if (result.rows.length > 0) {
+    return result.rows[0];
+  }
+
+  const updated = await pool.query(
+    `UPDATE ${schema}.contacts_stage 
+     SET stage=$1 
+     WHERE contact_number=$2 
+     RETURNING *`,
+    [stage_id, number]
+  );
+
+  return updated.rows[0];
+};
 
 const insertInKanbanStage = async (stageName, sector, number, schema) => {
   // Verifica se a tabela do kanban existe
@@ -245,6 +260,37 @@ const getCustomFields = async (schema) => {
   return result.rows
 }
 
+const getFunilByKanbanStage = async (stage_id, schema) => {
+    const funis = await getFunis(schema);    
+    console.log('Funis disponíveis:', funis);
+    for(const funil of funis.name){
+      const hasStage = await pool.query(
+        `SELECT * FROM ${schema}.kanban_${funil} WHERE id=$1`, [stage_id]
+      )
+      if(hasStage.rowCount > 0){
+        return funil
+      }
+    }
+    return null
+}
+
+const getSpecificContactInKanban = async (number, schema) => {
+  const result = await pool.query(
+    `SELECT * FROM ${schema}.contacts_stage WHERE contact_number=$1`, [number]
+  )
+  if(result.rowCount === 0) return null
+
+  return result.rows[0]
+}
+
+const insertContactInKanbanByStageId = async (stage_id, number, schema) => {
+  const result = await pool.query(
+    `INSERT INTO ${schema}.contacts_stage (stage, contact_number) VALUES ($1, $2) RETURNING *`,
+    [stage_id, number]
+  )
+  return result.rows[0]
+}
+
 
 module.exports = {
   createKanbanStage,
@@ -262,5 +308,8 @@ module.exports = {
   deleteFunil,
   deleteEtapa,
   getCustomFields,
-  changeContactInKanban
-};
+  changeContactInKanban,
+  getFunilByKanbanStage,
+  getSpecificContactInKanban,
+  insertContactInKanbanByStageId,
+}

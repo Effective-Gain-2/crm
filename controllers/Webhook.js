@@ -476,6 +476,10 @@ app.get('/api-ofc', async(req, res)=>{
     }
 })
 app.post('/api-ofc', async(req, res)=>{
+  const falsee = false
+  if(!falsee){
+    return;
+  }
   const messages = req.body.entry[0].changes;
   console.log(req.body.entry[0].changes[0].value.contacts[0])
   const chat = await createChat(new Chat(
