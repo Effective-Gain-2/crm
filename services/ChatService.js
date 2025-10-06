@@ -315,7 +315,7 @@ const setUserChat = async (chatId, schema) => {
       if (!lastAssigned) {
         nextUser = userIdsInQueue[0];
       } else {
-        const lastIndex = userIdsInQueue.findIndex(u => u.id === lastAssigned.user_id);
+        const lastIndex = userIdsInQueue.findIndex(u => u === lastAssigned.user_id);
         nextUser = userIdsInQueue[(lastIndex + 1) % userIdsInQueue.length];
       }
       // Validar se nextUser é válido antes de chamar updateLastAssignedUser
