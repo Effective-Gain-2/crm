@@ -14,6 +14,7 @@ const {
   redistributeWaitingChatsController,
   getAverageTimeToCloseController,
   activeBotController,
+  get20MoreMessagesController,
 } = require('../controllers/ChatController'); 
 const { updateContactName } = require('../services/ChatService');
 const { verifyToken } = require('../controllers/UserController');
@@ -26,6 +27,7 @@ router.get('/scheduled-messages/:chat_id/:schema', verifyToken, getScheduledMess
 router.get('/get-status/:schema', verifyToken,getStatusController)
 router.get('/get-closed-chats/:schema', verifyToken, getClosedChatsController)
 router.get('/average-time-to-close/:schema', verifyToken, getAverageTimeToCloseController);
+router.get('/get-more-messages/:chat_id/:schema', verifyToken, get20MoreMessagesController)
 router.post('/create-status', verifyToken, createStatusController)
 router.get('/:schema/:chatId', verifyToken, getChatDataController);
 router.post('/setChat', verifyToken, setUserChatController);

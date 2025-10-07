@@ -261,8 +261,8 @@ const getCustomFields = async (schema) => {
 }
 
 const getFunilByKanbanStage = async (stage_id, schema) => {
+  
     const funis = await getFunis(schema);    
-    console.log('Funis disponíveis:', funis);
     for(const funil of funis.name){
       const hasStage = await pool.query(
         `SELECT * FROM ${schema}.kanban_${funil} WHERE id=$1`, [stage_id]
@@ -271,6 +271,7 @@ const getFunilByKanbanStage = async (stage_id, schema) => {
         return funil
       }
     }
+
     return null
 }
 

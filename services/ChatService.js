@@ -252,17 +252,23 @@ const updateChatMessages = async (chat, schema, message) => {
 };
 
 const getMessages = async(chat_Id, schema)=>{
-  const MessagesCache = await bullConn.get(`getMessages_${chat_Id}`)
-  if(MessagesCache){
-    return JSON.parse(MessagesCache)
-  }else{
+  // const MessagesCache = await bullConn.get(`getMessages_${chat_Id}`)
+
+  // if(MessagesCache){
+  //   return JSON.parse(MessagesCache)
+  // }else{
     const result = await pool.query(
-      `SELECT * FROM ${schema}.messages WHERE chat_id=$1 ORDER BY created_at ASC`,
+      `SELECT * FROM ${schema}.messages WHERE chat_id=$1 ORDER BY created_at DESC LIMIT 20`,
       [chat_Id]
     );
-    await bullConn.set(`getMessages_${chat_Id}`, JSON.stringify(result.rows))
-    return result.rows
+    // await bullConn.set(`getMessages_${chat_Id}`, JSON.stringify(result.rows))
+    return result.rows.reverse()
   }
+// }
+
+const get20MoreMessages = async(chat_id, last_message, schema)=>{
+  const result = await pool.query(`SELECT * FROM ${schema}.messages WHERE chat_id=$1 AND created_at < $2 ORDER BY created_at DESC LIMIT 20`, [chat_id, last_message])
+  return result.rows.reverse()
 }
 
 const getChatService = async(chat_id, connection_id, schema)=>{
@@ -771,6 +777,7 @@ const updateCacheMessages = async (message_id, chat_id, from_me, text, created_a
   const MessagesCache = await bullConn.get(`getMessages_${chat_id}`)
   if(!MessagesCache) return
   array = JSON.parse(MessagesCache)
+  array.length>20?array.shift():null
   array.push({"id":message_id,"body":text,"from_me":from_me,"chat_id":chat_id,"created_at":created_at,"message_type":message_type || null,"base64":base64 || null,"isquoted":null,"quote_id":null,"user_id":user_id || null,"filename":file_name || null,"mimetype":mimetype || null})
   await bullConn.set(`getMessages_${chat_id}`, JSON.stringify(array))
 }
@@ -815,5 +822,6 @@ module.exports = {
   activeBot,
   sendApiWhatsappMessage,
   updateCacheMessages,
-  deleteCacheMessages
+  deleteCacheMessages,
+  get20MoreMessages
 };

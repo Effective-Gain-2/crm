@@ -17,7 +17,7 @@ const createRedisConnection = require('../config/Redis');
 const { Queue, Worker } = require('bullmq');
 const { getQueueById } = require('../services/QueueService');
 const { createThread, messageAnAssistant, getAssistantReply } = require('../services/OpenAi');
-const { updateContactInKanban } = require('../services/KanbanService');
+const { updateContactInKanban, getSpecificContactInKanban, insertContactInKanbanByStageId } = require('../services/KanbanService');
 
 // Função para emitir chats para as filas específicas
 const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
@@ -221,6 +221,7 @@ module.exports = (broadcastMessage) => {
       const chatDb = await getChatService(createChats.chat.id, createChats.chat.connection_id, createChats.schema);
       const schema = createChats.schema
 
+
       if(chatDb.assigned_user===null){
         await setUserChat(chatDb.id, schema)
       }
@@ -344,6 +345,10 @@ module.exports = (broadcastMessage) => {
       };
 
       const queueById = await getQueueById(chatDb.queue_id, schema);
+      if(queueById[0].stage_id){
+        const stageKanban = await getSpecificContactInKanban(numberLimpo, schema);
+        stageKanban?null:await insertContactInKanbanByStageId(queueById[0].stage_id, numberLimpo, schema);
+      }
 
       if(queueById[0].is_webhook_on === true && queueById[0].webhook_url !== null){
         try {

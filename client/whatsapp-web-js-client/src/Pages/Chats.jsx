@@ -384,6 +384,10 @@ function ChatPage({ theme, chat_id} ) {
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showResumoModal, setShowResumoModal] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [showLoadMoreButton, setShowLoadMoreButton] = useState(false);
+  const messagesContainerRef = useRef(null);
+  const isLoadingMoreRef = useRef(false);
 
   //Use States para filtros
   const [showFilter, setShowFilter] = useState(false);
@@ -1085,6 +1089,71 @@ const loadMessages = async (chatId) => {
   }
 };
 
+// Carregar mais mensagens antigas (paginação para cima)
+const handleLoadMoreMessages = async () => {
+  if (!selectedChat || loadingMore) return;
+  const container = messagesContainerRef.current;
+  try {
+    const firstMessage = selectedMessages && selectedMessages.length > 0 ? selectedMessages[0] : null;
+    const before = firstMessage ? (firstMessage.timestamp || null) : null;
+    isLoadingMoreRef.current = true;
+    setLoadingMore(true);
+    const res = await axios.get(`${url}/chat/get-more-messages/${selectedChat.id}/${schema}?last_message=${before}`,
+      {
+        withCredentials:true
+      },
+    )
+    if(res.data.message){
+      showSuccess(res.data.message)
+      return
+    }
+    const previousScrollHeight = container ? container.scrollHeight : 0;
+    const previousScrollTop = container ? container.scrollTop : 0;
+
+    const fetched = Array.isArray(res.data.messages) ? res.data.messages.map(formatMessage) : [];
+
+    if (fetched.length > 0) {
+      const onlyNew = fetched.filter(
+        (msg) => !selectedMessages.some((prevMsg) => prevMsg.id === msg.id)
+      );
+
+      if (onlyNew.length > 0) {
+        setSelectedMessages((prev) => {
+          const updated = [...onlyNew, ...prev];
+          previousMessagesRef.current = updated;
+          return updated;
+        });
+
+        setTimeout(() => {
+          if (messagesContainerRef.current) {
+            const newScrollHeight = messagesContainerRef.current.scrollHeight;
+            const delta = newScrollHeight - previousScrollHeight;
+            messagesContainerRef.current.scrollTop = previousScrollTop + delta;
+          }
+          setTimeout(() => { isLoadingMoreRef.current = false; }, 0);
+        }, 0);
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao carregar mais mensagens:', error);
+  } finally {
+    setLoadingMore(false);
+  }
+};
+
+useEffect(() => {
+  const container = messagesContainerRef.current;
+  if (!container) return;
+
+  const onScroll = () => {
+    setShowLoadMoreButton(container.scrollTop <= 20);
+  };
+
+  container.addEventListener('scroll', onScroll);
+  onScroll();
+  return () => container.removeEventListener('scroll', onScroll);
+}, [messagesContainerRef, selectedChat, selectedMessages]);
+
 useEffect(() => {
     return () => {
       if (recordingIntervalRef.current) {
@@ -1093,7 +1162,6 @@ useEffect(() => {
     };
   }, []);
 
-  // Componente Avatar
   const Avatar = ({ avatar, size = 32, style = {} }) => {
     const avatarStyle = {
       width: size,
@@ -1472,6 +1540,8 @@ const handleImageUpload = async (event) => {
   };
 
   useEffect(() => {
+  // Evita auto-scroll enquanto está carregando mais mensagens
+  if (isLoadingMoreRef.current) return;
   scrollToBottom();
 }, [selectedMessages]);
 
@@ -2232,7 +2302,32 @@ const handleImageUpload = async (event) => {
       border: '1px solid var(--border-color)',
       position: 'relative',
     }}
+    ref={messagesContainerRef}
   >
+    {selectedChat && showLoadMoreButton && (
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          display: 'flex',
+          justifyContent: 'center',
+          zIndex: 5,
+          paddingTop: 6,
+        }}
+      >
+        <button
+          className={`btn btn-sm btn-2-${theme}`}
+          onClick={handleLoadMoreMessages}
+          disabled={loadingMore}
+          style={{
+            borderRadius: 6,
+          }}
+          title="Carregar mensagens mais antigas"
+        >
+          {loadingMore ? 'Carregando...' : 'Carregar mais mensagens'}
+        </button>
+      </div>
+    )}
     
     {/* Campo de pesquisa flutuante */}
     {showSearch && (

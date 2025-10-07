@@ -1,5 +1,5 @@
 
-const { setUserChat, getChats, getMessages, getChatData, getChatByUser, updateQueue, getChatById, saveMediaMessage, setMessageAsRead, closeChat, setSpecificUser, scheduleMessage, getScheduledMessages, deleteScheduledMessage, disableBot, closeChatContact, createStatus, getStatus, getClosedChats, getAverageTimeToClose, activeBot, deleteCacheMessages, updateCacheMessages } = require('../services/ChatService');
+const { setUserChat, getChats, getMessages, getChatData, getChatByUser, updateQueue, getChatById, saveMediaMessage, setMessageAsRead, closeChat, setSpecificUser, scheduleMessage, getScheduledMessages, deleteScheduledMessage, disableBot, closeChatContact, createStatus, getStatus, getClosedChats, getAverageTimeToClose, activeBot, deleteCacheMessages, updateCacheMessages, get20MoreMessages } = require('../services/ChatService');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
@@ -190,6 +190,23 @@ const updateQueueController = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+const get20MoreMessagesController = async (req, res) => {
+  const { chat_id,  schema } = req.params;
+  const {last_message} = req.query
+
+  try {
+    const result = await get20MoreMessages(chat_id, last_message, schema);
+    if(result.length===0){
+      res.status(200).json({success:true, message:'Sem mais mensagens'})
+      return
+    }
+    res.status(200).json({success:true, messages: result });
+  } catch (err) {
+    console.error('Erro ao buscar mais mensagens:', err);
+    res.status(500).json({success:false, error: err.message });
+  }
+}
 
 
 const getChatDataController = async (req, res) => {
@@ -551,5 +568,6 @@ const activeBotController = async (req, res) => {
     getClosedChatsController,
     redistributeWaitingChatsController,
     getAverageTimeToCloseController,
-    activeBotController
+    activeBotController,
+    get20MoreMessagesController
 };
