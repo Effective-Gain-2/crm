@@ -1,8 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from './assets/js/useTheme';
+import axios from 'axios';
+
 
 function AjudaPage({ theme }) {
   const [activeSection, setActiveSection] = useState('introducao');
+  const [textos, setTextos] = useState([])
+  
+  const fetchTextos = useEffect(()=>{
+    const fetchTextos = async () => {
+      const response = await axios.get(`${process.env.REACT_APP_URL}/ajuda/get-textos`)
+      setTextos(Array.isArray(response.data.result)?response.data.result:[response.data.result])
+    }
+    fetchTextos()
+  },[])
 
   const sections = {
     introducao: {
@@ -26,7 +37,7 @@ function AjudaPage({ theme }) {
           <div style={{ flex: 1 }}>
             <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre a introdução ao sistema CRM Effective Gain.
+              {textos.filter(t=>t.section==='introducao')[0]?.texto}
             </p>
           </div>
         </div>
@@ -53,7 +64,7 @@ function AjudaPage({ theme }) {
           <div style={{ flex: 1 }}>
             <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre o conteúdo teórico do CRM Effective Gain.
+              {textos.filter(t=>t.section==='teoria')[0]?.texto || 'Conteúdo não disponível para Teoria.'}
             </p>
           </div>
         </div>
@@ -80,7 +91,7 @@ function AjudaPage({ theme }) {
           <div style={{ flex: 1 }}>
             <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre a prática geral do CRM Effective Gain.
+              {textos.filter(t=>t.section==='pratica')[0]?.texto || 'Conteúdo não disponível para Prática Geral.'}
             </p>
           </div>
         </div>
@@ -107,7 +118,7 @@ function AjudaPage({ theme }) {
           <div style={{ flex: 1 }}>
             <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre o tutorial das filas no CRM Effective Gain.
+              {textos.filter(t=>t.section==='filas')[0]?.texto || 'Conteúdo não disponível para Filas.'}
             </p>
           </div>
         </div>
@@ -134,7 +145,7 @@ function AjudaPage({ theme }) {
           <div style={{ flex: 1 }}>
             <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre a criação de usuários no CRM Effective Gain.
+              {textos.filter(t=>t.section==='usuarios')[0]?.texto || 'Conteúdo não disponível para Usuários.'}
             </p>
           </div>
         </div>
@@ -161,7 +172,7 @@ function AjudaPage({ theme }) {
           <div style={{ flex: 1 }}>
             <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre as conexões WhatsApp no CRM Effective Gain.
+              {textos.filter(t=>t.section==='conexao')[0]?.texto || 'Conteúdo não disponível para Conexão WhatsApp.'}
             </p>
           </div>
         </div>
@@ -188,7 +199,7 @@ function AjudaPage({ theme }) {
           <div style={{ flex: 1 }}>
             <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre o chat do CRM Effective Gain.
+              {textos.filter(t=>t.section==='chat')[0]?.texto || 'Conteúdo não disponível para Chat.'}
             </p>
           </div>
         </div>
@@ -215,7 +226,7 @@ function AjudaPage({ theme }) {
           <div style={{ flex: 1 }}>
             <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre o gerenciamento de conversas no CRM Effective Gain.
+              {textos.filter(t=>t.section==='conversas')[0]?.texto || 'Conteúdo não disponível para Conversas.'}
             </p>
           </div>
         </div>
@@ -242,7 +253,7 @@ function AjudaPage({ theme }) {
           <div style={{ flex: 1 }}>
             <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre o Kanban no CRM Effective Gain.
+              {textos.filter(t=>t.section==='kanban')[0]?.texto || 'Conteúdo não disponível para Kanban.'}
             </p>
           </div>
         </div>
@@ -269,7 +280,7 @@ function AjudaPage({ theme }) {
           <div style={{ flex: 1 }}>
             <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre como realizar disparos de WhatsApp no CRM Effective Gain.
+              {textos.filter(t=>t.section==='disparo')[0]?.texto || 'Conteúdo não disponível para Disparo.'}
             </p>
           </div>
         </div>
