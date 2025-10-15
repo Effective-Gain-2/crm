@@ -1,6 +1,7 @@
 const { retail } = require("googleapis/build/src/apis/retail");
 const pool = require("../db/queries")
 const { v4: uuidv4 } = require('uuid');
+const { getAssistantReply, createThread, getAssistantMessageWithoutThreadId } = require("./OpenAi");
 
 
 const getAllStockItens = async (schema) => {
@@ -48,6 +49,16 @@ const createStockCategory = async (category_name, schema) => {
 const deleteStockCategory = async (category_id, schema) => {
     await pool.query(`DELETE FROM ${schema}.stock_categories WHERE id=$1`, [category_id])
 }
+
+const getItemByName = async (item, schema) => {
+    const gptResponse = JSON.parse(await getAssistantMessageWithoutThreadId(JSON.stringify(item),'asst_3XbgVooS6gHQbs4bbjiRboVX'))
+    const itens = await pool.query(`SELECT * FROM ${schema}.stock`)
+    for(const  item_stock of itens.rows){
+        if(item_stock.item.toLowerCase().includes(gptResponse.item.toLowerCase())){
+            return item_stock
+        }
+    }
+}
 module.exports={
     getAllStockItens,
     insertItemInStock,
@@ -56,5 +67,6 @@ module.exports={
     updateItemInStock,
     createStockCategory,
     getStockCategories,
-    deleteStockCategory
+    deleteStockCategory,
+    getItemByName
 }

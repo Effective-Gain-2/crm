@@ -19,6 +19,7 @@ const { getQueueById } = require('../services/QueueService');
 const { createThread, messageAnAssistant, getAssistantReply } = require('../services/OpenAi');
 const { updateContactInKanban } = require('../services/KanbanService');
 const { createApiOfcChat, setApiChatQueue } = require('../services/ChatApiOfc');
+const { getItemByName, updateItemInStock, alterItemQuantityInStock } = require('../services/StockService');
 require('dotenv').config({ path: '../.env' });
 
 
@@ -500,6 +501,21 @@ module.exports = (broadcastMessage) => {
       user_id: changes[0].value.contacts[0].wa_id
     })
     res.status(200).json({ success: true, chat })
+  })
+
+  app.post('/file', async(req, res)=>{
+    const {itens} = req.body
+    try {
+      for(const item of itens){
+        const result = await getItemByName(item, 'effective_gain')
+        result?await alterItemQuantityInStock(result.id, Number(item.quantidade), true, 'effective_gain'):null
+      }
+      res.status(200).json({ success: true})
+
+    } catch (error) {
+      console.error(error)
+      res.status(500).json({ success:false, error: error.message })
+    }
   })
 
   return app;

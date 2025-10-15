@@ -71,8 +71,41 @@ const createThread = async (message, assistant_id, chat_id, schema) => {
             ]
         }
     });
-    await pool.query(`UPDATE ${schema}.chats SET thread_id=$1 WHERE id=$2`, [response.thread_id, chat_id]);
+    if(chat_id){
+      await pool.query(`UPDATE ${schema}.chats SET thread_id=$1 WHERE id=$2`, [response.thread_id, chat_id]);
+    }
     return response;
+}
+
+const getAssistantMessageWithoutThreadId = async (message, assistant_id) => {
+  const response = await openai.beta.threads.createAndRun({
+    assistant_id,
+    thread: {
+      messages: [
+        { role: 'user', content: message }
+      ]
+    }
+  });
+
+  // Aguarda o run ser concluído
+  let status = response.status;
+  let runResult = response;
+  while (status !== 'completed' && status !== 'failed' && status !== 'cancelled') {
+    await new Promise(res => setTimeout(res, 1000));
+    runResult = await openai.beta.threads.runs.retrieve(response.id, { thread_id: response.thread_id });
+    status = runResult.status;
+  }
+
+  const threadMessages = await openai.beta.threads.messages.list(response.thread_id);
+  const assistantMsg = threadMessages.data.find(m => m.role === 'assistant');
+
+  if (assistantMsg && assistantMsg.content && assistantMsg.content.length > 0) {
+    const textContent = assistantMsg.content.find(content => content.type === 'text');
+    if (textContent && textContent.text) {
+      return textContent.text.value;
+    }
+  }
+  return null;
 }
 const messageAnAssistant = async (message, thread_id) => {
     const response = await openai.beta.threads.messages.create(thread_id,{
@@ -268,6 +301,7 @@ module.exports = {
     createAssistant,
     updateAssistant,
     deleteAssistant,
-    getSummary
+    getSummary,
+    getAssistantMessageWithoutThreadId
 
 }
