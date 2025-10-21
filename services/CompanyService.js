@@ -702,6 +702,21 @@ const updateSchema = async (schema) => {
 
                 )`)
             
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS ${schema}.preferences_kanban (
+                sector TEXT primary key NOT NULL,
+                label TEXT,
+                color TEXT NOT NULL
+                );
+            `)
+            await pool.query(`
+                CREATE TABLE ${schema}.tag (
+                id uuid primary key,
+                name text,
+                color text
+                );
+                `)
+            
         await pool.query(`alter table ${schema}.messages add column if not exists user_id uuid`)
         await pool.query(`alter table ${schema}.queues add column if not exists stage_id uuid`)
         await pool.query(`ALTER TABLE ${schema}.custom_fields add column if not exists graph boolean default false`)

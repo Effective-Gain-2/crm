@@ -481,6 +481,7 @@ module.exports = (broadcastMessage) => {
     }
   })
   app.post('/api-ofc', async (req, res) => {
+    console.log(JSON.stringify(req.body))
     const changes = req.body.entry[0].changes;
     const chat = await createApiOfcChat(changes[0].value.contacts[0].wa_id, '6e76f2ff-d60b-46da-9db4-693dfbda7f9a', changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, 'effective_gain')
     if (!chat) {
@@ -505,12 +506,17 @@ module.exports = (broadcastMessage) => {
 
   app.post('/file', async(req, res)=>{
     const {itens} = req.body
+    const itensNotFound = []
     try {
       for(const item of itens){
         const result = await getItemByName(item, 'effective_gain')
-        result?await alterItemQuantityInStock(result.id, Number(item.quantidade), true, 'effective_gain'):null
+        if(!result?.found){
+          itensNotFound.push(result.item)
+        }else{
+          result?await alterItemQuantityInStock(result.item[0].id, Number(item.quantidade), true, 'effective_gain'):null
+        }
       }
-      res.status(200).json({ success: true})
+      res.status(200).json({ success: true, itens_not_found:itensNotFound})
 
     } catch (error) {
       console.error(error)

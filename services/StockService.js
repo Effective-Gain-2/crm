@@ -22,7 +22,7 @@ const getItemById = async (item_id, schema) => {
 const alterItemQuantityInStock = async (item_id, quantity, isSum, schema) => {
     const currentQuantity = await getItemById(item_id, schema)
     if(isSum){
-        const result = await pool.query(`UPDATE ${schema}.stock set quantity=$1 WHERE id=$2 RETURNING *`, [(currentQuantity.quantity + quantity), item_id])
+        const result = await pool.query(`UPDATE ${schema}.stock set quantity=$1 WHERE id=$2 RETURNING *`, [(currentQuantity.quantity + Number(quantity)), item_id])
         return result.rows[0]
     }else{
         const result = await pool.query(`UPDATE ${schema}.stock set quantity=$1 WHERE id=$2 RETURNING *`, [(currentQuantity.quantity - quantity), item_id])
@@ -51,13 +51,23 @@ const deleteStockCategory = async (category_id, schema) => {
 }
 
 const getItemByName = async (item, schema) => {
-    const gptResponse = JSON.parse(await getAssistantMessageWithoutThreadId(JSON.stringify(item),'asst_3XbgVooS6gHQbs4bbjiRboVX'))
-    const itens = await pool.query(`SELECT * FROM ${schema}.stock`)
-    for(const  item_stock of itens.rows){
-        if(item_stock.item.toLowerCase().includes(gptResponse.item.toLowerCase())){
-            return item_stock
-        }
+    // Use GPT to normalize the item name (ex: "AGUA SANITARIA 1L MARCA X" -> "AGUA SANITARIA")
+    let gptResponse = null
+    try{
+        const raw = await getAssistantMessageWithoutThreadId(JSON.stringify(item),'asst_3XbgVooS6gHQbs4bbjiRboVX')
+        gptResponse = JSON.parse(raw)
+    }catch(err){
+        // if GPT response isn't valid JSON, fallback to original item
+        console.warn('GPT normalization failed, falling back to raw item:', err && err.message)
+        gptResponse = null
     }
+    const itens = await pool.query(`SELECT * FROM ${schema}.stock`)
+    const needle = (gptResponse && gptResponse.item) ? String(gptResponse.item).toLowerCase() : String(item).toLowerCase()
+    const result = itens.rows.filter(item_stock => String(item_stock.item || '').toLowerCase().includes(needle))
+    if (result && result.length > 0) {
+        return { item: result, found: true }
+    }
+    return { item: item, found: false }
 }
 module.exports={
     getAllStockItens,

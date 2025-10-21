@@ -47,6 +47,7 @@ const getItemByIdController = async (req, res) => {
     }
 }
 const alterItemQuantityInStockController = async (req, res) => {
+    console.log(req.body)
     const {item_id, quantity, isSum, schema} = req.body
     try {
         const result = await alterItemQuantityInStock(item_id, quantity, isSum, schema)
