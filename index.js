@@ -29,6 +29,7 @@ const publicRoutes = require('./routes/PublicRoutes');
 const botRoutes = require('./routes/BotRoutes');
 const limitsRoutes = require('./routes/LimitsRoutes');
 const stockRoutes = require('./routes/StockRoutes')
+const OfcCampaingRoutes = require('./routes/OfcCampaingRoutes')
 
 const { setGlobalSocket } = require('./services/LembreteService');
 const quickMessagesRoutes = require('./routes/QuickMessagesRoutes');
@@ -299,6 +300,7 @@ app.use('/effective_gain', publicRoutes);
 app.use('/bot', botRoutes)
 app.use('/limits', limitsRoutes)
 app.use('/stock', stockRoutes)
+app.use('/ofc-campaing', OfcCampaingRoutes)
 
 const axios = require('axios');
 const fs = require('fs');

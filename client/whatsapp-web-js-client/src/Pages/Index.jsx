@@ -22,11 +22,12 @@
   import AjudaPage from './Ajuda';
   import LembretesPage from './Lembretes';
   import FinanceiroPage from './Financeiro';
-  import ControleEstoque from './ControleEstoque';
-  import axios from 'axios';
-  import useUserPreferences from '../hooks/useUserPreferences';
-  import CustomValuesModal from './modalPages/CustomValuesModal';
-  import { useToast } from '../contexts/ToastContext';
+import ControleEstoque from './ControleEstoque';
+import WhatsappTemplates from './WhatsappTemplates';
+import axios from 'axios';
+import useUserPreferences from '../hooks/useUserPreferences';
+import CustomValuesModal from './modalPages/CustomValuesModal';
+import { useToast } from '../contexts/ToastContext';
 
   window.addEventListener('error', function (event) {
     if (
@@ -479,6 +480,7 @@
         case 'insights': return <Manutencao theme={theme} />;
         case 'disparos': return <DisparosPage theme={theme} />;
         case 'ajuda': return <AjudaPage theme={theme} />;
+        case 'whatsapp-templates': return <WhatsappTemplates theme={theme} />;
         default: return <Dashboard theme={theme} />;
       }
     };
@@ -623,6 +625,17 @@
               >
                 <i className="bi bi-whatsapp"></i>
                 <span className="sidebar-label d-none">WhatsApp</span>
+              </button>
+              <button
+                id="whatsapp-templates"
+                onClick={() => handlePageChange('whatsapp-templates')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Templates WhatsApp"
+                className={`btn ${page === 'whatsapp-templates' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-file-text"></i>
+                <span className="sidebar-label d-none">Templates WhatsApp</span>
               </button>
               <button
                 id="lembretes"
