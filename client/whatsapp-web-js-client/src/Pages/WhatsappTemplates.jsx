@@ -19,6 +19,12 @@ function WhatsappTemplates({ theme }) {
   const [stages, setStages] = useState([]);
   const [selectedFunnel, setSelectedFunnel] = useState('');
   const [selectedStage, setSelectedStage] = useState('');
+  const [buttons, setButtons] = useState([]);
+  const [examples, setExamples] = useState([]);
+  const [confirmVariables, setConfirmVariables] = useState(false);
+  const [customFields, setCustomFields] = useState([]);
+  const [detectedVars, setDetectedVars] = useState([]);
+  const [varMappings, setVarMappings] = useState({});
   const { showError, showSuccess } = useToast();
 
   useEffect(() => {
@@ -42,6 +48,7 @@ function WhatsappTemplates({ theme }) {
         let header = null
         let body = null
         let footer = null
+        let buttons = []
         datas.components.map(component => {
           if (component.type === 'HEADER') {
             header = component
@@ -49,9 +56,11 @@ function WhatsappTemplates({ theme }) {
             body = component
           } else if (component.type === 'FOOTER') {
             footer = component
+          } else if (component.type === 'BUTTONS') {
+            buttons = component.buttons || []
           }
         })
-        templatesComp.push({ template: datas, components: { header: header, body: body, footer: footer } })
+        templatesComp.push({ template: datas, components: { header: header, body: body, footer: footer, buttons: buttons } })
       })
 
       setTemplates(Array.isArray(templatesComp) ? templatesComp : [templatesComp])
@@ -85,21 +94,110 @@ function WhatsappTemplates({ theme }) {
 
   const handleEditTemplate = (template) => {
     setSelectedTemplate(template);
+    setButtons(template.components.buttons || []);
+    const namedParams = template.components.body?.example?.body_text_named_params;
+    setExamples(Array.isArray(namedParams) ? namedParams : []);
     setShowModal(true);
+  };
+
+  const handleAddButton = () => {
+    if (buttons.length < 2) {
+      setButtons([...buttons, { sub_type: '', text: '', value: '', index: '' }]);
+    }
+  };
+
+  const handleRemoveButton = (index) => {
+    setButtons(buttons.filter((_, i) => i !== index));
+  };
+
+  const handleButtonChange = (index, field, value) => {
+    const newButtons = [...buttons];
+    newButtons[index] = { ...newButtons[index], [field]: value };
+    setButtons(newButtons);
   };
 
   const handleSendTemplate = (template) => {
     setSelectedTemplate(template);
+    setConfirmVariables(false);
+    // Detectar variáveis do corpo (via named params ou {{var}})
+    try {
+      const bodyText = template?.components?.body?.text || '';
+      const namedParams = template?.components?.body?.example?.body_text_named_params;
+      let vars = [];
+      if (Array.isArray(namedParams) && namedParams.length > 0) {
+        vars = namedParams
+          .map(v => (typeof v === 'string' ? v : v?.param_name))
+          .filter(Boolean);
+      } else {
+        const regex = /\{\{\s*([^}]+?)\s*\}\}/g;
+        let match;
+        while ((match = regex.exec(bodyText)) !== null) {
+          vars.push(match[1]);
+        }
+      }
+      // Unificar e remover duplicadas
+      const uniqueVars = Array.from(new Set(vars));
+      setDetectedVars(uniqueVars);
+      // Inicializar mapeamentos vazios
+      const initMap = {};
+      uniqueVars.forEach(v => { initMap[v] = ''; });
+      setVarMappings(initMap);
+    } catch (e) {
+      console.error('Falha ao detectar variáveis:', e);
+      setDetectedVars([]);
+      setVarMappings({});
+    }
+    // Buscar campos personalizados
+    (async () => {
+      try {
+        const resp = await axios.get(`${url}/kanban/get-custom-fields/${schema}`, { withCredentials: true });
+        const data = resp?.data;
+        const normalized = Array.isArray(data)
+          ? data.map(item => {
+              if (typeof item === 'string') return { id: null, label: item };
+              const label = item?.label || item?.field || item?.column_name || item?.key || '';
+              const id = item?.id ?? item?.value ?? item?.key ?? item?.column_id ?? null;
+              return label ? { id, label } : null;
+            }).filter(Boolean)
+          : [];
+        setCustomFields(normalized);
+      } catch (err) {
+        console.error('Erro ao buscar campos personalizados:', err);
+        setCustomFields([]);
+      }
+    })();
     setShowSendModal(true);
+  }
+  const handleAddExample = () => {
+    setExamples((prev) => [...prev, { param_name: '', example: '' }]);
+  }
+  const handleChangeExampleField = (index, field, value) => {
+    const next = [...examples];
+    next[index] = { ...next[index], [field]: value };
+    setExamples(next);
+  }
+  const handleRemoveExample = (index) => {
+    setExamples((prev) => prev.filter((_, i) => i !== index));
   }
   const handleSendMessage = async (template, stage_id) => {
     try {
+      const variables = (detectedVars || []).map(label => {
+        const chosen = (varMappings[label] || '').trim();
+        if (!chosen) return null;
+        // se for custom field, incluir id
+        const cf = customFields.find(c => c.label === chosen);
+        if (cf) {
+          return { label, value: chosen, id: cf.id };
+        }
+        return { label, value: chosen };
+      }).filter(Boolean);
       await axios.post(`${url}/ofc-campaing/send-template-message`, {
         phone_id: '722737154266393',
         language: 'pt_BR',
         template_name: template.template.name,
         etapa_id: stage_id,
-        schema: schema
+        schema: schema,
+        variables
       }, { withCredentials: true })
 
       setShowSendModal(false);
@@ -154,15 +252,26 @@ function WhatsappTemplates({ theme }) {
       footer: formData.footer || null
     };
 
+    const formattedButtons = buttons.map((btn, idx) => ({
+      type: 'button',
+      sub_type: btn.sub_type,
+      index: String(idx),
+      text: btn.text,
+      url: btn.sub_type === 'url' ? btn.value : undefined,
+      phone_number: btn.sub_type === 'phone_number' ? btn.value : undefined,
+      payload: btn.sub_type === 'quick_reply' ? btn.value : undefined
+    }));
+
     const response = await axios.post(`${url}/ofc-campaing/create-template`, {
       wa_id: '1355873329598482',
       name: newTemplate.name,
       language: newTemplate.language,
       category: newTemplate.category,
       components: {
-        body: { text: newTemplate.body },
+        body: { text: newTemplate.body, example: { body_text_named_params: examples } },
         header: { format: 'text', text: newTemplate.header },
-        footer: { text: newTemplate.footer }
+        footer: { text: newTemplate.footer },
+        buttons: formattedButtons
       }
     })
 
@@ -170,6 +279,8 @@ function WhatsappTemplates({ theme }) {
     console.log('TEMPLATES', templates);
     setShowModal(false);
     setSelectedTemplate(null);
+    setButtons([]);
+    setExamples([]);
   };
 
   const handleUpdateTemplate = async () => {
@@ -178,7 +289,7 @@ function WhatsappTemplates({ theme }) {
       category: document.querySelector('select').value,
       body: document.querySelector('textarea').value,
       header: document.querySelector('input[placeholder="Cabeçalho do template"]').value,
-      footer: document.querySelector('input[placeholder="Rodapé do template"]').value
+      footer: document.querySelector('input[placeholder="Rodapé do template"]').value,
     };
 
     if (!formData.name || !formData.category || !formData.body) {
@@ -201,6 +312,17 @@ function WhatsappTemplates({ theme }) {
       header: formData.header || null,
       footer: formData.footer || null
     };
+
+    const formattedButtons = buttons.map((btn, idx) => ({
+      type: 'button',
+      sub_type: btn.sub_type,
+      index: String(idx),
+      text: btn.text,
+      url: btn.sub_type === 'url' ? btn.value : undefined,
+      phone_number: btn.sub_type === 'phone_number' ? btn.value : undefined,
+      payload: btn.sub_type === 'quick_reply' ? btn.value : undefined
+    }));
+
     await axios.put(`${url}/ofc-campaing/edit-template`, {
       template_id: selectedTemplate.template.id,
       wa_id: '1355873329598482',
@@ -208,14 +330,17 @@ function WhatsappTemplates({ theme }) {
       language: newTemplate.language,
       category: newTemplate.category,
       components: {
-        body: { text: newTemplate.body },
+        body: { text: newTemplate.body, example: { body_text_named_params: examples } },
         header: { format: 'text', text: newTemplate.header },
-        footer: { text: newTemplate.footer }
+        footer: { text: newTemplate.footer },
+        buttons: formattedButtons
       }
     })
 
     setShowModal(false);
     setSelectedTemplate(null);
+    setButtons([]);
+    setExamples([]);
   };
 
   const getStatusBadgeClass = (status) => {
@@ -277,7 +402,11 @@ function WhatsappTemplates({ theme }) {
             </h2>
             <button
               className="btn btn-primary"
-              onClick={() => setShowModal(true)}
+              onClick={() => {
+                setButtons([]);
+                setExamples([]);
+                setShowModal(true);
+              }}
             >
               <i className="bi bi-plus-circle me-2"></i>
               Novo Template
@@ -294,7 +423,11 @@ function WhatsappTemplates({ theme }) {
                     <p className="text-muted">Crie seu primeiro template do WhatsApp</p>
                     <button
                       className="btn btn-primary"
-                      onClick={() => setShowModal(true)}
+                      onClick={() => {
+                        setButtons([]);
+                        setExamples([]);
+                        setShowModal(true);
+                      }}
                     >
                       <i className="bi bi-plus-circle me-2"></i>
                       Criar Template
@@ -349,6 +482,19 @@ function WhatsappTemplates({ theme }) {
                         <div className="mb-2">
                           <small className="text-muted d-block mb-1">Rodapé:</small>
                           <small className="text-break">{template.components.footer.text}</small>
+                        </div>
+                      )}
+
+                      {template.components.buttons && template.components.buttons.length > 0 && (
+                        <div className="mb-2">
+                          <small className="text-muted d-block mb-1">Botões:</small>
+                          <div className="d-flex flex-wrap gap-2">
+                            {template.components.buttons.map((button, idx) => (
+                              <span key={idx} className="badge bg-info">
+                                {button.text}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -432,6 +578,58 @@ function WhatsappTemplates({ theme }) {
                     ))}
                   </select>
                 </div>
+
+                {/* Confirmação de variáveis */}
+                {(() => {
+                  const bodyText = selectedTemplate?.components.body?.text || '';
+                  const namedParams = selectedTemplate?.components.body?.example?.body_text_named_params || [];
+                  const hasVars = (Array.isArray(namedParams) && namedParams.length > 0) || /\{\{[^}]+\}\}/.test(bodyText);
+                  if (!hasVars) return null;
+                  return (
+                    <div className="alert alert-warning">
+                      <div className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id="confirmVariablesCheck"
+                          checked={confirmVariables}
+                          onChange={(e) => setConfirmVariables(e.target.checked)}
+                        />
+                        <label className="form-check-label" htmlFor="confirmVariablesCheck">
+                          Este template possui variáveis. Confirmo que os valores/exemplos estão corretos para o envio.
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Mapeamento de variáveis para campos */}
+                {detectedVars && detectedVars.length > 0 && (
+                  <div className="mb-3">
+                    <label className="form-label">Mapeamento de variáveis</label>
+                    {detectedVars.map((v) => (
+                      <div key={v} className="row g-2 align-items-center mb-2">
+                        <div className="col-md-6">
+                          <input type="text" className="form-control" value={v} disabled />
+                        </div>
+                        <div className="col-md-6">
+                          <select
+                            className="form-select"
+                            value={varMappings[v] || ''}
+                            onChange={(e) => setVarMappings(prev => ({ ...prev, [v]: e.target.value }))}
+                          >
+                            <option value="">Selecione um campo</option>
+                            <option value="nome">Nome</option>
+                            <option value="numero">Número</option>
+                            {customFields.map(cf => (
+                              <option key={`${v}-${cf.label}`} value={cf.label}>{cf.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="modal-footer">
                 <button
@@ -441,7 +639,19 @@ function WhatsappTemplates({ theme }) {
                 >
                   Cancelar
                 </button>
-                <button type="button" className="btn btn-primary" onClick={() => { handleSendMessage(selectedTemplate, selectedStage) }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => { handleSendMessage(selectedTemplate, selectedStage) }}
+                  disabled={(() => {
+                    const bodyText = selectedTemplate?.components.body?.text || '';
+                    const namedParams = selectedTemplate?.components.body?.example?.body_text_named_params || [];
+                    const hasVars = (Array.isArray(namedParams) && namedParams.length > 0) || /\{\{[^}]+\}\}/.test(bodyText);
+                    const needMap = detectedVars && detectedVars.length > 0;
+                    const allMapped = needMap ? detectedVars.every(v => (varMappings[v] || '').trim() !== '') : true;
+                    return (hasVars && !confirmVariables) || (needMap && !allMapped) || !selectedStage;
+                  })()}
+                >
                   <i className="bi bi-send me-2"></i>
                   Enviar Template
                 </button>
@@ -465,6 +675,7 @@ function WhatsappTemplates({ theme }) {
                   onClick={() => {
                     setShowModal(false);
                     setSelectedTemplate(null);
+                    setButtons([]);
                   }}
                 ></button>
               </div>
@@ -496,6 +707,45 @@ function WhatsappTemplates({ theme }) {
                     placeholder="Digite o conteúdo do template"
                   ></textarea>
                 </div>
+                <div className="mb-3">
+                  <label className="form-label">Exemplos nomeados</label>
+                  {examples.map((ex, idx) => (
+                    <div key={idx} className="row g-2 align-items-center mb-2">
+                      <div className="col-md-5">
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={ex.param_name}
+                          onChange={(e) => handleChangeExampleField(idx, 'param_name', e.target.value)}
+                          placeholder="Nome do parâmetro (ex.: nome, codigo, dia)"
+                        />
+                      </div>
+                      <div className="col-md-5">
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={ex.example}
+                          onChange={(e) => handleChangeExampleField(idx, 'example', e.target.value)}
+                          placeholder="Exemplo (ex.: Arthur)"
+                        />
+                      </div>
+                      <div className="col-md-2 d-grid">
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger"
+                          onClick={() => handleRemoveExample(idx)}
+                          title="Remover exemplo"
+                        >
+                          <i className="bi bi-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <button type="button" className="btn btn-outline-secondary" onClick={handleAddExample}>
+                    <i className="bi bi-plus-circle me-2"></i>
+                    Adicionar Exemplo
+                  </button>
+                </div>
                 <div className="row">
                   <div className="col-md-6">
                     <div className="mb-3">
@@ -520,6 +770,94 @@ function WhatsappTemplates({ theme }) {
                     </div>
                   </div>
                 </div>
+                {/* Área de Botões */}
+                <div className="mb-3">
+                  <label className="form-label">Botões (máximo 2)</label>
+                  {buttons.map((button, index) => (
+                    <div key={index} className="border p-3 mb-3 rounded">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Botão {index + 1}</strong>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => handleRemoveButton(index)}
+                        >
+                          <i className="bi bi-trash"></i>
+                        </button>
+                      </div>
+                      <div className="mb-2">
+                        <label className="form-label">Texto do Botão</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={button.text || ''}
+                          onChange={(e) => handleButtonChange(index, 'text', e.target.value)}
+                          placeholder="Digite o texto do botão"
+                        />
+                      </div>
+                      <div className="mb-2">
+                        <label className="form-label">Tipo</label>
+                        <select
+                          className="form-select"
+                          value={button.sub_type || ''}
+                          onChange={(e) => handleButtonChange(index, 'sub_type', e.target.value)}
+                        >
+                          <option value="">Selecione o tipo</option>
+                          <option value="url">URL</option>
+                          <option value="phone_number">Número</option>
+                          <option value="quick_reply">Resposta Rápida</option>
+                        </select>
+                      </div>
+                      {button.sub_type === 'url' && (
+                            <div className="mb-2">
+                              <label className="form-label">URL</label>
+                              <input
+                                type="text"
+                                className="form-control"
+                                value={button.value || ''}
+                                onChange={(e) => handleButtonChange(index, 'value', e.target.value)}
+                                placeholder="https://exemplo.com"
+                              />
+                            </div>
+                          )}
+                          {button.sub_type === 'phone_number' && (
+                            <div className="mb-2">
+                              <label className="form-label">Número</label>
+                              <input
+                                type="text"
+                                className="form-control"
+                                value={button.value || ''}
+                                onChange={(e) => handleButtonChange(index, 'value', e.target.value)}
+                                placeholder="+5511999999999"
+                              />
+                            </div>
+                          )}
+                          {button.sub_type === 'quick_reply' && (
+                            <div className="mb-2">
+                              <label className="form-label">Texto da Resposta</label>
+                              <input
+                                type="text"
+                                className="form-control"
+                                value={button.value || ''}
+                                onChange={(e) => handleButtonChange(index, 'value', e.target.value)}
+                                placeholder="Digite o texto da resposta rápida"
+                              />
+                            </div>
+                          )}
+                    </div>
+                  ))}
+                  {buttons.length < 2 && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary"
+                      onClick={handleAddButton}
+                      style={{width:'20%', height:'40px', fontSize:'14px'}}
+                    >
+                      <i className="bi bi-plus-circle me-2"></i>
+                      Adicionar Botão
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="modal-footer">
                 <button
@@ -528,6 +866,8 @@ function WhatsappTemplates({ theme }) {
                   onClick={() => {
                     setShowModal(false);
                     setSelectedTemplate(null);
+                    setButtons([]);
+                    setExamples([]);
                   }}
                 >
                   Cancelar
