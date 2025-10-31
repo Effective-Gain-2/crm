@@ -52,13 +52,10 @@ const fetchInstanceController = async (req, res) => {
 const sendTextMessageController = async (req, res) => {
     try {
         const { body, user_id, chatId, schema, isApi, text, number, instanceId } = req.body;
-
         const instance = await searchConnById(instanceId, schema);
-
         if (!instance) {
             return res.status(404).json({ error: 'Conexão não encontrada' });
         }
-
         // const payload = {
         //     text: text,
         //     number:number,
@@ -72,8 +69,8 @@ const sendTextMessageController = async (req, res) => {
                 number,
             );
         } else {
-            console.log('req.body:', req.body);
             result = await sendMessageApiOfc(instance.name, number, text);
+            return res.status(200).json({success:true})
         }
         // console.log(result)
         if (!result) {

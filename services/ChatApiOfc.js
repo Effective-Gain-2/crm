@@ -22,7 +22,7 @@ const createApiOfcChat = async (chat_id, connection_id, number, name, queue_id, 
 
 const getApiChats = async (schema) => {
     const result = await pool.query(
-        `SELECT * FROM ${schema}.api_ofc_chats`
+        `SELECT * FROM ${schema}.api_ofc_chats WHERE status <> 'closed'`
     )
     return result.rows
 }
@@ -48,7 +48,6 @@ const setApiChatQueue = async (chat_id, schema) => {
 }
 
 const sendMessageApiOfc = async (connection, contact_number, body) => {
-    console.log(contact_number)
     if (!body || typeof body !== 'string' || !body.trim()) {
         throw new Error("O parâmetro 'body' do texto é obrigatório e deve ser uma string não vazia.");
     }
@@ -67,11 +66,10 @@ const sendMessageApiOfc = async (connection, contact_number, body) => {
                 "Content-Type": "application/json"
             }
         });
-        console.log(result)
-        // return result.data;
+        return result.data;
     } catch (error) {
         console.error('Erro ao enviar mensagem API OFC:', error);
-        console.log(error.response?.data)
+        console.log(error.response?.data.messages)
     }
 }
 

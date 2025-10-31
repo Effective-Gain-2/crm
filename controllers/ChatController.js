@@ -20,6 +20,9 @@ const closeChatQueue = new Queue('closeQueue', { connection: bullConn });
 
 new Worker('closeQueue', async (job) => {
   const { chat_id, status, schema, isApi } = job.data;
+  if(isApi){
+    return
+  }
   try { 
     await closeChatContact(chat_id, status, schema, isApi);
     await deleteCacheMessages(chat_id)
@@ -337,7 +340,9 @@ const closeChatContoller = async(req, res)=>{
     const schema = req.body.schema
 
     const result = await closeChat(chat_id, schema, isApi)
-    const job = await closeChatQueue.add('closeChat', { chat_id, status, schema, isApi },{attempts: 3});
+    if(!isApi){
+      const job = await closeChatQueue.add('closeChat', { chat_id, status, schema, isApi },{attempts: 3});
+    }
     global.socketIoServer.to(`schema_${schema}`).emit('removeChat', result)
 
    res.status(200).json({

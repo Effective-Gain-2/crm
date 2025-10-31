@@ -824,6 +824,9 @@ function ChatPage({ theme, chat_id }) {
 
             // Adicionar novos chats que não existiam antes
             chats.forEach(chat => {
+              if(chat.isApi){
+
+              }
               if (!prevChats.some(c => c.id === chat.id)) {
                 merged.push(chat);
               }
@@ -877,7 +880,6 @@ function ChatPage({ theme, chat_id }) {
         }
       });
       socketInstance.on('removeChat', (data) => {
-        console.log('Removendo chat:', data);
         setChats(prevChats => sortChatsByTimestamp(prevChats.filter(chat => chat.id !== data?.id)));
         setSelectedChat(null);
         setSelectedChatId(null);
@@ -983,6 +985,7 @@ function ChatPage({ theme, chat_id }) {
       const res = await axios.get(`${url}/chat/getChat/${userData.id}/${schema}/${userData.role}`,
         { withCredentials: true });
       const chats = Array.isArray(res.data.messages) ? res.data.messages : [];
+      console.log('TODOS OS CHATS BY USER',res.data)
       setChats(sortChatsByTimestamp(chats));
       setApiChats(sortChatsByTimestamp(res.data.api_ofc))
     } catch (err) {
@@ -1049,7 +1052,6 @@ function ChatPage({ theme, chat_id }) {
       console.error('Erro ao carregar mensagens:', error);
     }
   };
-  console.log(apiChats)
 
   useEffect(() => {
     return () => {
@@ -1969,15 +1971,8 @@ function ChatPage({ theme, chat_id }) {
                       gap: '8px'
                     }}>
                       <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '50%',
-                        backgroundColor: chat.isApi ? '#25D366' : '#128C7E',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontSize: '18px'
+                       fontSize:'150%',
+                       color:`var(--primary-color)`
                       }}>
                         {chat.isApi ? <i className="bi bi-whatsapp"></i> : <i className="bi bi-globe"></i>}
                       </div>
@@ -3062,6 +3057,7 @@ function ChatPage({ theme, chat_id }) {
         selectedChat={selectedChat}
         onFinish={() => {
           setChats(prevChats => prevChats.filter(c => c.id !== selectedChat.id));
+          setApiChats(apiChats=>apiChats.filter(c=>c.id!==selectedChat.id))
           setSelectedChat(null);
           setSelectedMessages([]);
         }}

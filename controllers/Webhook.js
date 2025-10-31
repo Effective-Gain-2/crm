@@ -481,8 +481,10 @@ module.exports = (broadcastMessage) => {
     }
   })
   app.post('/api-ofc', async (req, res) => {
-    console.log(JSON.stringify(req.body))
     const changes = req.body.entry[0].changes;
+    if(!changes[0].value.contacts){
+      return
+    }
     const chat = await createApiOfcChat(changes[0].value.contacts[0].wa_id, '6e76f2ff-d60b-46da-9db4-693dfbda7f9a', changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, 'effective_gain')
     if (!chat) {
       res.status(500).json({ success: false, message: 'Chat não encontrado ou não vinculado a nenhuma conexão' })
@@ -493,7 +495,21 @@ module.exports = (broadcastMessage) => {
     if (!serverTest.io) {
       return
     }
-    serverTest.io.to(`schema_effective_gain`).emit('chats_updated', chat)
+    serverTest.io.to(`schema_effective_gain`).emit('chats_updated', {
+      chat_id:chat.chat_id,
+      connection_id:chat.conntection_id,
+      created_at:chat.created_at,
+      id:chat.id,
+      is_bot_on:chat.is_bot_on,
+      name:chat.name,
+      number:chat.number,
+      queue_id:chat.queue_id,
+      status:chat.status,
+      thread_id:chat.thread_id,
+      updated_at:chat.updated_at,
+      user_id:chat.user_id,
+      isApi:true
+    })
     serverTest.io.to(`schema_effective_gain`).emit('message', {
       chatId: chat.id,
       body: changes[0].value.messages[0].text.body,
