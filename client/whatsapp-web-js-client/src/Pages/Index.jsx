@@ -17,7 +17,8 @@
   import FilaPage from './Filas';
   import KanbanPage from './Kanban';
   import DisparosPage from './Disparos';
-  import WhatsappModal from './modalPages/Whatsapp';
+import WhatsappModal from './modalPages/Whatsapp';
+import IntegracoesPage from './Integracoes';
   import Manutencao from './Manutencao';
   import AjudaPage from './Ajuda';
   import LembretesPage from './Lembretes';
@@ -481,6 +482,12 @@ import { useToast } from '../contexts/ToastContext';
         case 'disparos': return <DisparosPage theme={theme} />;
         case 'ajuda': return <AjudaPage theme={theme} />;
         case 'whatsapp-templates': return <WhatsappTemplates theme={theme} />;
+        case 'integracoes': return (
+          <IntegracoesPage
+            theme={theme}
+            onOpenWhatsappModal={() => setShowWhatsappModal(true)}
+          />
+        );
         default: return <Dashboard theme={theme} />;
       }
     };
@@ -616,15 +623,15 @@ import { useToast } from '../contexts/ToastContext';
                 <span className="sidebar-label d-none">Usuários</span>
               </button>
               <button
-                id="whatsapp"
-                onClick={handleWhatsapp}
+                id="integracoes"
+                onClick={() => handlePageChange('integracoes')}
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
-                data-bs-title="WhatsApp"
-                className={`btn btn-2-${theme} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+                data-bs-title="Integrações"
+                className={`btn ${page === 'integracoes' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
-                <i className="bi bi-whatsapp"></i>
-                <span className="sidebar-label d-none">WhatsApp</span>
+                <i className="bi bi-puzzle"></i>
+                <span className="sidebar-label d-none">Integrações</span>
               </button>
               <button
                 id="whatsapp-templates"

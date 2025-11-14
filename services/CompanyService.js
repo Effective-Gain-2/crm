@@ -710,12 +710,22 @@ const updateSchema = async (schema) => {
                 );
             `)
             await pool.query(`
-                CREATE TABLE ${schema}.tag (
+                CREATE TABLE IF NOT EXISTS ${schema}.tag (
                 id uuid primary key,
                 name text,
                 color text
                 );
                 `)
+
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS ${schema}.api_connections(
+                id UUID PRIMARY KEY,
+                phone_id text not null,
+                name text not null,
+                number text not null,
+                token text not null,
+                queue_id UUID 
+                )`)
             
         await pool.query(`alter table ${schema}.messages add column if not exists user_id uuid`)
         await pool.query(`alter table ${schema}.queues add column if not exists stage_id uuid`)

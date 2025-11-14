@@ -43,7 +43,6 @@ function ControleEstoque({ theme }) {
       const response = await axios.get(`${url}/stock/get-all-itens/${schema}`, {
         withCredentials: true
       });
-      console.log(response.data)
       
       if (response.data.success) {
         setItens(response.data.data || []);
@@ -58,8 +57,11 @@ function ControleEstoque({ theme }) {
 
   const handleUploadNF = async () => {
     if (!nfFile || !nfType) return;
-    const isPdf = nfFile?.type === 'application/pdf' || nfFile?.name?.toLowerCase().endsWith('.pdf');
-    if (!isPdf) return;
+    const isXml =
+      nfFile?.type === 'application/xml' ||
+      nfFile?.type === 'text/xml' ||
+      nfFile?.name?.toLowerCase().endsWith('.xml');
+    if (!isXml) return;
     try {
       setUploadingNF(true);
       const form = new FormData();
@@ -67,10 +69,9 @@ function ControleEstoque({ theme }) {
       form.append('type', nfType);
       form.append('schema', schema);
 
-      const response = await axios.post(`https://f0a1bb2338f5.ngrok-free.app/file/`, form, {
+      const response = await axios.post(`https://cf343672f491.ngrok-free.app/file/`, form, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      console.log(response.data)
       const itensNotFound = Array.isArray(response.data.itens_not_found) ? response.data.itens_not_found : [response.data.itens_not_found];
 
       if (itensNotFound.length > 0) {
@@ -106,14 +107,15 @@ function ControleEstoque({ theme }) {
       const base = itemObj?.id || itemObj?.name || itemObj?.item || String(index);
       const selectionKey = `${base}-${index}`;
       const estoqueId = itensMapSelection[selectionKey];
-      const quantidadeStr = itemObj?.quantidade || itemObj?.quantity || "1";
+      const quantidadeStr = itemObj?.quantidade || itemObj?.qCom || "1";
       
       if (estoqueId) {
         const estoqueItem = itens.find(i => String(i.id) === String(estoqueId));
         const quantidade = parseFloat(String(quantidadeStr).replace(',', '.'));
+
         await axios.put(`${url}/stock/alter-item-quantity`, {
           item_id: estoqueItem.id,
-          quantity: nfItem.quantidade.replace(',', '.'),
+          quantity: parseInt(nfItem.qCom),
           isSum: true,
           schema: schema
         })
@@ -136,16 +138,13 @@ function ControleEstoque({ theme }) {
 
   const loadCategorias = async () => {
     try {
-      console.log('Carregando categorias...');
       const response = await axios.get(`${url}/stock/get-categories/${schema}`, {
         withCredentials: true
       });
       
-      console.log('Resposta das categorias:', response.data);
       
       if (response.data.success) {
         setCategorias(response.data.data || []);
-        console.log('Categorias carregadas:', response.data.data);
       }
     } catch (error) {
       console.error('Erro ao carregar categorias:', error);
@@ -167,7 +166,6 @@ function ControleEstoque({ theme }) {
         withCredentials: true
       });
 
-      console.log('Resposta da API:', response.data);
 
       if (response.data.success) {
         const novaCategoria = response.data.data;
@@ -179,7 +177,6 @@ function ControleEstoque({ theme }) {
         }));
         setNewCategoryName('');
         setShowNewCategoryModal(false);
-        console.log('Categoria criada com sucesso!');
       } else {
         console.error('Erro na resposta da API:', response.data);
       }
@@ -470,11 +467,11 @@ function ControleEstoque({ theme }) {
                   <Col md={6} sm={12}>
                     <Form.Group>
                       <Form.Label className={`header-text-${theme}`}>
-                        Arquivo da NF (PDF)
+                        Arquivo da NF (XML)
                       </Form.Label>
                       <Form.Control
                         type="file"
-                        accept=".pdf,application/pdf"
+                        accept=".xml,application/xml,text/xml"
                         className={`input-${theme}`}
                         onChange={(e) => setNfFile(e.target.files?.[0] || null)}
                       />
@@ -488,8 +485,9 @@ function ControleEstoque({ theme }) {
                         !nfFile ||
                         uploadingNF ||
                         !(
-                          nfFile?.type === 'application/pdf' ||
-                          nfFile?.name?.toLowerCase().endsWith('.pdf')
+                          nfFile?.type === 'application/xml' ||
+                          nfFile?.type === 'text/xml' ||
+                          nfFile?.name?.toLowerCase().endsWith('.xml')
                         )
                       }
                     >
@@ -699,7 +697,7 @@ function ControleEstoque({ theme }) {
                   const itemObj = nfItem?.item ?? nfItem;
                   const keyBase = itemObj?.id || itemObj?.name || itemObj?.item || String(index);
                   const key = `${keyBase}-${index}`;
-                  const label = itemObj?.name || itemObj?.item || String(itemObj);
+                  const label = itemObj?.xProd || itemObj?.item || String(itemObj);
                   return (
                     <Form.Group className="mb-3" key={key}>
                       <Form.Label className={`header-text-${theme}`}>
@@ -714,7 +712,7 @@ function ControleEstoque({ theme }) {
                           <option value="">Selecionar item correspondente</option>
                           {itens.map(op => (
                             <option key={op.id} value={op.id}>
-                              {op.name || op.item || String(op)}
+                              {op.name || op.item || String(op) || op.xProd}
                             </option>
                             
                           ))}

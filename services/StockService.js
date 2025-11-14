@@ -66,6 +66,7 @@ const getItemByName = async (item, schema) => {
     const result = itens.rows.filter(item_stock => String(item_stock.item || '').toLowerCase().includes(needle))
     if (result && result.length > 0) {
         return { item: result, found: true }
+
     }
     return { item: item, found: false }
 }

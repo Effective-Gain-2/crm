@@ -1001,17 +1001,55 @@ function ChatPage({ theme, chat_id }) {
   }, [schema, userData.id, url]);
 
   const formatMessage = (msg) => {
+    // Normaliza campos vindos de diferentes fontes (ex.: API OFC)
+    let normalizedType =
+      msg.message_type ||
+      msg.type ||
+      ((msg.mimetype && typeof msg.mimetype === 'string' && msg.mimetype.startsWith('image')) ? 'image' :
+        (msg.mimetype && typeof msg.mimetype === 'string' && msg.mimetype.startsWith('audio')) ? 'audio' :
+          (msg.mimetype && typeof msg.mimetype === 'string' && (
+            msg.mimetype.includes('pdf') ||
+            msg.mimetype.includes('officedocument') ||
+            msg.mimetype.includes('msword') ||
+            msg.mimetype.includes('excel') ||
+            msg.mimetype.includes('sheet') ||
+            msg.mimetype.includes('document')
+          )) ? 'document' : undefined);
+
+    const normalizedMedia =
+      msg.midiaBase64 ||
+      msg.base64 ||
+      msg.media_base64 ||
+      msg.image ||
+      msg.url ||
+      msg.mediaUrl ||
+      msg.media_url;
+
+    // Inferir tipo a partir do conteúdo do media quando não vier explicitamente
+    if (!normalizedType && typeof normalizedMedia === 'string') {
+      if (normalizedMedia.startsWith('data:image/') || normalizedMedia.startsWith('http://') || normalizedMedia.startsWith('https://')) {
+        normalizedType = 'image';
+      } else if (normalizedMedia.startsWith('data:audio/')) {
+        normalizedType = 'audio';
+      }
+    }
+
+    // Fallback robusto para ID
+    const fallbackId = msg.id ||
+      msg.message_id ||
+      `${msg.chatId || 'chat'}-${msg.timestamp || Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
     const formatted = {
-      id: msg.id,
+      id: fallbackId,
       name: msg.contact_name || msg.senderName,
       text: msg.text || msg.body,
       from_me: msg.from_me || msg.fromMe,
       timestamp: msg.timestamp || msg.created_at,
-      message_type: msg.message_type,
-      base64: msg.midiaBase64 || msg.base64,
+      message_type: normalizedType,
+      base64: normalizedMedia,
       user_id: msg.user_id,
-      filename: msg.filename,
-      mimetype: msg.mimetype
+      filename: msg.filename || msg.file_name || msg.name,
+      mimetype: msg.mimetype || msg.mime
     };
 
     // Log para documentos
@@ -1139,7 +1177,7 @@ function ChatPage({ theme, chat_id }) {
     useLayoutEffect(() => {
       if (!containerRef.current) return;
 
-      const source = audioSrc && audioSrc.startsWith('blob:') ? audioSrc : `data:audio/ogg;base64,${audioSrc}`;
+      const source = audioSrc && audioSrc.startsWith('blob:') ? audioSrc : audioSrc.startsWith('data:audio/') ? audioSrc : `data:audio/ogg;base64,${audioSrc}`;
 
       const ws = WaveSurfer.create({
         container: containerRef.current,
@@ -2403,30 +2441,50 @@ function ChatPage({ theme, chat_id }) {
                                   {msg.text}
                                 </div>
                               )}
-                              <img
-                                src={
-                                  typeof msg.base64 === 'string'
-                                    ? msg.base64 && msg.base64.startsWith('blob:')
-                                      ? msg.base64
-                                      : `data:image/jpeg;base64,${msg.base64}`
-                                    : msg.base64
-                                }
-                                alt="imagem"
-                                style={{
-                                  maxWidth: '300px',
-                                  width: '100%',
-                                  height: 'auto',
-                                  borderRadius: '8px',
-                                  display: 'block',
-                                  cursor: 'pointer',
-                                }}
-                                onClick={() => handleImageClick(msg.base64)}
-                              />
+                              {
+                                // build and log image src for debugging so we can see how it's constructed
+                                (() => {
+                                  const imgSrc = typeof msg.base64 === 'string'
+                                    ? (
+                                      msg.base64.startsWith('blob:') || msg.base64.startsWith('http://') || msg.base64.startsWith('https://')
+                                        ? msg.base64
+                                        : (msg.base64.startsWith('data:') ? msg.base64 : `data:image/jpeg;base64,${msg.base64}`)
+                                    )
+                                    : msg.base64;
+                                  // debug info - will appear in browser console
+                                  try {
+                                    console.log('IMG_DEBUG', {
+                                      id: msg.id,
+                                      originalType: typeof msg.base64,
+                                      isHttp: typeof msg.base64 === 'string' && (msg.base64.startsWith('http://') || msg.base64.startsWith('https://')),
+                                      isData: typeof msg.base64 === 'string' && msg.base64.startsWith('data:'),
+                                      isBlob: typeof msg.base64 === 'string' && msg.base64.startsWith('blob:'),
+                                      length: typeof msg.base64 === 'string' ? msg.base64.length : (msg.base64?.byteLength || 0)
+                                    });
+                                  } catch (e) {}
+                                  return (
+                                    <img
+                                      src={imgSrc}
+                                      alt="imagem"
+                                      style={{
+                                        maxWidth: '300px',
+                                        width: '100%',
+                                        height: 'auto',
+                                        borderRadius: '8px',
+                                        display: 'block',
+                                        cursor: 'pointer',
+                                      }}
+                                      onClick={() => handleImageClick(imgSrc)}
+                                    />
+                                  )
+                                })()
+                              }
                             </>
                           ) : (msg.message_type === 'document' || msg.message_type === 'documentMessage' || msg.message_type === 'arquivo') ? (
                             (() => {
                               const name = msg.file_name || msg.filename || msg.name || 'Documento';
-                              const b64 = typeof msg.base64 === 'string' ? msg.base64 : '';
+                              console.log('documento', msg)
+                              const b64 = typeof msg.base64 === 'string' ? msg.base64.startsWith('data:')? msg.base64 : `data:application/${msg.mimetype};base64,`:'';
                               let mime = msg.mimetype || msg.mime || '';
 
                               // Determinar o tipo de arquivo baseado na extensão se o MIME não estiver disponível
@@ -2583,7 +2641,7 @@ function ChatPage({ theme, chat_id }) {
                   }}
                 >
                   <img
-                    src={`data:image/jpeg;base64,${selectedImage}`}
+                    src={selectedImage}
                     alt="imagem ampliada"
                     style={{
                       maxWidth: '90%',

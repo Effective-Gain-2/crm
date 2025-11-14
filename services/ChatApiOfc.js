@@ -1,8 +1,10 @@
 const pool = require("../db/queries")
 const { v4: uuid4 } = require('uuid');
-const axios = require('axios')
+const axios = require('axios');
+const { json } = require("express");
+const fs = require('fs');
+const { getApiConnections } = require("./ApiConnection");
 require('dotenv').config({ path: '../.env' });
-
 
 
 const createApiOfcChat = async (chat_id, connection_id, number, name, queue_id, user_id, status, created_at, updated_at, is_bot_on, thread_id, schema) => {
@@ -47,7 +49,8 @@ const setApiChatQueue = async (chat_id, schema) => {
     )
 }
 
-const sendMessageApiOfc = async (connection, contact_number, body) => {
+const sendMessageApiOfc = async (connection, contact_number, body, schema) => {
+    const token = await getApiConnections(connection, schema)
     if (!body || typeof body !== 'string' || !body.trim()) {
         throw new Error("O parâmetro 'body' do texto é obrigatório e deve ser uma string não vazia.");
     }
@@ -73,9 +76,39 @@ const sendMessageApiOfc = async (connection, contact_number, body) => {
     }
 }
 
+const getImageApiOfc = async (id) => {
+    try {
+        const meta = await axios.get(`https://graph.facebook.com/v21.0/${id}`, {
+            headers: {
+                Authorization: `Bearer ${process.env.WHATSAPP_API_TOKEN}`
+            }
+        });
+
+        const url = meta.data.url;
+        if (!url) throw new Error('No media URL returned from Graph API');
+
+        const res = await axios.get(url, {
+            headers: {
+                Authorization: `Bearer ${process.env.WHATSAPP_API_TOKEN}`
+            },
+            responseType: 'arraybuffer'
+        });
+
+        const contentType = res.headers['content-type'] || 'image/jpeg';
+        const buffer = Buffer.from(res.data, 'binary');
+        const base64 = buffer.toString('base64');
+
+    return `data:${contentType};base64,${base64}`;
+    } catch (err) {
+        console.error('getImageApiOfc error:', err.response.data);
+        throw err;
+    }
+};
+
 module.exports = {
     createApiOfcChat,
     getApiChats,
     setApiChatQueue,
-    sendMessageApiOfc
+    sendMessageApiOfc,
+    getImageApiOfc
 }

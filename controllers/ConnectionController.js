@@ -2,6 +2,7 @@ const Connection = require("../entities/Connection")
 const { v4: uuidv4 } = require('uuid');
 const { createConnection, setQueue, getAllConnections, deleteConnection, updateWebhookUrl, toggleWebhookStatus, searchConnById } = require("../services/ConnectionService");
 const { deleteInstance, getConnectionHealth } = require("../requests/evolution");
+const { deleteEverythingApiOfc } = require("../services/ApiConnection");
 
 const createConnectionController = async(req, res)=>{
     try{
@@ -121,11 +122,30 @@ const searchConnByIdController = async (req, res) => {
     }
 }
 
+const deleteApiOfcDataController = async (req, res) => {
+    console.log(req.params)
+    try {
+        const { phone_id, schema } = req.params;
+        await deleteEverythingApiOfc(phone_id, schema);
+        res.status(200).json({
+            success: true,
+            message: 'Dados da API OFC apagados com sucesso'
+        });
+    } catch (error) {
+        console.error('Erro ao apagar dados API OFC:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Erro ao apagar dados da API OFC'
+        });
+    }
+}
+
 module.exports = {
     createConnectionController, 
     setQueueController,
     getAllConnectionsController,
     deleteConnectionController,
     searchConnByIdController,
-    getAllConnectionsWithStatusController
+    getAllConnectionsWithStatusController,
+    deleteApiOfcDataController
 }

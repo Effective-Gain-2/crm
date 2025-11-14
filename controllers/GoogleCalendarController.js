@@ -2,17 +2,15 @@ const { google } = require('googleapis');
 const { setPreference, getPreferencesByUser } = require('../services/UserPreferencesService');
 const { createLembrete } = require('../services/LembreteService');
 
-// Configuração do OAuth2 (ajustar se necessário)
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
   'http://localhost:3002/calendar/callback'
 );
 
-// Escopos necessários para o Google Calendar
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
-// 1. Gerar URL de autenticação
+//gerando a url de autenticação
 const getAuthUrl = (req, res) => {
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
@@ -22,17 +20,18 @@ const getAuthUrl = (req, res) => {
   res.json({ url });
 };
 
-// 2. Callback de autenticação
 const oauthCallback = async (req, res) => {
+  //Dados que usamos para vincular conta gmail com usuario do nosso sistema
   const code = req.query.code;
-  const user_id = req.session.user_id || req.user_id || req.query.user_id || req.body.user_id;
-  const schema = req.session.schema || req.query.schema || req.body.schema;
-  const userRole = req.session.userRole || req.query.userRole || req.body.userRole;
+  const user_id = req.session.user_id
+  const schema = req.session.schema
+  const userRole = req.session.userRole
+
   if (!code || !user_id || !schema) return res.status(400).json({ error: 'Código, usuário ou schema não fornecido' });
   try {
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
-    // Salvar tokens no banco
+    //Salvando no banco de dados
     await setPreference(user_id, 'google_tokens', JSON.stringify(tokens), schema, userRole);
     res.redirect('http://localhost:3001/painel');
   } catch (err) {
@@ -40,8 +39,8 @@ const oauthCallback = async (req, res) => {
   }
 };
 
-// Função utilitária para buscar tokens do banco
 async function getUserGoogleTokens(user_id, schema) {
+  //Pegando o token do usuario para persistencia
   const prefs = await getPreferencesByUser(user_id, schema);
   if (prefs && prefs.google_tokens) {
     return JSON.parse(prefs.google_tokens);
@@ -49,13 +48,14 @@ async function getUserGoogleTokens(user_id, schema) {
   return null;
 }
 
-// 3. Listar eventos do calendário
 const listEvents = async (req, res) => {
-  const user_id = req.user_id || req.query.user_id || req.body.user_id;
-  const schema = req.query.schema || req.body.schema;
+  const user_id = req.query.user_id;
+  const schema = req.query.schema;
+  //Tratando possiveis erros
   if (!user_id || !schema) return res.status(401).json({ error: 'Não autenticado no Google' });
   const tokens = await getUserGoogleTokens(user_id, schema);
   if (!tokens) return res.status(401).json({ error: 'Não autenticado no Google' });
+
   oauth2Client.setCredentials(tokens);
   const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
   try {
@@ -72,30 +72,37 @@ const listEvents = async (req, res) => {
   }
 };
 
+
 const createEvent = async (req, res) => {
-  const user_id = req.user_id || req.body.user_id;
+  //Dados importantes para a criação
+  const user_id = req.body.user_id;
   const schema = req.body.schema;
+  //Possiveis erros
   if (!user_id || !schema) return res.status(401).json({ error: 'Não autenticado no Google' });
   const tokens = await getUserGoogleTokens(user_id, schema);
   if (!tokens) return res.status(401).json({ error: 'Não autenticado no Google' });
-  oauth2Client.setCredentials(tokens);
 
+  oauth2Client.setCredentials(tokens);
   const { summary, description, start, end, tag, icone, filas } = req.body;
   const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
   try {
+    //payload
     const event = {
       summary,
       description,
       start: { dateTime: start },
       end: { dateTime: end },
     };
+
+    //Essa parte salva no google calendar
     const response = await calendar.events.insert({
       calendarId: 'primary',
       resource: event,
     });
     const google_event_id = response.data.id;
-    // Cria o lembrete do sistema já com o google_event_id
+
+    //Essa é a função de criar lembretes nativa do sistema
     const lembrete = await createLembrete(
       summary,
       tag || 'pessoal',
@@ -107,12 +114,14 @@ const createEvent = async (req, res) => {
       filas || [],
       google_event_id
     );
+
     res.json({ google_event: response.data, lembrete });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao criar evento no Google Calendar', details: err.message });
   }
 };
 
+//função para desconectar o google
 const disconnectGoogle = async (req, res) => {
   const user_id = req.body.user_id;
   const schema = req.body.schema;

@@ -18,8 +18,9 @@ const { Queue, Worker } = require('bullmq');
 const { getQueueById } = require('../services/QueueService');
 const { createThread, messageAnAssistant, getAssistantReply } = require('../services/OpenAi');
 const { updateContactInKanban } = require('../services/KanbanService');
-const { createApiOfcChat, setApiChatQueue } = require('../services/ChatApiOfc');
+const { createApiOfcChat, setApiChatQueue, getImageApiOfc } = require('../services/ChatApiOfc');
 const { getItemByName, updateItemInStock, alterItemQuantityInStock } = require('../services/StockService');
+const { getSchemaByPhoneId } = require('../services/ApiConnection');
 require('dotenv').config({ path: '../.env' });
 
 
@@ -482,16 +483,23 @@ module.exports = (broadcastMessage) => {
   })
   app.post('/api-ofc', async (req, res) => {
     const changes = req.body.entry[0].changes;
+    const schema = await getSchemaByPhoneId(changes[0].value.metadata.phone_number_id)
     if(!changes[0].value.contacts){
       return
     }
+    let midiaBase64 = null
+    const midia_id=changes[0].value.messages[0].image?.id || changes[0].value.messages[0].audio?.id || changes[0].value.messages[0].document?.id ||null
     const chat = await createApiOfcChat(changes[0].value.contacts[0].wa_id, '6e76f2ff-d60b-46da-9db4-693dfbda7f9a', changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, 'effective_gain')
+    if(changes[0].value.messages[0].type==='image' ||changes[0].value.messages[0].type==='audio' || changes[0].value.messages[0].type==='document'){
+      midiaBase64 = await getImageApiOfc(midia_id)
+    }
     if (!chat) {
       res.status(500).json({ success: false, message: 'Chat não encontrado ou não vinculado a nenhuma conexão' })
       return
     }
-    const message = await saveMessage(chat.id, new Message(uuidv4(), changes[0].value.messages[0].text.body, false, chat.id, getCurrentTimestamp()), 'effective_gain', null)
-    await updateCacheMessages(message.id, chat.id, false, changes[0].value.messages[0].text.body, getCurrentTimestamp(), null, null, null, null, null)
+    let message = null;
+    midiaBase64?message = await saveMediaMessage(changes[0].value.messages[0].id, false, chat.id, getCurrentTimestamp(),changes[0].value.messages[0].type, midiaBase64, 'effective_gain', changes[0].value.messages[0].document?.filename||null, changes[0].value.messages[0].document?.mime_type||null):message = await saveMessage(chat.id, new Message(uuidv4(), changes[0].value.messages[0].text?.body || null, false, chat.id, getCurrentTimestamp()), 'effective_gain', null)
+    await updateCacheMessages(message?.id, chat.id, false, changes[0].value.messages[0].text?.body||null, getCurrentTimestamp(),null, midiaBase64||null,null, changes[0].value.messages[0].document?.filename||null,  changes[0].value.messages[0].document?.mime_type||null)
     if (!serverTest.io) {
       return
     }
@@ -512,11 +520,15 @@ module.exports = (broadcastMessage) => {
     })
     serverTest.io.to(`schema_effective_gain`).emit('message', {
       chatId: chat.id,
-      body: changes[0].value.messages[0].text.body,
+      body: changes[0].value.messages[0].text?.body||null,
+      midiaBase64:midiaBase64 || null,
       fromMe: false,
       timestamp: getCurrentTimestamp(),
-      user_id: changes[0].value.contacts[0].wa_id
+      user_id: changes[0].value.contacts[0].wa_id,
+      filename:changes[0].value.messages[0].document?.filename || null,
+      mimetype:changes[0].value.messages[0].document?.mime_type || null
     })
+    
     res.status(200).json({ success: true, chat })
   })
 
@@ -524,12 +536,12 @@ module.exports = (broadcastMessage) => {
     const {itens} = req.body
     const itensNotFound = []
     try {
-      for(const item of itens){
+      for(const item of itens.itens){
         const result = await getItemByName(item, 'effective_gain')
         if(!result?.found){
           itensNotFound.push(result.item)
         }else{
-          result?await alterItemQuantityInStock(result.item[0].id, Number(item.quantidade), true, 'effective_gain'):null
+          result?await alterItemQuantityInStock(result.item[0].id, Number(item.quantidade || item.qCom), true, 'effective_gain'):null
         }
       }
       res.status(200).json({ success: true, itens_not_found:itensNotFound})
