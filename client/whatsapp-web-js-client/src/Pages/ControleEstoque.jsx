@@ -23,6 +23,9 @@ function ControleEstoque({ theme }) {
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
 
+
+  
+
   useEffect(() => {
     loadItens();
     loadCategorias();
@@ -344,13 +347,17 @@ function ControleEstoque({ theme }) {
                 <i className="bi bi-box-seam me-2"></i>
                 Controle de Estoque
               </h4>
-              <Button
-                onClick={() => setShowModal(true)}
-                className={`btn-1-${theme} btn-sm`}
-              >
-                <i className="bi bi-plus-circle me-1"></i>
-                Novo Item
-              </Button>
+              <div className="d-flex gap-2">
+
+
+                <Button
+                  onClick={() => setShowModal(true)}
+                  className={`btn-1-${theme} btn-sm`}
+                >
+                  <i className="bi bi-plus-circle me-1"></i>
+                  Novo Item
+                </Button>
+              </div>
             </div>
           </Col>
         </Row>

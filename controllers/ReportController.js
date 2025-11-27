@@ -1,4 +1,5 @@
-const { getReports, summary, getSummaryByChatId } = require("../services/ReportService")
+const { getReports, summary, getSummaryByChatId } = require("../services/ReportService");
+const XLSX = require("xlsx");
 
 const getReportsController = async (req, res) => {
     const {schema} = req.params
@@ -49,9 +50,55 @@ const getSummaryController = async (req, res) => {
         })
     }
 }
+
+// Download do arquivo sales.xlsx em E:\\crm\\crm
+const normalizeSalesRows = (payload) => {
+    if (!payload) {
+        return [{ message: "Sem dados retornados" }];
+    }
+
+    if (Array.isArray(payload)) {
+        return payload.length ? payload : [{ message: "Sem dados retornados" }];
+    }
+
+    const candidateKeys = [
+        "orders",
+        "sales",
+        "data",
+        "items",
+        "results",
+        "content",
+        "elements",
+        "value"
+    ];
+
+    for (const key of candidateKeys) {
+        if (Array.isArray(payload[key])) {
+            return payload[key].length ? payload[key] : [{ message: "Sem dados retornados" }];
+        }
+    }
+
+    return [payload];
+};
+
+const formatRow = (row) => {
+    if (!row || typeof row !== "object") {
+        return { valor: row };
+    }
+
+    const formatted = {};
+    for (const [key, value] of Object.entries(row)) {
+        formatted[key] =
+            value && typeof value === "object" ? JSON.stringify(value) : value;
+    }
+    return formatted;
+};
+
+
 module.exports = {
     getReportsController,
     generateSummaryController,
-    getSummaryController
+    getSummaryController,
+    
 }
 

@@ -1,5 +1,4 @@
 const e = require("express");
-const SocketServer = require("../server");
 const pool = require("../db/queries");
 const { createKanbanStage, getFunis, getKanbanStages, getChatsInKanban, changeKanbanStage, updateStageName, updateStageIndex, createFunil, deleteEtapa, getCustomFields, getChatsInKanbanStage, deleteFunil, getContactsInKanbanStage, changeContactInKanban, getSpecificContactInKanban, insertContactInKanbanByStageId } = require("../services/KanbanService");
 const { createMessageForBlast } = require("../services/MessageBlast");

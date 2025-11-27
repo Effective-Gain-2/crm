@@ -3,6 +3,17 @@ import { useTheme } from './assets/js/useTheme';
 
 function AjudaPage({ theme }) {
   const [activeSection, setActiveSection] = useState('introducao');
+  const [ajudaTextos, setAjudaTextos] = useState({});
+
+  useEffect(() => {
+    fetch('/api/ajuda/textos')
+      .then(res => res.json())
+      .then(data => {
+        const textos = {};
+        data.forEach(item => { textos[item.section] = item.texto; });
+        setAjudaTextos(textos);
+      });
+  }, []);
 
   const sections = {
     introducao: {
@@ -24,9 +35,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Introdução</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre a introdução ao sistema CRM Effective Gain.
+              {ajudaTextos['introducao'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -51,9 +62,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Teórico</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre o conteúdo teórico do CRM Effective Gain.
+              {ajudaTextos['teoria'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -78,9 +89,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Pratica</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre a prática geral do CRM Effective Gain.
+              {ajudaTextos['pratica'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -105,9 +116,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Filas</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre o tutorial das filas no CRM Effective Gain.
+              {ajudaTextos['filas'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -132,9 +143,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Usuários</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre a criação de usuários no CRM Effective Gain.
+              {ajudaTextos['usuarios'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -159,9 +170,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Conectar o whatsapp</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre as conexões WhatsApp no CRM Effective Gain.
+              {ajudaTextos['conexao'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -184,11 +195,11 @@ function AjudaPage({ theme }) {
               allowFullScreen
               style={{ borderRadius: '8px' }}
             ></iframe>
-          </div>
+           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Chat</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre o chat do CRM Effective Gain.
+              {ajudaTextos['chat'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -213,9 +224,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Conversas</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre o gerenciamento de conversas no CRM Effective Gain.
+              {ajudaTextos['conversas'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -240,9 +251,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>KanBan</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre o Kanban no CRM Effective Gain.
+              {ajudaTextos['kanban'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -267,9 +278,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Disparos</h5>
             <p className={`header-text-${theme}`}>
-              Aqui você encontrará informações detalhadas sobre como realizar disparos de WhatsApp no CRM Effective Gain.
+              {ajudaTextos['disparo'] || 'espere um momento'}
             </p>
           </div>
         </div>

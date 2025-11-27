@@ -29,6 +29,9 @@ const publicRoutes = require('./routes/PublicRoutes');
 const botRoutes = require('./routes/BotRoutes');
 const limitsRoutes = require('./routes/LimitsRoutes');
 const stockRoutes = require('./routes/StockRoutes')
+const ajudaRoutes = require('./routes/AjudaRoute');
+const clientesRoutes = require('./routes/ClientesRoute');
+
 
 const { setGlobalSocket } = require('./services/LembreteService');
 const quickMessagesRoutes = require('./routes/QuickMessagesRoutes');
@@ -272,6 +275,9 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use('/webhook', webhook((msg) => io.emit('message', msg)));
+app.get('/api/test', (_req, res) => {
+  res.status(200).json({ success: true });
+});
 app.use('/api', userRoutes);
 app.use('/company', companyRoutes);
 app.use('/queue', queueRoutes);
@@ -299,6 +305,9 @@ app.use('/effective_gain', publicRoutes);
 app.use('/bot', botRoutes)
 app.use('/limits', limitsRoutes)
 app.use('/stock', stockRoutes)
+app.use('/api/ajuda', ajudaRoutes);
+app.use('/api/clientes', clientesRoutes);
+
 
 const axios = require('axios');
 const fs = require('fs');
