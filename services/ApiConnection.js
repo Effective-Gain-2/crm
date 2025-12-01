@@ -10,7 +10,10 @@ const createApiConnection = async (phone_number, phone_id, token, name, schema) 
     return result.rows[0]
 }
 const getApiConnections = async (phone_id, schema) => {
-    const result = await pool.query(`SELECT * FROM ${schema}.api_connections WHERE phone_id=$1`, [phone_id])
+    let result = await pool.query(`SELECT * FROM ${schema}.api_connections WHERE phone_id=$1`, [phone_id])
+    if(result.rowCount === 0){
+       result = await pool.query(`SELECT * FROM ${schema}.api_connections WHERE id=$1`, [phone_id])
+    }
     return result.rows[0]
 }
 const deleteEverythingApiOfc = async (phone_id, schema) => {
@@ -42,7 +45,7 @@ const getSchemaByPhoneId = async (phone_id) => {
             // Query the api_connections table in this schema for the phone_id
             const result = await pool.query(`SELECT * FROM ${schemaName}.api_connections WHERE phone_id = $1`, [phone_id]);
             if (result && result.rowCount > 0) {
-                return schemaName;
+                return {phone_id:result.rows[0], schema:schemaName};
             }
         }
         // not found in any schema

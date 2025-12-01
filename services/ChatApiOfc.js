@@ -26,6 +26,10 @@ const getApiChats = async (schema) => {
     const result = await pool.query(
         `SELECT * FROM ${schema}.api_ofc_chats WHERE status <> 'closed'`
     )
+    result.rows = result.rows.map(row => ({
+        ...row,
+        isApi: true
+    }))
     return result.rows
 }
 

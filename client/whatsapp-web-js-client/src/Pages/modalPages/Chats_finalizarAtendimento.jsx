@@ -293,7 +293,6 @@ const CustomDropdownMotivo = ({ statusList, value, onChange, loading, theme }) =
 };
 
 const FinalizarAtendimentoModal = ({ show, onHide, theme, selectedChat, onFinish }) => {
-  console.log(selectedChat)
   const [status, setStatus] = useState('');
   const [statusList, setStatusList] = useState([]);
   const [loading, setLoading] = useState(false);

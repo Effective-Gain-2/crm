@@ -148,6 +148,7 @@ const filasParaSetorial = isAdmin ? filasDisponiveis : filasSuperUser;
   const handleMsgChange = e => {
     const val = e.target.value.slice(0, maxMsgLen);
     setMensagem(val);
+    console.log(data.trim())
   };
   const isDataInvalida = () => {
   if (!data) return true;

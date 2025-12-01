@@ -483,13 +483,17 @@ module.exports = (broadcastMessage) => {
   })
   app.post('/api-ofc', async (req, res) => {
     const changes = req.body.entry[0].changes;
-    const schema = await getSchemaByPhoneId(changes[0].value.metadata.phone_number_id)
+    const phoneAndSchema = await getSchemaByPhoneId(changes[0].value.metadata.phone_number_id)
     if(!changes[0].value.contacts){
       return
     }
+    if(!phoneAndSchema){
+      return
+    }
+    const schema = phoneAndSchema.schema
     let midiaBase64 = null
     const midia_id=changes[0].value.messages[0].image?.id || changes[0].value.messages[0].audio?.id || changes[0].value.messages[0].document?.id ||null
-    const chat = await createApiOfcChat(changes[0].value.contacts[0].wa_id, '6e76f2ff-d60b-46da-9db4-693dfbda7f9a', changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, 'effective_gain')
+    const chat = await createApiOfcChat(changes[0].value.contacts[0].wa_id, phoneAndSchema.phone_id.id, changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, schema)
     if(changes[0].value.messages[0].type==='image' ||changes[0].value.messages[0].type==='audio' || changes[0].value.messages[0].type==='document'){
       midiaBase64 = await getImageApiOfc(midia_id)
     }
@@ -498,12 +502,12 @@ module.exports = (broadcastMessage) => {
       return
     }
     let message = null;
-    midiaBase64?message = await saveMediaMessage(changes[0].value.messages[0].id, false, chat.id, getCurrentTimestamp(),changes[0].value.messages[0].type, midiaBase64, 'effective_gain', changes[0].value.messages[0].document?.filename||null, changes[0].value.messages[0].document?.mime_type||null):message = await saveMessage(chat.id, new Message(uuidv4(), changes[0].value.messages[0].text?.body || null, false, chat.id, getCurrentTimestamp()), 'effective_gain', null)
+    midiaBase64?message = await saveMediaMessage(changes[0].value.messages[0].id, false, chat.id, getCurrentTimestamp(),changes[0].value.messages[0].type, midiaBase64, schema, changes[0].value.messages[0].document?.filename||null, changes[0].value.messages[0].document?.mime_type||null):message = await saveMessage(chat.id, new Message(uuidv4(), changes[0].value.messages[0].text?.body || null, false, chat.id, getCurrentTimestamp()), schema, null)
     await updateCacheMessages(message?.id, chat.id, false, changes[0].value.messages[0].text?.body||null, getCurrentTimestamp(),null, midiaBase64||null,null, changes[0].value.messages[0].document?.filename||null,  changes[0].value.messages[0].document?.mime_type||null)
     if (!serverTest.io) {
       return
     }
-    serverTest.io.to(`schema_effective_gain`).emit('chats_updated', {
+    serverTest.io.to(`schema_${schema}`).emit('chats_updated', {
       chat_id:chat.chat_id,
       connection_id:chat.conntection_id,
       created_at:chat.created_at,
@@ -518,7 +522,7 @@ module.exports = (broadcastMessage) => {
       user_id:chat.user_id,
       isApi:true
     })
-    serverTest.io.to(`schema_effective_gain`).emit('message', {
+    serverTest.io.to(`schema_${schema}`).emit('message', {
       chatId: chat.id,
       body: changes[0].value.messages[0].text?.body||null,
       midiaBase64:midiaBase64 || null,

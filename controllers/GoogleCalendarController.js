@@ -75,6 +75,7 @@ const listEvents = async (req, res) => {
 
 const createEvent = async (req, res) => {
   //Dados importantes para a criação
+  try {
   const user_id = req.body.user_id;
   const schema = req.body.schema;
   //Possiveis erros
@@ -86,7 +87,6 @@ const createEvent = async (req, res) => {
   const { summary, description, start, end, tag, icone, filas } = req.body;
   const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
-  try {
     //payload
     const event = {
       summary,
@@ -117,6 +117,7 @@ const createEvent = async (req, res) => {
 
     res.json({ google_event: response.data, lembrete });
   } catch (err) {
+    console.log(err)
     res.status(500).json({ error: 'Erro ao criar evento no Google Calendar', details: err.message });
   }
 };

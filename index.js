@@ -45,11 +45,11 @@ const cookieParser = require('cookie-parser');
 
 const app = express();
 
-const oauth2Client  = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  'http://localhost:3002/auth/redirect'
-)
+// const oauth2Client  = new google.auth.OAuth2(
+//   process.env.GOOGLE_CLIENT_ID,
+//   process.env.GOOGLE_CLIENT_SECRET,
+//   'http://localhost:3002/auth/redirect'
+// )
 
 app.use(session({
   secret: 'secret',
@@ -60,18 +60,18 @@ app.use(passport.initialize())
 app.use(passport.session());
 
 
-passport.use(new googleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: 'http://localhost:3002/auth/google'  
-},(accessToken, refreshToken, profile, done)=>{
-  return done(null, profile)
-}))
+// passport.use(new googleStrategy({
+//   clientID: process.env.GOOGLE_CLIENT_ID,
+//   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+//   callbackURL: 'http://localhost:3002/auth/google'  
+// },(accessToken, refreshToken, profile, done)=>{
+//   return done(null, profile)
+// }))
 
-passport.serializeUser((user, done)=>{
-  done(null, user)
-})
-passport.deserializeUser((user, done)=>done(null, user))
+// passport.serializeUser((user, done)=>{
+//   done(null, user)
+// })
+// passport.deserializeUser((user, done)=>done(null, user))
 
 // const userHeartbeats = new Map();
 

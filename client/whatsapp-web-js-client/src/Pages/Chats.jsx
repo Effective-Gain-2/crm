@@ -824,9 +824,7 @@ function ChatPage({ theme, chat_id }) {
 
             // Adicionar novos chats que não existiam antes
             chats.forEach(chat => {
-              if(chat.isApi){
-
-              }
+              
               if (!prevChats.some(c => c.id === chat.id)) {
                 merged.push(chat);
               }
@@ -982,12 +980,13 @@ function ChatPage({ theme, chat_id }) {
 
   const loadChats = async () => {
     try {
+      let arrayChats = [];
       const res = await axios.get(`${url}/chat/getChat/${userData.id}/${schema}/${userData.role}`,
         { withCredentials: true });
       const chats = Array.isArray(res.data.messages) ? res.data.messages : [];
-      console.log('TODOS OS CHATS BY USER',res.data)
-      setChats(sortChatsByTimestamp(chats));
-      setApiChats(sortChatsByTimestamp(res.data.api_ofc))
+      arrayChats.push(...res.data.api_ofc)
+      arrayChats.push(...chats)
+      setChats(sortChatsByTimestamp(arrayChats));
     } catch (err) {
       console.error('Erro ao carregar chats:', err);
     }
@@ -2453,14 +2452,6 @@ function ChatPage({ theme, chat_id }) {
                                     : msg.base64;
                                   // debug info - will appear in browser console
                                   try {
-                                    console.log('IMG_DEBUG', {
-                                      id: msg.id,
-                                      originalType: typeof msg.base64,
-                                      isHttp: typeof msg.base64 === 'string' && (msg.base64.startsWith('http://') || msg.base64.startsWith('https://')),
-                                      isData: typeof msg.base64 === 'string' && msg.base64.startsWith('data:'),
-                                      isBlob: typeof msg.base64 === 'string' && msg.base64.startsWith('blob:'),
-                                      length: typeof msg.base64 === 'string' ? msg.base64.length : (msg.base64?.byteLength || 0)
-                                    });
                                   } catch (e) {}
                                   return (
                                     <img
@@ -2483,7 +2474,6 @@ function ChatPage({ theme, chat_id }) {
                           ) : (msg.message_type === 'document' || msg.message_type === 'documentMessage' || msg.message_type === 'arquivo') ? (
                             (() => {
                               const name = msg.file_name || msg.filename || msg.name || 'Documento';
-                              console.log('documento', msg)
                               const b64 = typeof msg.base64 === 'string' ? msg.base64.startsWith('data:')? msg.base64 : `data:application/${msg.mimetype};base64,`:'';
                               let mime = msg.mimetype || msg.mime || '';
 

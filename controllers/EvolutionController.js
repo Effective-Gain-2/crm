@@ -7,6 +7,7 @@ const { Message } = require('../entities/Message');
 const { getCurrentTimestamp } = require('../services/getCurrentTimestamp');
 const { updateCacheMessages } = require('../services/ChatService');
 const { sendMessageApiOfc } = require('../services/ChatApiOfc');
+const { getApiConnections } = require('../services/ApiConnection');
 
 const createInstanceController = async (req, res) => {
     try {
@@ -52,7 +53,8 @@ const fetchInstanceController = async (req, res) => {
 const sendTextMessageController = async (req, res) => {
     try {
         const { body, user_id, chatId, schema, isApi, text, number, instanceId } = req.body;
-        const instance = await searchConnById(instanceId, schema);
+        let instance;
+        isApi?instance=await getApiConnections(instanceId, schema):instance = await searchConnById(instanceId, schema);
         if (!instance) {
             return res.status(404).json({ error: 'Conexão não encontrada' });
         }
@@ -69,7 +71,7 @@ const sendTextMessageController = async (req, res) => {
                 number,
             );
         } else {
-            result = await sendMessageApiOfc(instance.name, number, text);
+            result = await sendMessageApiOfc(instance.phone_id, number, text, schema);
             return res.status(200).json({success:true})
         }
         // console.log(result)
