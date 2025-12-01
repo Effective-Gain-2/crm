@@ -1,7 +1,7 @@
 const { Users } = require('../entities/Users');
 const { v4: uuidv4 } = require('uuid');
 const { createUser } = require('./UserService');
-const  pool  = require('../db/queries'); 
+const pool = require('../db/queries');
 
 const createCompany = async (company, schema) => {
     const superAdminId = uuidv4();
@@ -27,7 +27,7 @@ const createCompany = async (company, schema) => {
             online BOOLEAN DEFAULT false,
             sector text
         );`);
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.chats (
               id UUID PRIMARY KEY,
               chat_id TEXT,
@@ -45,7 +45,7 @@ const createCompany = async (company, schema) => {
               unreadmessages boolean
             );
           `);
-        await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.queues(
+    await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.queues(
             id UUID PRIMARY KEY,
             name TEXT UNIQUE NOT NULL,
             color TEXT,
@@ -54,7 +54,7 @@ const createCompany = async (company, schema) => {
             superuser uuid REFERENCES ${schema}.users(id) ON DELETE SET NULL,
             stage_id uuid
         );`);
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.connections (
               id UUID PRIMARY KEY,
               name TEXT NOT NULL,
@@ -62,7 +62,7 @@ const createCompany = async (company, schema) => {
               queue_id uuid
             );
           `);
-        await pool.query(`
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.messages (
             id text PRIMARY KEY,
             body TEXT,
@@ -75,22 +75,22 @@ const createCompany = async (company, schema) => {
             quote_id text
         );
         `);
-        
-        // Adicionar colunas filename e mimetype se não existirem
-        try {
-          await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS filename text`);
-          await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS mimetype text`);
-        } catch (error) {
-          console.log('Colunas filename e mimetype já existem ou erro ao adicionar:', error.message);
-        }
-        
-        await pool.query(`
+
+    // Adicionar colunas filename e mimetype se não existirem
+    try {
+        await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS filename text`);
+        await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS mimetype text`);
+    } catch (error) {
+        console.log('Colunas filename e mimetype já existem ou erro ao adicionar:', error.message);
+    }
+
+    await pool.query(`
              CREATE TABLE IF NOT EXISTS ${schema}.contacts (
              number text not null primary key,
              contact_name text
              )
             `)
-        await pool.query(`
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.last_assigned_user (
             queue_id UUID REFERENCES ${schema}.queues(id) ON DELETE CASCADE,
             user_id UUID REFERENCES ${schema}.users(id) ON DELETE CASCADE,
@@ -98,15 +98,15 @@ const createCompany = async (company, schema) => {
             PRIMARY KEY (queue_id, user_id)
         );
         `);
-    
-        await pool.query(`
+
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.queue_users (
             user_id UUID REFERENCES ${schema}.users(id) ON DELETE CASCADE,
             queue_id UUID REFERENCES ${schema}.queues(id) ON DELETE CASCADE,
             PRIMARY KEY (user_id, queue_id)
         );
         `);
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.custom_fields (
             id UUID PRIMARY KEY,
             field_name TEXT NOT NULL,
@@ -115,7 +115,7 @@ const createCompany = async (company, schema) => {
             graph boolean default false
             );
             `)
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.contact_custom_values (id UUID PRIMARY KEY,
             contact_number TEXT NOT NULL REFERENCES ${schema}.contacts(number) ON DELETE CASCADE,
             field_id UUID NOT NULL REFERENCES ${schema}.custom_fields(id) ON DELETE CASCADE,
@@ -123,7 +123,7 @@ const createCompany = async (company, schema) => {
             UNIQUE(contact_number, field_id)
             );
         `)
-        await pool.query(`
+    await pool.query(`
             create table IF NOT EXISTS ${schema}.message_blast(
             id uuid primary key not null,
             value text not null,
@@ -132,7 +132,7 @@ const createCompany = async (company, schema) => {
             image text
             )
         `)
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.tag(
             id UUID PRIMARY KEY,
             name text NOT NULL,
@@ -140,16 +140,16 @@ const createCompany = async (company, schema) => {
             );
 
             `)
-        await pool.query(
-            `CREATE TABLE IF NOT EXISTS ${schema}.chat_tag (
+    await pool.query(
+        `CREATE TABLE IF NOT EXISTS ${schema}.chat_tag (
             chat_id UUID NOT NULL,
             tag_id UUID NOT NULL,
             PRIMARY KEY (chat_id, tag_id),
             FOREIGN KEY (chat_id) REFERENCES ${schema}.chats(id) ON DELETE CASCADE,
             FOREIGN KEY (tag_id) REFERENCES ${schema}.tag(id) ON DELETE CASCADE
             );`
-        )
-        await pool.query(`
+    )
+    await pool.query(`
             create table IF NOT EXISTS ${schema}.campaing(
             id UUID primary key,
             campaing_name text not null,
@@ -162,8 +162,8 @@ const createCompany = async (company, schema) => {
             max bigint
             )
             `)
-        await pool.query(
-            `create table IF NOT EXISTS ${schema}.lembretes(
+    await pool.query(
+        `create table IF NOT EXISTS ${schema}.lembretes(
             id uuid primary key not null,
             lembrete_name text not null,
             tag text,
@@ -173,8 +173,8 @@ const createCompany = async (company, schema) => {
             user_id uuid references ${schema}.users(id) on delete set null,
             google_event_id text
             )`
-        )
-        await pool.query(`
+    )
+    await pool.query(`
                 CREATE TABLE IF NOT EXISTS ${schema}.lembretes_queues (
                 lembrete_id UUID NOT NULL,
                 queue_id UUID NOT NULL,
@@ -182,16 +182,16 @@ const createCompany = async (company, schema) => {
                 FOREIGN KEY (lembrete_id) REFERENCES ${schema}.lembretes(id) ON DELETE CASCADE,
                 FOREIGN KEY (queue_id) REFERENCES ${schema}.queues(id) ON DELETE CASCADE
                 )`
-        );
-        await pool.query(
-            `CREATE TABLE IF NOT EXISTS ${schema}.scheduled_message (
+    );
+    await pool.query(
+        `CREATE TABLE IF NOT EXISTS ${schema}.scheduled_message (
             id UUID PRIMARY KEY,
             message TEXT NOT NULL,
             chat_id UUID NOT NULL REFERENCES ${schema}.chats(id) ON DELETE CASCADE,
             scheduled_date BIGINT NOT NULL
             );`
-        )
-        await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.user_preferences (
+    )
+    await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.user_preferences (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id uuid REFERENCES ${schema}.users(id),
         key text NOT NULL,
@@ -199,7 +199,7 @@ const createCompany = async (company, schema) => {
         CONSTRAINT user_preferences_user_key_unique UNIQUE (user_id, key)
         );`)
 
-        await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.quick_messages (
+    await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.quick_messages (
                     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
                     tag text NOT NULL,
                     queue_id uuid REFERENCES ${schema}.queues(id) ON DELETE SET NULL,
@@ -208,26 +208,26 @@ const createCompany = async (company, schema) => {
                     is_command_on boolean NOT NULL DEFAULT false,
                     shortcut text
         );`)
-        await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.campaing_connections (
+    await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.campaing_connections (
                     campaing_id UUID NOT NULL,
                     connection_id UUID,
                     CONSTRAINT unique_pair UNIQUE (campaing_id, connection_id)
         );`)
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.contacts_stage (
             contact_number text NOT NULL REFERENCES ${schema}.contacts(number) ON DELETE CASCADE,
             stage UUID NOT NULL,
             PRIMARY KEY (contact_number, stage)
             );
         `)
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.preferences_kanban (
             sector TEXT primary key NOT NULL,
             label TEXT,
             color TEXT NOT NULL
             );
         `)
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.chat_contact (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             chat_id UUID NOT NULL REFERENCES ${schema}.chats(id) ON DELETE CASCADE,
@@ -239,14 +239,14 @@ const createCompany = async (company, schema) => {
             closed_at TIMESTAMP DEFAULT now()
             );
         `)
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.status(
             id uuid primary key,
             value text not null,
             success boolean
             )    
         `)
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.reports (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             chat_id UUID REFERENCES ${schema}.chats(id),
@@ -259,7 +259,7 @@ const createCompany = async (company, schema) => {
             proxima_etapa TEXT NOT NULL
             );
         `)
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.login_data (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             ip TEXT NOT NULL,
@@ -268,8 +268,8 @@ const createCompany = async (company, schema) => {
             );
         `)
 
-        // Tabelas para o módulo financeiro
-        await pool.query(`
+    // Tabelas para o módulo financeiro
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.expenses (
                 id UUID PRIMARY KEY,
                 user_id UUID REFERENCES ${schema}.users(id) ON DELETE SET NULL,
@@ -287,22 +287,22 @@ const createCompany = async (company, schema) => {
             );
         `);
 
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.category (
                 id UUID PRIMARY KEY,
                 category_name TEXT NOT NULL UNIQUE
             );
         `);
 
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.vendors (
                 id UUID PRIMARY KEY,
                 vendor_name TEXT NOT NULL UNIQUE
             );
         `);
-        
-        await pool.query(
-            `CREATE TABLE IF NOT EXISTS ${schema}.expense_items (
+
+    await pool.query(
+        `CREATE TABLE IF NOT EXISTS ${schema}.expense_items (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             expense_id UUID NOT NULL REFERENCES ${schema}.expenses(id) ON DELETE CASCADE,
             quantity integer NOT NULL DEFAULT 1,
@@ -311,10 +311,10 @@ const createCompany = async (company, schema) => {
             tax_included BOOLEAN NOT NULL DEFAULT FALSE, 
             created_at TIMESTAMPTZ DEFAULT now()
             );`
-        )
+    )
 
-        await pool.query(
-            `CREATE TABLE IF NOT EXISTS ${schema}.tax_rates (
+    await pool.query(
+        `CREATE TABLE IF NOT EXISTS ${schema}.tax_rates (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             name TEXT NOT NULL, -- ex: "ICMS 18%", "ISS 5%"
             rate NUMERIC(6,4) NOT NULL, -- ex: 0.18 para 18%
@@ -323,10 +323,10 @@ const createCompany = async (company, schema) => {
             is_compound BOOLEAN NOT NULL DEFAULT FALSE, -- se compõe sobre outro imposto
             created_at TIMESTAMPTZ DEFAULT now()
             );`
-        )
+    )
 
-        await pool.query(
-            `CREATE TABLE IF NOT EXISTS ${schema}.expense_item_taxes (
+    await pool.query(
+        `CREATE TABLE IF NOT EXISTS ${schema}.expense_item_taxes (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             expense_item_id UUID NOT NULL REFERENCES ${schema}.expense_items(id) ON DELETE CASCADE,
             tax_rate_id UUID NOT NULL REFERENCES ${schema}.tax_rates(id),
@@ -334,9 +334,9 @@ const createCompany = async (company, schema) => {
             tax_amount NUMERIC(14,2) NOT NULL, -- valor do imposto
             created_at TIMESTAMPTZ DEFAULT now()
             );`
-        )
+    )
 
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.expense_taxes (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             expense_id UUID NOT NULL REFERENCES ${schema}.expenses(id) ON DELETE CASCADE,
@@ -347,7 +347,7 @@ const createCompany = async (company, schema) => {
             created_at TIMESTAMPTZ DEFAULT now()
             );
             `)
-            await pool.query(`
+    await pool.query(`
             create table IF NOT EXISTS ${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
             `)
 
@@ -397,7 +397,7 @@ const updateSchema = async (schema) => {
                 online BOOLEAN DEFAULT false,
                 sector text
             );`);
-        
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.chats (
               id UUID PRIMARY KEY,
@@ -416,7 +416,7 @@ const updateSchema = async (schema) => {
               unreadmessages boolean
             );
           `);
-        
+
         await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.queues(
             id UUID PRIMARY KEY,
             name TEXT UNIQUE NOT NULL,
@@ -425,7 +425,7 @@ const updateSchema = async (schema) => {
             distribution boolean,
             superuser uuid REFERENCES ${schema}.users(id) ON DELETE SET NULL
         );`);
-        
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.connections (
               id UUID PRIMARY KEY,
@@ -434,7 +434,7 @@ const updateSchema = async (schema) => {
               queue_id uuid
             );
           `);
-        
+
         await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.messages (
             id text PRIMARY KEY,
@@ -448,22 +448,22 @@ const updateSchema = async (schema) => {
             quote_id text
         );
         `);
-        
+
         // Adicionar colunas filename e mimetype se não existirem
         try {
-          await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS filename text`);
-          await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS mimetype text`);
+            await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS filename text`);
+            await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS mimetype text`);
         } catch (error) {
-          console.log('Colunas filename e mimetype já existem ou erro ao adicionar:', error.message);
+            console.log('Colunas filename e mimetype já existem ou erro ao adicionar:', error.message);
         }
-        
+
         await pool.query(`
              CREATE TABLE IF NOT EXISTS ${schema}.contacts (
              number text not null primary key,
              contact_name text
              )
             `)
-        
+
         await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.last_assigned_user (
             queue_id UUID REFERENCES ${schema}.queues(id) ON DELETE CASCADE,
@@ -472,7 +472,7 @@ const updateSchema = async (schema) => {
             PRIMARY KEY (queue_id, user_id)
         );
         `);
-    
+
         await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.queue_users (
             user_id UUID REFERENCES ${schema}.queues(id) ON DELETE CASCADE,
@@ -480,7 +480,7 @@ const updateSchema = async (schema) => {
             PRIMARY KEY (user_id, queue_id)
         );
         `);
-        
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.custom_fields (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -491,7 +491,7 @@ const updateSchema = async (schema) => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-        
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.quick_messages (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -502,7 +502,7 @@ const updateSchema = async (schema) => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-        
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.tags (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -511,7 +511,7 @@ const updateSchema = async (schema) => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-        
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.chat_tags (
                 chat_id UUID REFERENCES ${schema}.chats(id) ON DELETE CASCADE,
@@ -519,7 +519,7 @@ const updateSchema = async (schema) => {
                 PRIMARY KEY (chat_id, tag_id)
             );
         `);
-        
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.user_preferences (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -531,7 +531,7 @@ const updateSchema = async (schema) => {
                 UNIQUE(user_id, key)
             );
         `);
-        
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.login_data (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -573,7 +573,7 @@ const updateSchema = async (schema) => {
                 vendor_name TEXT NOT NULL UNIQUE
             );
         `);
-        
+
         await pool.query(
             `CREATE TABLE IF NOT EXISTS ${schema}.expense_items (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -673,11 +673,11 @@ const updateSchema = async (schema) => {
                 name text
                 )`)
 
-                
-                await pool.query(`
+
+        await pool.query(`
                     create table if not exists ${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
                     `)
-                    await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.stock(
+        await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.stock(
                         id UUID PRIMARY KEY NOT NULL,
                         item text not null,
                         quantity integer not null,
@@ -730,6 +730,8 @@ const updateSchema = async (schema) => {
         await pool.query(`alter table ${schema}.messages add column if not exists user_id uuid`)
         await pool.query(`alter table ${schema}.queues add column if not exists stage_id uuid`)
         await pool.query(`ALTER TABLE ${schema}.custom_fields add column if not exists graph boolean default false`)
+        await pool.query(`ALTER TABLE ${schema}.campaing add column if not exists init_time text`)
+        await pool.query(`ALTER TABLE ${schema}.campaing add column if not exists end_time text`)
 
         return { message: "Schema atualizado com sucesso! Todas as tabelas foram criadas/verificadas." };
     } catch (error) {
@@ -747,12 +749,12 @@ const getAllCompanies = async () => {
     return result.rows;
 };
 const getAllCompaniesTecUser = async () => {
-    try{
+    try {
         const result = await pool.query(
             `SELECT * FROM effective_gain.companies`
         )
         return result.rows
-    }catch(error){
+    } catch (error) {
         console.error(error)
         throw new Error("Erro ao buscar empresas")
     }

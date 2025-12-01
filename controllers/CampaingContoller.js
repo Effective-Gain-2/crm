@@ -40,7 +40,7 @@ const getCampaingByIdController = async (req, res) => {
 
 const createCampaingController = async (req, res) => {
   console.log('entrou')
-  const {campaing_id, name, sector, kanban_stage, connection_id, start_date, schema, mensagem, intervalo, new_stage, queue_id } = req.body;
+  const {campaing_id, name, sector, kanban_stage, connection_id, start_date, schema, mensagem, intervalo, new_stage, queue_id, init_time, end_time } = req.body;
   if (!schema) {
     return res.status(400).json({ erro: 'Schema não informado!' });
   }
@@ -48,9 +48,9 @@ const createCampaingController = async (req, res) => {
     let campaing;
 
     if(campaing_id){
-      campaing = await createCampaing(campaing_id, name, sector, kanban_stage, connection_id, start_date, schema, intervalo);
+      campaing = await createCampaing(campaing_id, name, sector, kanban_stage, connection_id, start_date, schema, intervalo, init_time, end_time);
     } else {
-      campaing = await createCampaing(null, name, sector, kanban_stage, connection_id, start_date, schema, intervalo);
+      campaing = await createCampaing(null, name, sector, kanban_stage, connection_id, start_date, schema, intervalo, init_time, end_time);
     }
 
     // Deletar todas as mensagens existentes da campanha antes de salvar as novas

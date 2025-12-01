@@ -23,12 +23,11 @@ import IntegracoesPage from './Integracoes';
   import AjudaPage from './Ajuda';
   import LembretesPage from './Lembretes';
   import FinanceiroPage from './Financeiro';
-import ControleEstoque from './ControleEstoque';
-import WhatsappTemplates from './WhatsappTemplates';
-import axios from 'axios';
-import useUserPreferences from '../hooks/useUserPreferences';
-import CustomValuesModal from './modalPages/CustomValuesModal';
-import { useToast } from '../contexts/ToastContext';
+  import ControleEstoque from './ControleEstoque';
+  import axios from 'axios';
+  import useUserPreferences from '../hooks/useUserPreferences';
+  import CustomValuesModal from './modalPages/CustomValuesModal';
+  import { useToast } from '../contexts/ToastContext';
 
   window.addEventListener('error', function (event) {
     if (
@@ -481,13 +480,6 @@ import { useToast } from '../contexts/ToastContext';
         case 'insights': return <Manutencao theme={theme} />;
         case 'disparos': return <DisparosPage theme={theme} />;
         case 'ajuda': return <AjudaPage theme={theme} />;
-        case 'whatsapp-templates': return <WhatsappTemplates theme={theme} />;
-        case 'integracoes': return (
-          <IntegracoesPage
-            theme={theme}
-            onOpenWhatsappModal={() => setShowWhatsappModal(true)}
-          />
-        );
         default: return <Dashboard theme={theme} />;
       }
     };
@@ -621,6 +613,17 @@ import { useToast } from '../contexts/ToastContext';
               >
                 <i className="bi bi-people"></i>
                 <span className="sidebar-label d-none">Usuários</span>
+              </button>
+              <button
+                id="clientes"
+                onClick={() => handlePageChange('clientes')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Clientes"
+                className={`btn ${page === 'clientes' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-person-badge"></i>
+                <span className="sidebar-label d-none">Clientes</span>
               </button>
               <button
                 id="integracoes"

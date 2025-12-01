@@ -293,11 +293,14 @@ const setUserChat = async (chatId, schema) => {
       `SELECT * FROM ${schema}.queues WHERE id=$1 `, [queueId]
     )
     if (isDistributionOn.rows[0].distribution === true) {
-      const onlineUsers = await getOnlineUsers(schema);
-      if(onlineUsers.length === 0) {
-        await putChatInWaiting(chatId, schema);
-        return;
-      }
+      const getLimit = await pool.query(`SELECT * FROM effective_gain.limits WHERE name=$1 and schema=$2`, ['off_distribution', schema]);
+      if(getLimit.rowCount===0 || getLimit.rows[0].is_on === false){
+        const onlineUsers = await getOnlineUsers(schema);
+        if(onlineUsers.length === 0) {
+          await putChatInWaiting(chatId, schema);
+          return;
+        }
+    }
       const queueUsersQuery = await pool.query(
         `SELECT user_id FROM ${schema}.queue_users WHERE queue_id=$1`,
         [queueId]
@@ -312,7 +315,7 @@ const setUserChat = async (chatId, schema) => {
       if (!lastAssigned) {
         nextUser = userIdsInQueue[0];
       } else {
-        const lastIndex = userIdsInQueue.findIndex(u => u.id === lastAssigned.user_id);
+        const lastIndex = userIdsInQueue.findIndex(u => u === lastAssigned.user_id);
         nextUser = userIdsInQueue[(lastIndex + 1) % userIdsInQueue.length];
       }
       // Validar se nextUser é válido antes de chamar updateLastAssignedUser

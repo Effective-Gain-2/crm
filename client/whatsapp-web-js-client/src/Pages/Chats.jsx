@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import axios from 'axios';
 import EmojiPicker from 'emoji-picker-react';
 import NewContactModal from './modalPages/Chats_novoContato';
+import ChatKanbanModal from './modalPages/Chats_kanbanStage';
 import ChangeQueueModal from './modalPages/Chats_alterarFila';
 import AgendarMensagemModal from './modalPages/Chats_agendarMensagem';
 import ListaAgendamentosModal from './modalPages/Chats_agendamentosLista';
@@ -106,6 +107,7 @@ function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, set
   const [showAgendarMensagemModal, setShowAgendarMensagemModal] = useState(false);
   const [showTransferirUsuarioModal, setShowTransferirUsuarioModal] = useState(false);
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
+  const [showChatKanbanModal, setShowChatKanbanModal] = useState(false);
   const [queues, setQueues] = useState([]);
   const [transferLoading, setTransferLoading] = useState(false);
   const navigate = useNavigate();
@@ -238,6 +240,13 @@ function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, set
           }}>
             Criar resumo da conversa
           </Dropdown.Item>
+          <Dropdown.Item href='#' onClick={(e)=>{
+            e.preventDefault();
+            setShowChatKanbanModal(true)
+            setIsDropdownOpen(false)
+          }}>
+            Alterar etapa do contato no kanban
+          </Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown>
 
@@ -288,12 +297,40 @@ function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, set
           setSelectedMessages([]);
         }}
       />
+      <ChatKanbanModal
+        show={showChatKanbanModal}
+        onHide={() => setShowChatKanbanModal(false)}
+        theme={theme}
+        selectedChat={selectedChat}
+        schema={userData?.schema}
+        url={process.env.REACT_APP_URL}
+        onTransfer={async (funil, etapa_id) => {
+          try {
+            const response = await axios.post(`${process.env.REACT_APP_URL}/kanban/transfer-chat-to-stage`, {
+              chat_id: selectedChat.id,
+              funil: funil,
+              etapa_id: etapa_id,
+              schema: userData?.schema
+            }, {
+              withCredentials: true
+            });
+            
+            if (response.data.success) {
+              showSuccess('Contato movido para o funil com sucesso!');
+            }
+          } catch (error) {
+            console.error('Erro ao transferir contato:', error);
+            showError('Erro ao transferir contato para o funil');
+          }
+        }}
+      />
     </>
   );
 }
 
 function ChatPage({ theme, chat_id }) {
   const [chatList, setChats] = useState([]);
+  const [chat, setChat] = useState([])
   const [selectedMessages, setSelectedMessages] = useState([]);
   const previousMessagesRef = useRef(selectedMessages);
   const [selectedChat, setSelectedChat] = useState(null);

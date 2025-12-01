@@ -14,36 +14,49 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
   const schema = userData?.schema
   const url = process.env.REACT_APP_URL;
 
-  useEffect(()=>{
-    const handleQueues = async()=>{
-      if (!contato) return;
-      
-      setLoading(true);
-      try{  
-        // Buscar fila atual do contato
-        const responseFilaAtual = await axios.get(`${url}/queue/get-conn-queues/${contato.connection.queue_id}/${schema}`,
-        {
-      withCredentials: true
-    })
-        const filaAtualData = Array.isArray(responseFilaAtual.data.result) 
-          ? responseFilaAtual.data.result[0] 
+   useEffect(() => {
+    if (!contato) return;
+    let cancelled = false;
+    setLoading(true);
+
+    const fetchQueues = async () => {
+      try {
+        // Se não houver fila no contato
+        if (!contato.connection?.queue_id) {
+          if (!cancelled) setFilaAtual(null);
+          // Ainda busca todas as filas para o dropdown (opcional — remova se não quiser)
+          const respTodas = await axios.get(`${url}/queue/get-all-queues/${schema}`, { withCredentials: true });
+          if (!cancelled) setTodasFilas(respTodas.data.result || []);
+          return;
+        }
+
+        // Buscar fila atual e todas as filas em paralelo
+        const [responseFilaAtual, responseTodasFilas] = await Promise.all([
+          axios.get(`${url}/queue/get-conn-queues/${contato.connection.queue_id}/${schema}`, { withCredentials: true }),
+          axios.get(`${url}/queue/get-all-queues/${schema}`, { withCredentials: true })
+        ]);
+
+        if (cancelled) return;
+
+        const filaAtualData = Array.isArray(responseFilaAtual.data.result)
+          ? responseFilaAtual.data.result[0]
           : responseFilaAtual.data.result;
-        setFilaAtual(filaAtualData);
-        
-        // Buscar todas as filas disponíveis
-        const responseTodasFilas = await axios.get(`${url}/queue/get-all-queues/${schema}`,
-        {
-      withCredentials: true
-    })
+
+        setFilaAtual(filaAtualData || null);
         setTodasFilas(responseTodasFilas.data.result || []);
-      }catch(error){
-        console.error(error)
+      } catch (error) {
+        if (!cancelled) console.error('Erro ao carregar filas:', error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    }
-    handleQueues()
-  }, [contato, schema])
+    };
+
+    fetchQueues();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [contato, schema]);
 
   const trocarFila = async (novaFilaId) => {
     if (!contato || !novaFilaId) return;

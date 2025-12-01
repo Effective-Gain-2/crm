@@ -30,6 +30,11 @@ function DisparoModal({ theme, disparo = null, onSave }) {
   const [intervaloUnidadeMax, setIntervaloUnidadeMax] = useState('segundos');
   const [conexao, setConexao] = useState([]);
   const [customFields ,setCustomFields] = useState([])
+  const [isDynamicTime, setIsDynamicTime] = useState(true);
+  const [customTimeRange, setCustomTimeRange] = useState({
+    startTime: '',
+    endTime: ''
+  });
   const textAreasRef = useRef([]);
   const [mensagensImagens, setMensagensImagens] = useState([]);
   // Estados para transferência de contatos
@@ -176,6 +181,7 @@ useEffect(() => {
 
     // Carregar dados do intervalo dinâmico se existir
     if (disparo.min) {
+      setIsDynamicTime(true)
       setIntervaloDinamico(true);
       if (disparo.min) {
         const minEmSegundos = Number(disparo.min) || 30;
@@ -203,6 +209,15 @@ useEffect(() => {
           setIntervaloUnidadeMax('segundos');
         }
       }
+    }
+
+    if(disparo.init_time!==null && disparo.end_time!==null){
+      setIsDynamicTime(false)
+      setIntervaloDinamico(false)
+      setCustomTimeRange({
+        startTime: disparo.init_time,
+        endTime: disparo.end_time
+      })
     }
 
     try {
@@ -540,6 +555,8 @@ useEffect(() => {
     setTagsSelecionadas(selectedOptions);
   };
 
+
+
   const insertVariable = (index, variable) => {
   const textarea = textAreasRef.current[index];
   if (!textarea) return;
@@ -630,7 +647,12 @@ useEffect(() => {
     transferir_contato: transferirContato,
     ...(transferirContato && etapaDestino ? { new_stage: etapaDestino } : {}),
     enviar_para_fila_unica: enviarParaFila,
-    ...(enviarParaFila && filaDestino ? { queue_id: filaDestino } : {})
+    ...(enviarParaFila && filaDestino ? { queue_id: filaDestino } : {}),
+    // Horário personalizado
+    ...(!isDynamicTime && customTimeRange.startTime && customTimeRange.endTime ? {
+      init_time: customTimeRange.startTime,
+      end_time: customTimeRange.endTime
+    } : {})
 };
 
     try {
@@ -1187,6 +1209,53 @@ useEffect(() => {
                     </div>
                   )}
                 </div>
+
+                {/* Horário Personalizado */}
+                <div className="mb-3">
+                  <label className={`form-label card-subtitle-${theme}`}>Horário Personalizado</label>
+                  
+                  {/* Toggle para horário personalizado */}
+                  <div className="mb-2">
+                    <div className="form-check form-switch">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="horarioPersonalizado"
+                        checked={!isDynamicTime}
+                        onChange={(e) => {
+                          setIntervaloDinamico(false); // Desativa intervalo dinâmico ao ativar horário personalizado
+                          setIsDynamicTime(!e.target.checked);
+                          if (e.target.checked) {
+                            // Resetar horários quando ativar
+                            setCustomTimeRange({ startTime: '', endTime: '' });
+                          }
+                        }}
+                      />
+                      <label className={`form-check-label card-subtitle-${theme}`} htmlFor="horarioPersonalizado">
+                        Definir horário de funcionamento
+                      </label>
+                    </div>
+                  </div>
+
+                  {!isDynamicTime && (
+                    <div className="d-flex gap-2">
+                      <input
+                        type="time"
+                        className={`form-control input-${theme}`}
+                        value={customTimeRange.startTime}
+                        onChange={e => setCustomTimeRange(prev => ({ ...prev, startTime: e.target.value }))}
+                        placeholder="Início"
+                      />
+                      <input
+                        type="time"
+                        className={`form-control input-${theme}`}
+                        value={customTimeRange.endTime}
+                        onChange={e => setCustomTimeRange(prev => ({ ...prev, endTime: e.target.value }))}
+                        placeholder="Fim"
+                      />
+                    </div>
+                  )}
+                </div>
                 {/* Intervalo */}
                 <div className="mb-3">
                   <label className={`form-label card-subtitle-${theme}`}>Intervalo</label>
@@ -1199,7 +1268,11 @@ useEffect(() => {
                         type="checkbox"
                         id="intervaloDinamico"
                         checked={intervaloDinamico}
-                        onChange={(e) => setIntervaloDinamico(e.target.checked)}
+                        onChange={(e) =>{
+                          setIsDynamicTime(true); // Desativa horário personalizado ao ativar intervalo dinâmico
+                          setIntervaloDinamico(e.target.checked)}
+                        } 
+                          
                       />
                       <label className={`form-check-label card-subtitle-${theme}`} htmlFor="intervaloDinamico">
                         Dinâmico

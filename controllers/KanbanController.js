@@ -1,6 +1,6 @@
 const e = require("express");
-const SocketServer = require("../server");
-const { createKanbanStage, getFunis, getKanbanStages, getChatsInKanban, changeKanbanStage, updateStageName, updateStageIndex, createFunil, deleteEtapa, getCustomFields, getChatsInKanbanStage, deleteFunil, getContactsInKanbanStage, changeContactInKanban } = require("../services/KanbanService");
+const pool = require("../db/queries");
+const { createKanbanStage, getFunis, getKanbanStages, getChatsInKanban, changeKanbanStage, updateStageName, updateStageIndex, createFunil, deleteEtapa, getCustomFields, getChatsInKanbanStage, deleteFunil, getContactsInKanbanStage, changeContactInKanban, getSpecificContactInKanban, insertContactInKanbanByStageId } = require("../services/KanbanService");
 const { createMessageForBlast } = require("../services/MessageBlast");
 const { changeKanbanPreference, getKanbanPreference } = require("../services/ContactService");
 
@@ -68,8 +68,8 @@ const changeKanbanStageController = async (req, res) => {
         const schema = req.body.schema;
         let result;
         if (number) {
-            // Atualiza contato na etapa
-            result = await changeContactInKanban(number, stage_id, schema);
+            const contact_exists = await getSpecificContactInKanban(number, schema);
+            contact_exists? result = await changeContactInKanban(number, stage_id, schema) : result = await insertContactInKanbanByStageId(stage_id, number, schema);
             global.socketIoServer.to(`schema_${schema}`).emit('leadMoved', { number, stage_id });
         } else if (chat_id) {
             // Atualiza chat na etapa
@@ -80,7 +80,7 @@ const changeKanbanStageController = async (req, res) => {
         }
         res.status(200).json(result);
     } catch (error) {
-        console.error('Erro ao mudar estágio do Kanban:', error.message);
+        console.error('Erro ao mudar estágio do Kanban:', error);
         res.status(500).json({ error: 'Erro ao mudar estágio do Kanban' });
     }
 };
@@ -251,6 +251,48 @@ const getKanbanPreferenceController = async (req, res) => {
         res.status(400).json({});
     }
 };
+const transferChatToKanbanStageController = async (req, res) => {
+    try {
+        const { chat_id, funil, etapa_id } = req.body;
+        const schema = req.body.schema;
+        
+        if (!chat_id || !funil || !etapa_id) {
+            return res.status(400).json({ error: 'chat_id, funil e etapa_id são obrigatórios' });
+        }
+
+        // Buscar o número do contato do chat
+        const chatResult = await pool.query(
+            `SELECT contact_phone FROM ${schema}.chats WHERE id = $1`,
+            [chat_id]
+        );
+
+        if (chatResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Chat não encontrado' });
+        }
+
+        const contactNumber = chatResult.rows[0].contact_phone;
+
+        // Mover o contato para a etapa do kanban
+        const result = await changeContactInKanban(contactNumber, etapa_id, schema);
+        
+        // Emitir evento para atualizar a interface
+        global.socketIoServer.to(`schema_${schema}`).emit('leadMoved', { 
+            number: contactNumber, 
+            stage_id: etapa_id,
+            funil: funil
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Contato movido para o funil com sucesso',
+            result
+        });
+    } catch (error) {
+        console.error('Erro ao transferir chat para etapa do kanban:', error.message);
+        res.status(500).json({ error: 'Erro ao transferir chat para etapa do kanban' });
+    }
+};
+
 module.exports = {
     createKanbanStageController,
     createMessageForBlastController,
@@ -267,5 +309,6 @@ module.exports = {
     getContactsInKanbanStageController,
     transferAllContactsToStage,
     changeKanbanPreferenceController,
-    getKanbanPreferenceController
+    getKanbanPreferenceController,
+    transferChatToKanbanStageController
 }

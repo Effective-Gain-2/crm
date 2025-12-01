@@ -195,7 +195,7 @@ function KanbanPage({ theme }) {
   const [customFields, setCustomFields] = useState([]);
   const [selectedCustomField, setSelectedCustomField] = useState(null);
   const [customFieldColor, setCustomFieldColor] = useState('#007bff');
-
+  const [viewMode, setViewMode] = useState('kanban'); // 'kanban' ou 'lista'
 
   const [showFilter, setShowFilter] = useState(false);
   const [filterNome, setFilterNome] = useState('');
@@ -277,6 +277,11 @@ function KanbanPage({ theme }) {
     };
     fetchEtapas();
   }, [funilSelecionado, schema]);
+
+  // Limpar cards quando o funil mudar
+  useEffect(() => {
+    setCards([]);
+  }, [funilSelecionado]);
 
   // Substituir o carregamento dos cards para buscar contatos por etapa
   useEffect(() => {
@@ -709,6 +714,15 @@ useEffect(() => {
     ? funilSelecionado.charAt(0).toUpperCase() + funilSelecionado.slice(1)
     : ''}
 </h2>
+        <button
+              className={`d-flex gap-2 btn btn-sm ${viewMode === 'lista' ? `btn-1-${theme}` : `btn-2-${theme}`}`}
+              onClick={() => setViewMode(viewMode === 'kanban' ? 'lista' : 'kanban')}
+              title={`Alternar para visualização ${viewMode === 'kanban' ? 'Lista' : 'Kanban'}`}
+              style={{ minWidth: 120 }}
+            >
+              <i className={`bi ${viewMode === 'kanban' ? 'bi-list-ul' : 'bi-kanban'}`}></i>
+              {viewMode === 'kanban' ? 'Lista' : 'Kanban'}
+            </button>
         </div>
         
         <div className="d-flex gap-2 align-items-center">
@@ -877,37 +891,39 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Colunas do Kanban (etapas) */}
+      {/* Colunas do Kanban (etapas) ou Lista */}
       <div style={{ width: '100%', height: '100%' }}>
-        <div
-          className="kanban-scroll-container"
-          ref={scrollRef}
-          style={{
-            overflowX: 'auto',
-            height: '100%',
-            border: `1px solid var(--border-color-${theme})`,
-            padding: '12px',
-            borderRadius: '0.375rem',
-            background: 'inherit'
-          }}
-          onMouseDown={handleMouseDown}
-        >
-          <div className="d-flex flex-row gap-4"
-            style={{ minHeight: 0, minWidth: '100%', width: 'max-content' }}>
-            {etapas.map(etapa => {
-              const etapaTemLeads = cards.some(lead => lead.etapa_id === etapa.id);
-              return   (
-                <div key={etapa.id} className={`kanban-col card-${theme} border border-${theme} rounded px-2 pt-2`} 
-                  style={{ 
-                    minWidth: 300, 
-                    maxWidth: 300,
-                    height: 'fit-content',
-                    display: 'flex',
-                    flexDirection: 'column'
-                  }}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={() => onDrop(etapa.id)}
-                >
+        {viewMode === 'kanban' ? (
+          // Visualização Kanban
+          <div
+            className="kanban-scroll-container"
+            ref={scrollRef}
+            style={{
+              overflowX: 'auto',
+              height: '100%',
+              border: `1px solid var(--border-color-${theme})`,
+              padding: '12px',
+              borderRadius: '0.375rem',
+              background: 'inherit'
+            }}
+            onMouseDown={handleMouseDown}
+          >
+            <div className="d-flex flex-row gap-4"
+              style={{ minHeight: 0, minWidth: '100%', width: 'max-content' }}>
+              {etapas.map(etapa => {
+                const etapaTemLeads = cards.some(lead => lead.etapa_id === etapa.id);
+                return   (
+                  <div key={etapa.id} className={`kanban-col card-${theme} border border-${theme} rounded px-2 pt-2`} 
+                    style={{ 
+                      minWidth: 300, 
+                      maxWidth: 300,
+                      height: 'fit-content',
+                      display: 'flex',
+                      flexDirection: 'column'
+                    }}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={() => onDrop(etapa.id)}
+                  >
                   <div className="d-flex flex-column mb-2 mx-2">
                     <div
                       style={{
@@ -1064,9 +1080,9 @@ useEffect(() => {
                                                 funil: funil,
                                                 schema
                                               },
-        {
-      withCredentials: true
-    });
+                                                {
+                                              withCredentials: true
+                                            });
                                               setCards(cards => cards.filter(c => c.id !== lead.id));
                                               socketInstance.emit('leadMoved', {
                                                 chat_id: lead.id,
@@ -1119,6 +1135,94 @@ useEffect(() => {
             })}
           </div>
         </div>
+        ) : (
+          // Visualização Lista
+          <div
+            style={{
+              height: '100%',
+              border: `1px solid var(--border-color-${theme})`,
+              padding: '12px',
+              borderRadius: '0.375rem',
+              background: 'inherit',
+              overflowY: 'auto'
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {filteredContacts.map(lead => {
+                const etapa = etapas.find(e => e.id === lead.etapa_id);
+                return (
+                  <div 
+                    key={lead.number} 
+                    className={`card-${theme} border border-${theme} rounded p-3`}
+                    style={{ 
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      borderLeft: `4px solid ${etapa?.color || '#007bff'}`
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <strong style={{ 
+                              fontSize: '0.9rem',
+                              maxWidth: '200px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {lead.contact_name}
+                            </strong>
+                            <span style={{
+                              background: etapa?.color || '#007bff',
+                              color: 'white',
+                              borderRadius: '4px',
+                              padding: '2px 6px',
+                              fontSize: '0.6rem',
+                              fontWeight: 500
+                            }}>
+                              {etapa?.etapa || 'Sem etapa'}
+                            </span>
+                          </div>
+                          <div style={{ 
+                            fontSize: '0.8rem', 
+                            color: '#666',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px'
+                          }}>
+                            <span>{maskPhone(lead.contact_phone || lead.number)}</span>
+                            {selectedCustomField && lead.customValue && (
+                              <span style={{ 
+                                color: customFieldColor, 
+                                fontWeight: 500, 
+                                fontSize: '0.75rem' 
+                              }}>
+                                {lead.customValue}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {/* Tags */}
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          {(lead.tags || []).map(tag => (
+                            <span key={tag.id} className="badge bg-secondary" style={{ fontSize: '0.6rem' }}>
+                              {tag.name}
+                            </span>
+                          ))}
+                        </div>
+                        
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal de Novo Funil */}
