@@ -495,7 +495,7 @@ module.exports = (broadcastMessage) => {
     const midia_id=changes[0].value.messages[0].image?.id || changes[0].value.messages[0].audio?.id || changes[0].value.messages[0].document?.id ||null
     const chat = await createApiOfcChat(changes[0].value.contacts[0].wa_id, phoneAndSchema.phone_id.id, changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, schema)
     if(changes[0].value.messages[0].type==='image' ||changes[0].value.messages[0].type==='audio' || changes[0].value.messages[0].type==='document'){
-      midiaBase64 = await getImageApiOfc(midia_id)
+      midiaBase64 = await getImageApiOfc(midia_id, phoneAndSchema.token)
     }
     if (!chat) {
       res.status(500).json({ success: false, message: 'Chat não encontrado ou não vinculado a nenhuma conexão' })

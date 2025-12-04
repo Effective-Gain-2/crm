@@ -4,6 +4,7 @@ const axios = require('axios');
 const { json } = require("express");
 const fs = require('fs');
 const { getApiConnections } = require("./ApiConnection");
+const { decryptText } = require("../utils/crypt");
 require('dotenv').config({ path: '../.env' });
 
 
@@ -62,14 +63,14 @@ const sendMessageApiOfc = async (connection, contact_number, body, schema) => {
         const result = await axios.post(`https://graph.facebook.com/v23.0/${connection}/messages`, {
             messaging_product: "whatsapp",
             recipient_type: "individual",
-            to: '557588821124',
+            to: contact_number,
             type: "text",
             text: {
                 body: body
             }
         }, {
             headers: {
-                "Authorization": `Bearer ${process.env.WHATSAPP_API_TOKEN}`,
+                "Authorization": `Bearer ${decryptText(token.token)}`,
                 "Content-Type": "application/json"
             }
         });
@@ -80,11 +81,11 @@ const sendMessageApiOfc = async (connection, contact_number, body, schema) => {
     }
 }
 
-const getImageApiOfc = async (id) => {
+const getImageApiOfc = async (id, token) => {
     try {
         const meta = await axios.get(`https://graph.facebook.com/v21.0/${id}`, {
             headers: {
-                Authorization: `Bearer ${process.env.WHATSAPP_API_TOKEN}`
+                Authorization: `Bearer ${decryptText(token)}`
             }
         });
 

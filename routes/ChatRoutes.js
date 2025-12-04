@@ -17,29 +17,30 @@ const {
 } = require('../controllers/ChatController'); 
 const { updateContactName } = require('../services/ChatService');
 const { verifyToken } = require('../controllers/UserController');
+const { allowedRoles } = require('../middlewares/RequireUser');
 const router = express.Router();
 
-router.get('/getChats/:schema',verifyToken,  getChatsController);
-router.get('/getChat/:userId/:schema/:role', verifyToken, getChatByUserController);
-router.get('/getChatById/:chatId/:schema', verifyToken, getChatDataController);
-router.get('/scheduled-messages/:chat_id/:schema', verifyToken, getScheduledMessagesController)
-router.get('/get-status/:schema', verifyToken,getStatusController)
-router.get('/get-closed-chats/:schema', verifyToken, getClosedChatsController)
-router.get('/average-time-to-close/:schema', verifyToken, getAverageTimeToCloseController);
-router.post('/create-status', verifyToken, createStatusController)
-router.get('/:schema/:chatId', verifyToken, getChatDataController);
-router.post('/setChat', verifyToken, setUserChatController);
-router.post('/getMessages', verifyToken, getMessagesController);
-router.post('/setQueue', verifyToken, updateQueueController);
-router.post('/sendAudio', uploadAudio.single('audio'), verifyToken, sendAudioController);
-router.post('/chat/processReceivedAudio', verifyToken, processReceivedAudio);
-router.post('/sendImage', uploadImage.single('image'), verifyToken, sendImageController); 
-router.post('/setAsRead', verifyToken, setMessageAsReadController)
-router.post('/close', verifyToken, closeChatContoller)
-router.post('/setUser', verifyToken, setSpecificUserController)
-router.post('/schedule-message', verifyToken, scheduleMessageController)
-router.post('/disable-bot', verifyToken, disableBotController)
-router.post('/redistribute-waiting', verifyToken, redistributeWaitingChatsController)
-router.put('/active-bot', verifyToken, activeBotController)
-router.delete('/scheduled-message/:id/:schema', verifyToken, deleteScheduledMessageController)
+router.get('/getChats/:schema',verifyToken, allowedRoles(), getChatsController);
+router.get('/getChat/:userId/:schema/:role', verifyToken, allowedRoles(), getChatByUserController);
+router.get('/getChatById/:chatId/:schema', verifyToken, allowedRoles(), getChatDataController);
+router.get('/scheduled-messages/:chat_id/:schema', verifyToken, allowedRoles(), getScheduledMessagesController)
+router.get('/get-status/:schema', verifyToken, allowedRoles(), getStatusController)
+router.get('/get-closed-chats/:schema', verifyToken, allowedRoles(), getClosedChatsController)
+router.get('/average-time-to-close/:schema', verifyToken, allowedRoles(), getAverageTimeToCloseController);
+router.post('/create-status', verifyToken, allowedRoles(), createStatusController)
+router.get('/:schema/:chatId', verifyToken, allowedRoles(), getChatDataController);
+router.post('/setChat', verifyToken, allowedRoles('tec-admin'), setUserChatController);
+router.post('/getMessages', verifyToken, allowedRoles(),  getMessagesController);
+router.post('/setQueue', verifyToken, allowedRoles('tec-admin'), updateQueueController);
+router.post('/sendAudio', uploadAudio.single('audio'), verifyToken, allowedRoles(), sendAudioController);
+router.post('/chat/processReceivedAudio', verifyToken, allowedRoles(), processReceivedAudio);
+router.post('/sendImage', uploadImage.single('image'), verifyToken, allowedRoles(), sendImageController); 
+router.post('/setAsRead', verifyToken, allowedRoles(), setMessageAsReadController)
+router.post('/close', verifyToken, allowedRoles(), closeChatContoller)
+router.post('/setUser', verifyToken, allowedRoles('tec-admin'), setSpecificUserController)
+router.post('/schedule-message', verifyToken, allowedRoles(), scheduleMessageController)
+router.post('/disable-bot', verifyToken, allowedRoles(), disableBotController)
+router.post('/redistribute-waiting', verifyToken, allowedRoles('tec-admin'), redistributeWaitingChatsController)
+router.put('/active-bot', verifyToken, allowedRoles(), activeBotController)
+router.delete('/scheduled-message/:id/:schema', verifyToken, allowedRoles(), deleteScheduledMessageController)
 module.exports = router;

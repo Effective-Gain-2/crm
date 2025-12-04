@@ -80,12 +80,20 @@ function UsuariosPage({ theme }) {
         userId: userId,
         queueIds: selectedFilas,
         schema: schema
-      }, {
+      }, {headers:{
+        user_id: userData.id,
+        user_role: userData.role,
+        schema: schema
+      },
         withCredentials: true
       });
 
       // Recarregar a lista de usuários para atualizar as filas
-      const response = await axios.get(`${url}/api/users/${schema}`, {
+      const response = await axios.get(`${url}/api/users/${schema}`, {headers:{
+        user_id: userData.id,
+        user_role: userData.role,
+        schema: schema
+      },
         withCredentials: true
       });
       const usuariosBase = response.data.users || [];
@@ -93,7 +101,11 @@ function UsuariosPage({ theme }) {
       const usuariosComFilas = await Promise.all(
         usuariosBase.map(async (usuario) => {
           try {
-            const queue = await axios.get(`${url}/queue/get-user-queue/${usuario.id}/${schema}`, {
+            const queue = await axios.get(`${url}/queue/get-user-queue/${usuario.id}/${schema}`, {headers:{
+        user_id: userData.id,
+        user_role: userData.role,
+        schema: schema
+      },
               withCredentials: true
             });
             let queueNames = '-';
@@ -162,7 +174,11 @@ function UsuariosPage({ theme }) {
   useEffect(() => {
     const fetchUsuarios = async () => {
       try {
-        const response = await axios.get(`${url}/api/users/${schema}`, {
+        const response = await axios.get(`${url}/api/users/${schema}`, {headers:{
+        user_id: userData.id,
+        user_role: userData.role,
+        schema: schema
+      },
           withCredentials: true
         });
         setUsuarios(response.data.users || []);
@@ -187,7 +203,11 @@ function UsuariosPage({ theme }) {
   useEffect(() => {
     const fetchUsuarios = async () => {
       try {
-        const response = await axios.get(`${url}/api/users/${schema}`, {
+        const response = await axios.get(`${url}/api/users/${schema}`, {headers:{
+        user_id: userData.id,
+        user_role: userData.role,
+        schema: schema
+      },
           withCredentials: true
         });
         const usuariosBase = response.data.users || [];
@@ -197,6 +217,11 @@ function UsuariosPage({ theme }) {
           usuariosBase.map(async (usuario) => {
             try {
               const queue = await axios.get(`${url}/queue/get-user-queue/${usuario.id}/${schema}`, {
+                headers:{
+                  user_id: userData.id,
+                  user_role: userData.role,
+                  schema: schema
+                },
                 withCredentials: true
               });
               let queueNames = '-';

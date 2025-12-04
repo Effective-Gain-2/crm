@@ -17,8 +17,8 @@
   import FilaPage from './Filas';
   import KanbanPage from './Kanban';
   import DisparosPage from './Disparos';
-import WhatsappModal from './modalPages/Whatsapp';
-import IntegracoesPage from './Integracoes';
+  import WhatsappModal from './modalPages/Whatsapp';
+  import IntegracoesPage from './Integracoes';
   import Manutencao from './Manutencao';
   import AjudaPage from './Ajuda';
   import LembretesPage from './Lembretes';
@@ -28,6 +28,8 @@ import IntegracoesPage from './Integracoes';
   import useUserPreferences from '../hooks/useUserPreferences';
   import CustomValuesModal from './modalPages/CustomValuesModal';
   import { useToast } from '../contexts/ToastContext';
+  import ClientesPage from './Clientes';
+  import WhatsappTemplatesPage from './WhatsappTemplates';
 
   window.addEventListener('error', function (event) {
     if (
@@ -471,6 +473,9 @@ import IntegracoesPage from './Integracoes';
         case 'kanban': return <KanbanPage theme={theme} />;
         case 'filas': return <FilaPage theme={theme} />;
         case 'usuarios': return <UsuariosPage theme={theme} />;
+        case 'clientes': return <ClientesPage theme={theme} />;
+        case 'integracoes': return <IntegracoesPage theme={theme} onOpenWhatsappModal={handleWhatsapp} />;
+        case 'whatsapp-templates': return <WhatsappTemplatesPage theme={theme} />;
         case 'agenda': return <LembretesPage
     theme={theme}
     lembretes={lembretes}
@@ -507,7 +512,7 @@ import IntegracoesPage from './Integracoes';
         {/* <div id="toast-container" className="toast-container position-fixed bottom-0 end-0 p-3" style={{ zIndex: 1060 }}></div> */}
         <div className="d-flex h-100">
           <div id="sidebar" className={`bg-form-${theme} h-100 sidebar ${isSidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'} border-end border-${theme} card-${theme}`}>
-            <div id="sidebar-top" style={{ height: '10%', width: '100%', transition: '0.01s' }} className="p-2 d-flex flex-row align-items-center justify-content-evenly">
+            <div id="sidebar-top" style={{ height: '5%', width: '100%', transition: '0.01s' }} className="p-2 d-flex flex-row align-items-center justify-content-evenly">
               <img src={isSidebarExpanded ? logo : shortlogo} alt="Logo" className="img-fluid" style={{ height: 'auto', width: isSidebarExpanded ? '80%' : '65%' }} />
             </div>
             <div style={{ flexGrow: 1, width: '100%' }} id="sidebar-body" className="d-flex flex-column align-items-center justify-content-start my-5 gap-3">
@@ -682,7 +687,7 @@ import IntegracoesPage from './Integracoes';
                 <span className="sidebar-label d-none">Insights</span>
               </button>
               <hr className={`hr-${theme} mx-auto my-0 d-none`} style={{ width: '50%' }} />
-              <button
+              {/* <button
                 id="ajuda"
                 onClick={() => handlePageChange('ajuda')}
                 data-bs-toggle="tooltip"
@@ -692,7 +697,7 @@ import IntegracoesPage from './Integracoes';
               >
                 <i className="bi bi-question-circle"></i>
                 <span className="sidebar-label d-none">Ajuda</span>
-              </button>
+              </button> */}
   <button
     id="chatinterno"
     onClick={() => handlePageChange('ChatInterno')}

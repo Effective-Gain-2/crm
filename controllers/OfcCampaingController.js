@@ -2,13 +2,16 @@ const { text } = require("express");
 const { getContactsInKanbanStage } = require("../services/KanbanService");
 const { listTemplates, createTemplate, sendTemplateMessage, deleteTemplate, editTemplate } = require("../services/OfcCampaing");
 const { getCustomValueById } = require("../services/ContactService");
+const { getApiConnections } = require("../services/ApiConnection");
+const { decryptText } = require("../utils/crypt");
 
 const token = process.env.WHATSAPP_API_TOKEN
 
 const listTemplatesController = async (req, res) => {
-    const { wa_id } = req.params;
+    const { wa_id, schema } = req.params;
+    const token_phone = await getApiConnections(wa_id, schema)
     try {
-        const result = await listTemplates(wa_id, token)
+        const result = await listTemplates(token_phone.waba_id, token_phone.token)
         res.status(200).json({ success: true, data: result.data.data })
     } catch (error) {
         console.error(error)
@@ -17,9 +20,10 @@ const listTemplatesController = async (req, res) => {
 }
 
 const createTemplateController = async (req, res) => {
-    const { wa_id, name, language, category, parameter, components } = req.body;
+    const { wa_id, name, language, category, parameter, components, schema } = req.body;
     try {
-        const result = await createTemplate(wa_id, token, name, language, category, parameter, components)
+        const token_phone = await getApiConnections(wa_id, schema)
+        const result = await createTemplate(token_phone.waba_id, token_phone.token, name, language, category, parameter, components)
         res.status(200).json({ success: true, data: result.data })
     } catch (error) {
         console.error(error)
@@ -30,6 +34,7 @@ const createTemplateController = async (req, res) => {
 const sendTemplateMessageController = async (req, res) => {
     const { phone_id, template_name, etapa_id, variables, schema } = req.body;
     try {
+        const token_phone = await getApiConnections(phone_id, schema)
         const contatos = await getContactsInKanbanStage(etapa_id, schema)
         for (const contato of contatos) {
             let variablesArray = []
@@ -56,7 +61,8 @@ const sendTemplateMessageController = async (req, res) => {
                     variablesArray.push({ label: variable.label, value: '' })
                 }
             }
-            await sendTemplateMessage(phone_id, token, template_name, recive_number, variablesArray)
+            
+            await sendTemplateMessage(token_phone.phone_id, token_phone.token, template_name, recive_number, variablesArray)
         }
         res.status(200).json({ success: true })
     } catch (error) {

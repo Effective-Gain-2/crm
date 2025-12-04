@@ -2,7 +2,7 @@ const Connection = require("../entities/Connection")
 const { v4: uuidv4 } = require('uuid');
 const { createConnection, setQueue, getAllConnections, deleteConnection, updateWebhookUrl, toggleWebhookStatus, searchConnById } = require("../services/ConnectionService");
 const { deleteInstance, getConnectionHealth } = require("../requests/evolution");
-const { deleteEverythingApiOfc } = require("../services/ApiConnection");
+const { deleteEverythingApiOfc, getAllApiConnections } = require("../services/ApiConnection");
 
 const createConnectionController = async(req, res)=>{
     try{
@@ -140,6 +140,28 @@ const deleteApiOfcDataController = async (req, res) => {
     }
 }
 
+const getAllApiOfcConnectionsController = async (req, res) => {
+    try {
+        const { schema } = req.params;
+
+        if (!schema || schema === 'null' || schema === 'undefined') {
+            return res.status(400).json({
+                success: false,
+                error: 'Schema é obrigatório'
+            });
+        }
+
+        const result = await getAllApiConnections(schema);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Erro ao buscar conexões API OFC:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Erro ao buscar conexões API OFC'
+        });
+    }
+}
+
 module.exports = {
     createConnectionController, 
     setQueueController,
@@ -147,5 +169,6 @@ module.exports = {
     deleteConnectionController,
     searchConnByIdController,
     getAllConnectionsWithStatusController,
-    deleteApiOfcDataController
+    deleteApiOfcDataController,
+    getAllApiOfcConnectionsController
 }

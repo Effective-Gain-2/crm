@@ -69,7 +69,6 @@ const createCampaingController = async (req, res) => {
       await createMessageForBlast(null, texto, sector, campaing.id, schema, imagem);
     }
 
-    console.log('criou')
     await scheduleCampaingBlast(campaing, campaing.sector, schema, intervalo, new_stage||null, queue_id);
     return res.status(201).json({campaing});
     

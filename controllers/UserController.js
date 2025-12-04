@@ -25,7 +25,7 @@ const refreshTokenController = (req, res) => {
   try {
     const refresh = jwt.verify(refreshToken, process.env.JWT_SECRET);
     const newToken = jwt.sign(
-      { user_id: refresh.user_id },
+      { user_id: refresh.user_id, schema: refresh.schema, user_role: refresh.user_role },
       process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );
@@ -86,6 +86,7 @@ const getAllUsersController = async (req, res) => {
   const schema = req.params.schema;
   
   try {
+    console.log('gau')
     const result = await getAllUsers(schema);
     res.status(200).json({
       users: result
@@ -118,13 +119,13 @@ const searchUserController = async (req, res) => {
     changeOnline(result.user.id, result.company.schema_name);
 
     const token = jwt.sign(
-      { user_id: result.user.id },
+      { user_id: result.user.id, schema:result.company.schema_name, user_role: result.user.permission  },
       process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );
 
     const refreshToken = jwt.sign(
-      { user_id: result.user.id },
+      { user_id: result.user.id, schema:result.company.schema_name, user_role: result.user.permission },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );

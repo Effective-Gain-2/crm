@@ -29,6 +29,7 @@
     "connect-redis": "^9.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "crypto": "^1.0.1",
     "dotenv": "^16.6.1",
     "emoji-picker-react": "^4.13.2",
     "express": "^5.1.0",

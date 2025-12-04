@@ -2,11 +2,12 @@ const axios = require('axios')
 const pool = require('../db/queries')
 const { v4: uuid4 } = require('uuid');
 const { hash, compare } = require('bcrypt');
+const { cryptText } = require('../utils/crypt');
 
-const createApiConnection = async (phone_number, phone_id, token, name, schema) => {
-    const tokenHash = await hash(token, 10)
-    console.log('token', token, tokenHash)
-    const result = await pool.query(`INSERT INTO ${schema}.api_connections(id, phone_id, name, number, token) VALUES ($1, $2, $3, $4, $5) RETURNING *`, [uuid4(), phone_id, name, phone_number, tokenHash])
+
+const createApiConnection = async (phone_number, phone_id, token, name, schema, waba_id) => {
+    const tokenHash = cryptText(token)
+    const result = await pool.query(`INSERT INTO ${schema}.api_connections(id, phone_id, name, number, token, waba_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`, [uuid4(), phone_id, name, phone_number, tokenHash, waba_id])
     return result.rows[0]
 }
 const getApiConnections = async (phone_id, schema) => {
@@ -15,6 +16,11 @@ const getApiConnections = async (phone_id, schema) => {
        result = await pool.query(`SELECT * FROM ${schema}.api_connections WHERE id=$1`, [phone_id])
     }
     return result.rows[0]
+}
+
+const getAllApiConnections = async (schema) => {
+    const result = await pool.query(`SELECT * FROM ${schema}.api_connections`)
+    return result.rows
 }
 const deleteEverythingApiOfc = async (phone_id, schema) => {
     await pool.query(`DELETE FROM ${schema}.api_ofc_chats WHERE connection_id=$1`, [phone_id])
@@ -45,7 +51,7 @@ const getSchemaByPhoneId = async (phone_id) => {
             // Query the api_connections table in this schema for the phone_id
             const result = await pool.query(`SELECT * FROM ${schemaName}.api_connections WHERE phone_id = $1`, [phone_id]);
             if (result && result.rowCount > 0) {
-                return {phone_id:result.rows[0], schema:schemaName};
+                return {phone_id:result.rows[0], schema:schemaName, tokenHash: result.rows[0].token};
             }
         }
         // not found in any schema
@@ -60,5 +66,6 @@ module.exports = {
     createApiConnection,
     getApiConnections,
     deleteEverythingApiOfc,
-    getSchemaByPhoneId
+    getSchemaByPhoneId,
+    getAllApiConnections
 }

@@ -81,6 +81,7 @@ app.use(passport.session());
 
 
 const corsOptions = {
+
   origin: function (origin, callback) {
 
     // Permitir requests sem origin (como mobile apps ou Postman)
@@ -99,7 +100,7 @@ const allowedOrigins = [
       'http://localhost:3002',
       'http://localhost:3002/'
     ];
-    
+
 
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -108,7 +109,8 @@ const allowedOrigins = [
     }
   },
   methods: ['GET', 'POST', 'DELETE', 'PUT'],
-  credentials: true
+  credentials: true,
+   
 };
 
 const server = http.createServer(app);
@@ -134,7 +136,7 @@ const io = socketIo(server, {
     methods: ['GET', 'POST', 'DELETE', 'PUT'],
   },
   transports: ['websocket', 'polling'],
-  allowEIO3: true
+  allowEIO3: true,
 });
 
 const socketServer = http.createServer();
@@ -271,6 +273,12 @@ socketIoServer.on('connection', async(socket) => {
 });
 
 app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));

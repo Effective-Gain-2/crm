@@ -1,20 +1,21 @@
 const express = require('express');
 const {transferQueueController, createQueueController, addUserinQueueController, getUserQueuesController, getAllQueuesControllers, deleteQueueController, getQueueByIdController, updateUserQueuesController, toggleWebhookStatusController, updateWebhookUrlController, getUsersInQueueController, updateQueueController, updateAssistantController } = require('../controllers/QueueController');
 const { verifyToken } = require('../controllers/UserController');
+const { allowedRoles } = require('../middlewares/RequireUser');
 
 const router = express.Router();
 
-router.post('/create-queue', createQueueController)
-router.post('/addUser', addUserinQueueController)
-router.get('/get-user-queue/:userId/:schema', getUserQueuesController)
-router.get('/get-all-queues/:schema', getAllQueuesControllers)
-router.delete('/delete-queue/:queueId/:schema', deleteQueueController)
-router.get('/get-conn-queues/:queue_id/:schema', getQueueByIdController)
-router.post('/transfer-queue', transferQueueController)
-router.post('/update-user-queues', updateUserQueuesController)
-router.put('/update-queue', updateQueueController)
-router.put('/update-webhook-url', updateWebhookUrlController)
-router.put('/toggle-webhook-status', toggleWebhookStatusController)
-router.put('/update-queue-assistant', verifyToken, updateAssistantController)
-router.get('/get-users-in-queue/:queue_id/:schema', getUsersInQueueController)
+router.post('/create-queue', allowedRoles('tec-admin'), createQueueController)
+router.post('/addUser', allowedRoles('tec-admin'), addUserinQueueController)
+router.get('/get-user-queue/:userId/:schema', allowedRoles(), getUserQueuesController)
+router.get('/get-all-queues/:schema', allowedRoles(), getAllQueuesControllers)
+router.delete('/delete-queue/:queueId/:schema', allowedRoles('tec-admin'), deleteQueueController)
+router.get('/get-conn-queues/:queue_id/:schema', allowedRoles(), getQueueByIdController)
+router.post('/transfer-queue', allowedRoles(), transferQueueController)
+router.post('/update-user-queues', allowedRoles('tec-admin'), updateUserQueuesController)
+router.put('/update-queue', allowedRoles('tec-admin'), updateQueueController)
+router.put('/update-webhook-url', allowedRoles('tec-admin'), updateWebhookUrlController)
+router.put('/toggle-webhook-status', allowedRoles('tec-admin'), toggleWebhookStatusController)
+router.put('/update-queue-assistant', verifyToken, allowedRoles('tec-admin'), updateAssistantController)
+router.get('/get-users-in-queue/:queue_id/:schema', allowedRoles(), getUsersInQueueController)
 module.exports = router 

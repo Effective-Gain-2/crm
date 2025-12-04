@@ -10,7 +10,7 @@ function WhatsappTemplates({ theme }) {
   const schema = userData?.schema;
 
   const [templates, setTemplates] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -25,6 +25,10 @@ function WhatsappTemplates({ theme }) {
   const [customFields, setCustomFields] = useState([]);
   const [detectedVars, setDetectedVars] = useState([]);
   const [varMappings, setVarMappings] = useState({});
+  const [selectedPhoneId, setSelectedPhoneId] = useState('');
+  const [connections, setConnections] = useState([]);
+  const [connectionsLoading, setConnectionsLoading] = useState(true);
+  const [connectionsError, setConnectionsError] = useState(null);
   const { showError, showSuccess } = useToast();
 
   useEffect(() => {
@@ -36,35 +40,70 @@ function WhatsappTemplates({ theme }) {
   }, []);
 
   useEffect(() => {
-    fetchTemplates();
-  }, []);
+    const fetchConnections = async () => {
+      if (!schema) {
+        setConnections([]);
+        setConnectionsLoading(false);
+        return;
+      }
+      setConnectionsLoading(true);
+      setConnectionsError(null);
+      try {
+        const res = await axios.get(`${url}/connection/get-all-api-ofc-connections/${schema}`, { withCredentials: true });
+        const raw = Array.isArray(res.data) ? res.data : [res.data];
+        // api_connections: id, phone_id, name, number, token
+        const normalized = raw.filter(Boolean).filter((conn) => conn && conn.phone_id);
+        setConnections(normalized);
+        if (!selectedPhoneId && normalized.length === 1) {
+          setSelectedPhoneId(normalized[0].phone_id);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar números oficiais:', err);
+        setConnections([]);
+        setConnectionsError('Erro ao carregar números oficiais do WhatsApp');
+      } finally {
+        setConnectionsLoading(false);
+      }
+    };
 
-  const fetchTemplates = async () => {
-    const templatesComp = []
+    fetchConnections();
+  }, [schema, url]);
+
+  useEffect(() => {
+    if (selectedPhoneId) {
+      fetchTemplates(selectedPhoneId);
+    }
+  }, [selectedPhoneId]);
+
+  const fetchTemplates = async (phoneId) => {
+    if (!phoneId) return;
+    setLoading(true);
+    setError(null);
+    const templatesComp = [];
     try {
-      const response = await axios.get(`${url}/ofc-campaing/get-templates/1355873329598482`, { withCredentials: true })
+      const response = await axios.get(`${url}/ofc-campaing/get-templates/${phoneId}/${schema}`, { withCredentials: true });
 
-      response.data.data.map(datas => {
-        let header = null
-        let body = null
-        let footer = null
-        let buttons = []
-        datas.components.map(component => {
+      response.data.data.map((datas) => {
+        let header = null;
+        let body = null;
+        let footer = null;
+        let buttons = [];
+        datas.components.map((component) => {
           if (component.type === 'HEADER') {
-            header = component
+            header = component;
           } else if (component.type === 'BODY') {
-            body = component
+            body = component;
           } else if (component.type === 'FOOTER') {
-            footer = component
+            footer = component;
           } else if (component.type === 'BUTTONS') {
-            buttons = component.buttons || []
+            buttons = component.buttons || [];
           }
-        })
-        templatesComp.push({ template: datas, components: { header: header, body: body, footer: footer, buttons: buttons } })
-      })
+        });
+        templatesComp.push({ template: datas, components: { header: header, body: body, footer: footer, buttons: buttons } });
+      });
 
-      setTemplates(Array.isArray(templatesComp) ? templatesComp : [templatesComp])
-      console.log(templates)
+      setTemplates(Array.isArray(templatesComp) ? templatesComp : [templatesComp]);
+      console.log(templates);
     } catch (err) {
       setError('Erro ao carregar templates');
       console.error('Erro ao buscar templates:', err);
@@ -181,6 +220,10 @@ function WhatsappTemplates({ theme }) {
   }
   const handleSendMessage = async (template, stage_id) => {
     try {
+      if (!selectedPhoneId) {
+        showError('Selecione um número oficial de WhatsApp antes de enviar o template.');
+        return;
+      }
       const variables = (detectedVars || []).map(label => {
         const chosen = (varMappings[label] || '').trim();
         if (!chosen) return null;
@@ -192,7 +235,7 @@ function WhatsappTemplates({ theme }) {
         return { label, value: chosen };
       }).filter(Boolean);
       await axios.post(`${url}/ofc-campaing/send-template-message`, {
-        phone_id: '722737154266393',
+        phone_id: selectedPhoneId,
         language: 'pt_BR',
         template_name: template.template.name,
         etapa_id: stage_id,
@@ -216,10 +259,15 @@ function WhatsappTemplates({ theme }) {
       try {
         setTemplates(prev => prev.filter(template => template.name !== template_name));
 
-        await axios.delete(`${url}/ofc-campaing/delete-template/1355873329598482/${template_name}`, {
+        if (!selectedPhoneId) {
+          showError('Selecione um número oficial de WhatsApp antes de excluir um template.');
+          return;
+        }
+
+        await axios.delete(`${url}/ofc-campaing/delete-template/${selectedPhoneId}/${template_name}`, {
           withCredentials: true
         });
-        fetchTemplates();
+        fetchTemplates(selectedPhoneId);
         showSuccess('Template excluído com sucesso!');
       } catch (err) {
         showError('Erro ao excluir template.');
@@ -228,6 +276,10 @@ function WhatsappTemplates({ theme }) {
   };
 
   const handleCreateTemplate = async () => {
+    if (!selectedPhoneId) {
+      showError('Selecione um número oficial de WhatsApp antes de criar um template.');
+      return;
+    }
     const formData = {
       name: document.querySelector('input[placeholder="Digite o nome do template"]').value,
       category: document.querySelector('select').value,
@@ -263,7 +315,7 @@ function WhatsappTemplates({ theme }) {
     }));
 
     const response = await axios.post(`${url}/ofc-campaing/create-template`, {
-      wa_id: '1355873329598482',
+      wa_id: selectedPhoneId,
       name: newTemplate.name,
       language: newTemplate.language,
       category: newTemplate.category,
@@ -284,6 +336,10 @@ function WhatsappTemplates({ theme }) {
   };
 
   const handleUpdateTemplate = async () => {
+    if (!selectedPhoneId) {
+      showError('Selecione um número oficial de WhatsApp antes de atualizar um template.');
+      return;
+    }
     const formData = {
       name: document.querySelector('input[placeholder="Digite o nome do template"]').value,
       category: document.querySelector('select').value,
@@ -325,7 +381,7 @@ function WhatsappTemplates({ theme }) {
 
     await axios.put(`${url}/ofc-campaing/edit-template`, {
       template_id: selectedTemplate.template.id,
-      wa_id: '1355873329598482',
+      wa_id: selectedPhoneId,
       name: newTemplate.name,
       language: newTemplate.language,
       category: newTemplate.category,
@@ -373,54 +429,113 @@ function WhatsappTemplates({ theme }) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center" style={{ height: '400px' }}>
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Carregando...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="alert alert-danger" role="alert">
-        {error}
-      </div>
-    );
-  }
-
   return (
     <div className="container-fluid">
       <div className="row">
         <div className="col-12">
           <div className="d-flex justify-content-between align-items-center mb-4">
-            <h2 className="mb-0">
-              <i className="bi bi-whatsapp me-2"></i>
-              Templates WhatsApp
-            </h2>
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                setButtons([]);
-                setExamples([]);
-                setShowModal(true);
-              }}
-            >
-              <i className="bi bi-plus-circle me-2"></i>
-              Novo Template
-            </button>
+            <div>
+              <h2 className="mb-0">
+                <i className="bi bi-whatsapp me-2"></i>
+                Templates WhatsApp
+              </h2>
+              <small className="text-muted">
+                Selecione o número oficial antes de carregar ou gerenciar templates.
+              </small>
+            </div>
+            <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-3 w-100 justify-content-end">
+              <div className="flex-grow-1 flex-lg-grow-0" style={{ minWidth: '280px' }}>
+                <label className="form-label mb-1 fw-semibold">Número oficial (phone_id)</label>
+                <div className="input-group">
+                  <span className="input-group-text">
+                    <i className="bi bi-telephone"></i>
+                  </span>
+                  <select
+                    className="form-select"
+                    value={selectedPhoneId}
+                    onChange={(e) => {
+                      setSelectedPhoneId(e.target.value);
+                      setTemplates([]);
+                      setError(null);
+                    }}
+                    disabled={connectionsLoading || connections.length === 0}
+                  >
+                    <option value="">Selecione um número oficial</option>
+                    {connections.map((connection) => (
+                      <option key={connection.id} value={connection.phone_id}>
+                        {connection.number || connection.phone_id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {connectionsError && (
+                  <small className="text-danger d-block mt-1">{connectionsError}</small>
+                )}
+              </div>
+              <div className="d-flex gap-2 justify-content-end">
+                <button
+                  className="btn btn-outline-secondary"
+                  type="button"
+                  onClick={() => fetchTemplates(selectedPhoneId)}
+                  disabled={!selectedPhoneId || loading}
+                >
+                  <i className="bi bi-arrow-repeat me-2"></i>
+                  Recarregar
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setButtons([]);
+                    setExamples([]);
+                    setShowModal(true);
+                  }}
+                  disabled={!selectedPhoneId}
+                >
+                  <i className="bi bi-plus-circle me-2"></i>
+                  Novo Template
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="row">
-            {templates.length === 0 ? (
+            {connectionsLoading ? (
+              <div className="col-12 d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
+                <div className="spinner-border text-primary" role="status">
+                  <span className="visually-hidden">Carregando números...</span>
+                </div>
+              </div>
+            ) : connections.length === 0 ? (
+              <div className="col-12">
+                <div className="alert alert-warning" role="alert">
+                  Nenhum número oficial foi encontrado. Cadastre uma conexão oficial para continuar.
+                </div>
+              </div>
+            ) : !selectedPhoneId ? (
+              <div className="col-12">
+                <div className="alert alert-info" role="alert">
+                  Selecione um número oficial do WhatsApp para visualizar os templates disponíveis.
+                </div>
+              </div>
+            ) : loading ? (
+              <div className="col-12 d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
+                <div className="spinner-border text-primary" role="status">
+                  <span className="visually-hidden">Carregando...</span>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="col-12">
+                <div className="alert alert-danger" role="alert">
+                  {error}
+                </div>
+              </div>
+            ) : templates.length === 0 ? (
               <div className="col-12">
                 <div className="card">
                   <div className="card-body text-center py-5">
                     <i className="bi bi-inbox display-4 text-muted mb-3"></i>
                     <h5 className="text-muted">Nenhum template encontrado</h5>
-                    <p className="text-muted">Crie seu primeiro template do WhatsApp</p>
+                    <p className="text-muted">Crie seu primeiro template do WhatsApp para o número selecionado.</p>
                     <button
                       className="btn btn-primary"
                       onClick={() => {
@@ -428,6 +543,7 @@ function WhatsappTemplates({ theme }) {
                         setExamples([]);
                         setShowModal(true);
                       }}
+                      disabled={!selectedPhoneId}
                     >
                       <i className="bi bi-plus-circle me-2"></i>
                       Criar Template

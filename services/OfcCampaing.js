@@ -1,11 +1,12 @@
 const axios = require('axios')
 const { json } = require('express')
+const { decryptText } = require('../utils/crypt')
 
 
 const listTemplates = async (wa_id, token) => {
     const response = await axios.get(`https://graph.facebook.com/v24.0/${wa_id}/message_templates`, {
         headers: {
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${process.env.WHATSAPP_API_TOKEN}`
         }
     })
     return response
@@ -90,7 +91,7 @@ const sendTemplateMessage = async (phone_id, token, template_name, recive_number
                     ]
                     : []
             },
-        }, { headers: { Authorization: `Bearer ${token}` } })
+        }, { headers: { Authorization: `Bearer ${decryptText(token)}` } })
     } catch (error) {
         console.error('Erro ao enviar mensagem:', error.response ? error.response.data : error.message);
     }

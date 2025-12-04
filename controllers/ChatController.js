@@ -124,7 +124,7 @@ const setUserChatController = async (req, res) => {
   const { chat } = req.body;
 
   try {
-    const schema = req.body.schema || 'effective_gain';
+    const schema = req.body.schema;
     const result = await setUserChat(chat, schema);
 
     res.status(201).json(result);
@@ -185,6 +185,7 @@ const getMessagesController = async (req, res) => {
 
 const updateQueueController = async (req, res) => {
   try {
+
     const { queueId, chatId } = req.body;
     const schema = req.body.schema || 'effective_gain';
 
@@ -372,6 +373,7 @@ const getClosedChatsController = async (req, res) => {
 
 const setSpecificUserController = async(req, res) => {
   try {
+
     const {user_id, chat_id} = req.body
     const schema = req.body.schema
     
