@@ -13,6 +13,8 @@ function verifyToken(req, res, next) {
       return res.status(401).json({ error: 'Token inválido ou expirado' });
     }
     req.user_id = decoded.user_id;
+    req.user_role = decoded.user_role;
+    req.schema = decoded.schema;
     next();
   });
 }
@@ -59,7 +61,7 @@ const createUserController = async (req, res) => {
         role
       );
   
-        const schema = req.body.schema;
+        const schema = req.schema;
         const result = await createUser(user, schema);
         global.socketIoServer.to(`schema_${schema}`).emit('new_user', result)
       res.status(201).json({success:true,result});
@@ -86,7 +88,6 @@ const getAllUsersController = async (req, res) => {
   const schema = req.params.schema;
   
   try {
-    console.log('gau')
     const result = await getAllUsers(schema);
     res.status(200).json({
       users: result
@@ -230,6 +231,125 @@ const deleteUserController = async(req, res)=>{
     });
   }
 }
+const googleCallbackController = async (req, res) => {
+  try {
+
+    const { code } = req.query;
+
+    const { tokens } = await oAuth2Client.getToken(code);
+
+    const { user, company, schema, ip, timestamp } = req.session.user;
+
+
+    req.session.google_tokens = tokens;
+
+
+
+
+    return res.send(`
+      <script>
+        // Se precisar comunicar o sucesso à janela principal, use window.opener.postMessage()
+        // Mas, para o fluxo simples, basta fechar:
+        window.close();
+      </script>
+    `);
+
+
+  } catch (error) {
+    console.log(error)
+    console.error("Erro ao buscar usuário:", error.message);
+    res.status(500).json({ error: 'Erro ao buscar usuário' });
+  }
+}
+
+const gerarLembretesController = async (req, res) => {
+  try {
+    const { lembrete_name, message, date, user_id, schema } = req.body;
+
+    console.log('=== TESTE DE INTEGRAÇÃO GOOGLE CALENDAR ===');
+    console.log('Dados recebidos:', { lembrete_name, message, date, user_id, schema });
+
+    if (!lembrete_name || !message || !date || !user_id || !schema) {
+      return res.status(400).json({ error: 'Dados incompletos para teste' });
+    }
+
+    // const { getPreferencesByUser } = require('../services/UserPreferencesService');
+
+    // // Buscar tokens do Google do usuário
+    // const prefs = await getPreferencesByUser(user_id, schema);
+
+    // if (!prefs || !prefs.google_tokens) {
+    //   console.log('❌ Usuário não possui tokens do Google Calendar');
+    //   return res.status(400).json({
+    //     error: 'Usuário não conectado ao Google Calendar',
+    //     needsAuth: true
+    //   });
+    // }
+
+    console.log(req.session.google_tokens);
+
+    const tokens = req.session.google_tokens;
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+    oauth2Client.setCredentials(tokens);
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    // Converter timestamp Unix para ISO
+    const startDate = new Date(date * 1000);
+    const endDate = new Date(startDate.getTime() + 30 * 60 * 1000); // +30 minutos
+
+    console.log('Data do evento:', {
+      start: startDate.toISOString(),
+      end: endDate.toISOString()
+    });
+
+    const event = {
+      summary: lembrete_name,
+      description: message,
+      start: { dateTime: startDate.toISOString(), timeZone: 'America/Sao_Paulo' },
+      end: { dateTime: endDate.toISOString(), timeZone: 'America/Sao_Paulo' },
+    };
+
+    console.log('Criando evento no Google Calendar...');
+
+    const response = await calendar.events.insert({
+      calendarId: 'primary',
+      resource: event,
+    });
+
+    console.log('✓ Evento criado com sucesso!');
+    console.log('Google Event ID:', response.data.id);
+    console.log('Link do evento:', response.data.htmlLink);
+
+    res.status(201).json({
+      success: true,
+      message: 'Evento criado no Google Calendar com sucesso!',
+      googleEvent: {
+        id: response.data.id,
+        summary: response.data.summary,
+        start: response.data.start,
+        end: response.data.end,
+        htmlLink: response.data.htmlLink
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao criar evento no Google Calendar:', error);
+    console.error('Detalhes do erro:', error.message);
+    if (error.response) {
+      console.error('Resposta da API:', error.response.data);
+    }
+    res.status(500).json({
+      error: 'Erro ao criar evento no Google Calendar',
+      details: error.message,
+      errorType: error.constructor.name
+    });
+  }
+}
 
 const logoutController = async (req, res) => {
   try {
@@ -271,5 +391,7 @@ const logoutController = async (req, res) => {
     searchUserByIdController,
     logoutController,
     verifyToken,
-    refreshTokenController
+    refreshTokenController,
+    googleCallbackController,
+    gerarLembretesController
   }

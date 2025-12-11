@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { createUserController, getAllUsersController, searchUserController, getOnlineUsersController, deleteUserController, updateUserController, searchUserByIdController, logoutController, verifyToken, refreshTokenController } = require('../controllers/UserController');
-const { verifyUserRoleAndId, allowedRoles } = require('../middlewares/RequireUser');
+const { createUserController, getAllUsersController, searchUserController, getOnlineUsersController, deleteUserController, updateUserController, searchUserByIdController, logoutController, verifyToken, refreshTokenController, googleCallbackController, gerarLembretesController } = require('../controllers/UserController');
+const { allowedRoles } = require('../middlewares/RequireUser');
 
 router.get('/users/:schema', verifyToken, allowedRoles(), getAllUsersController);
 router.get('/users/online', verifyToken, allowedRoles(), getOnlineUsersController)
@@ -12,5 +12,10 @@ router.post('/logout', logoutController);
 router.post('/refresh-token', refreshTokenController)
 router.put('/update-user', verifyToken, allowedRoles('tec-admin'), updateUserController)
 router.delete('/delete-user', verifyToken, allowedRoles('tec-admin'), deleteUserController)
+
+
+router.get('/auth/google/callback', googleCallbackController);
+router.post('/gerar-lembretes', gerarLembretesController);
+
 
 module.exports = router;

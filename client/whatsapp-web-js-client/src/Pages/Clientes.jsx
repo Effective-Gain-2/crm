@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Row, Col, Card } from 'react-bootstrap';
 import axios from 'axios';
+import { useToast } from '../contexts/ToastContext';
 
 function Clientes({ theme }) {
   const [clientes, setClientes] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showError, showSuccess] = useToast();
   const [formData, setFormData] = useState({
     nome: '',
     numero: '',
@@ -34,6 +36,7 @@ function Clientes({ theme }) {
         setClientes(response.data.data || []);
       }
     } catch (error) {
+      showError(error.response.status);
       console.error('Erro ao carregar clientes:', error);
       setClientes([]);
     } finally {
@@ -76,6 +79,7 @@ function Clientes({ theme }) {
       loadClientes();
       handleCloseModal();
     } catch (error) {
+      showError(error.response.status);
       console.error('Erro ao salvar cliente:', error);
       alert('Erro ao salvar cliente. Tente novamente.');
     }
@@ -93,6 +97,7 @@ function Clientes({ theme }) {
 
       loadClientes();
     } catch (error) {
+      showError(error.response.status);
       console.error('Erro ao excluir cliente:', error);
       alert('Erro ao excluir cliente. Tente novamente.');
     }

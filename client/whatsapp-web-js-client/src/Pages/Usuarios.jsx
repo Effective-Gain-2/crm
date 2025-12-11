@@ -7,7 +7,7 @@ import * as bootstrap from 'bootstrap';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { socket } from '../socket'
-
+import { useToast } from '../contexts/ToastContext';
 
 // Função para refresh token
 // const refreshToken = async () => {
@@ -51,7 +51,7 @@ function UsuariosPage({ theme }) {
   const [modalType, setModalType] = useState('new');
   const navigate = useNavigate();
   const [socketInstance] = useState(socket)
-
+  const { showError, showSuccess } = useToast();
 
   // Verificar se o usuário tem permissão para gerenciar usuários
   const canManageUsers = userData?.role === 'admin' || userData?.role === 'tecnico';
@@ -184,6 +184,7 @@ function UsuariosPage({ theme }) {
         setUsuarios(response.data.users || []);
       } catch (error) {
         console.error('Erro ao buscar usuários:', error);
+        showError(error.response.status)
         if (error.response?.status === 401) {
           // Token expirado, tentar refresh
           // const success = await refreshToken();
@@ -243,6 +244,7 @@ function UsuariosPage({ theme }) {
 
         setUsuarios(usuariosComFilas);
       } catch (error) {
+        showError(error.response.status);
         console.error('Erro ao buscar usuários:', error);
         if (error.response?.status === 401) {
           // Token expirado, tentar refresh

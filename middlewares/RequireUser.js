@@ -10,10 +10,7 @@ function allowedRoles(roles){
 }
 
 async function verifyUserRoleAndId(req, res, next, roles) {
-    const {token} = req.cookies;
-    const decodedToken = jwt.decode(token)
-    const { user_id, user_role, schema } = decodedToken || {};
-    
+    const { user_id, user_role, schema } = req; 
     if(!schema) return null
     let allowedRoles;
     switch(roles){
@@ -34,7 +31,7 @@ async function verifyUserRoleAndId(req, res, next, roles) {
             break;
     }
   if (!allowedRoles.includes(user_role)) {
-    return ForbiddenError(res);
+    returnForbiddenError(res);
   }
   if (user_role === "tecnico") {
       const user = await getUserById(user_id, "effective_gain");

@@ -182,7 +182,7 @@ function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, set
       showSuccess('Chat transferido para nova fila com sucesso!');
 
     } catch (err) {
-      showError('Erro ao transferir fila. Tente novamente.');
+      showError(err.response.status);
     }
     setTransferLoading(false);
   };
@@ -640,7 +640,7 @@ function ChatPage({ theme, chat_id }) {
       showSuccess('Nome do contato atualizado com sucesso!');
     } catch (error) {
       console.error(error);
-      showError('Erro ao atualizar nome do contato. Tente novamente.');
+      showError(error.response.status);
     }
   };
 
@@ -665,7 +665,7 @@ function ChatPage({ theme, chat_id }) {
 
     } catch (error) {
       console.error(error)
-      showError('Erro ao aceitar chat. Tente novamente.');
+      showError(error.response.status);
     }
   }
 
@@ -737,7 +737,7 @@ function ChatPage({ theme, chat_id }) {
 
     } catch (error) {
       console.error('Erro ao redistribuir chats:', error);
-      showError('Erro ao redistribuir chats. Tente novamente.');
+      showError(error.response.status);
     } finally {
       setRedistributing(false);
     }
@@ -1324,7 +1324,7 @@ function ChatPage({ theme, chat_id }) {
 
     } catch (error) {
       console.error('Erro ao enviar a mensagem:', error);
-      showError('Erro ao enviar mensagem. Tente novamente.');
+      showError(error.response.status);
     }
   };
   const handleReply = (message) => {
@@ -1382,7 +1382,7 @@ function ChatPage({ theme, chat_id }) {
 
     } catch (error) {
       console.error('Erro ao enviar a imagem:', error);
-      showError('Erro ao enviar imagem. Tente novamente.');
+      showError(error.response.status);
     }
   };
 
