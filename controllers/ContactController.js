@@ -3,7 +3,7 @@ const { createCustomField, insertValueCustomField, createContact, updateContactN
 
 const createCustomFieldController = async (req, res) => {
     const { fieldName, graph } = req.body;
-    const schema = req.body.schema;
+    const schema = req.schema;
     try {
         const result = await createCustomField(fieldName, graph, schema);
         res.status(201).json(result);
@@ -15,7 +15,7 @@ const createCustomFieldController = async (req, res) => {
 
 const insertValueCustomFieldController = async (req, res) => {
     const { fieldName, contactNumber, value } = req.body;
-    const schema = req.body.schema ;
+    const schema = req.schema ;
     try {
         const result = await insertValueCustomField(fieldName, contactNumber, value, schema);
         res.status(201).json(result);
@@ -27,7 +27,7 @@ const insertValueCustomFieldController = async (req, res) => {
 
 const createContactController = async (req, res) => {
     const { name, number, connection, user_id } = req.body;
-    const schema = req.body.schema ;
+    const schema = req.schema ;
     try {
         const result = await createContact(number, name, connection, user_id, schema);
         
@@ -48,7 +48,8 @@ const createContactController = async (req, res) => {
 }
 const updateContactNameController = async(req, res)=>{
     try {
-        const {name, number, user_id, schema} = req.body
+        const {name, number, user_id} = req.body
+        const schema = req.schema
         const result = await updateContactName(number, name, schema)
         const chatname = updateChatNameByNumber(number, name, user_id, schema)
         res.status(200).json({
@@ -59,7 +60,8 @@ const updateContactNameController = async(req, res)=>{
     }
 }
 const getCustomFieldsByContactController = async (req, res) => {
-    const {contact_number, schema} = req.params
+    const {contact_number} = req.params
+    const schema = req.schema
     try {
         const result = await getCustomFieldsByContact(contact_number, schema)
         res.status(200).json({

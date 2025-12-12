@@ -1,7 +1,7 @@
 const { getAllStockItens, insertItemInStock, getItemById, alterItemQuantityInStock, updateItemInStock, getStockCategories, createStockCategory, deleteStockCategory } = require("../services/StockService")
 
 const getAllStockItensController = async (req, res) => {
-    const {schema} = req.params
+    const {schema} = req.schema
     try {
         const result = await getAllStockItens(schema)
         res.status(200).json({
@@ -17,7 +17,8 @@ const getAllStockItensController = async (req, res) => {
 }
 
 const insertItemInStockController = async (req, res) => {
-    const {nome, quantidade, categoria, atention_quantity, urgent_quantity, schema} = req.body
+    const {nome, quantidade, categoria, atention_quantity, urgent_quantity} = req.body
+    const schema = req.schema
     try {
         const result = await insertItemInStock(nome, quantidade, categoria, atention_quantity, urgent_quantity, schema)
         res.status(200).json({
@@ -32,7 +33,8 @@ const insertItemInStockController = async (req, res) => {
     }
 }
 const getItemByIdController = async (req, res) => {
-    const {item_id, schema} = req.params
+    const {item_id} = req.params
+    const schema = req.schema
     try {
         const result = await getItemById(item_id, schema)
         res.status(200).json({
@@ -47,8 +49,8 @@ const getItemByIdController = async (req, res) => {
     }
 }
 const alterItemQuantityInStockController = async (req, res) => {
-    console.log(req.body)
-    const {item_id, quantity, isSum, schema} = req.body
+    const {item_id, quantity, isSum} = req.body
+    const schema = req.schema
     try {
         const result = await alterItemQuantityInStock(item_id, quantity, isSum, schema)
         res.status(200).json({
@@ -64,7 +66,8 @@ const alterItemQuantityInStockController = async (req, res) => {
 }
 
 const updateItemInStockController = async (req, res) => {
-    const {item_id, item_name, category, quantity, atention_quantity, urgent_quantity, schema} = req.body
+    const {item_id, item_name, category, quantity, atention_quantity, urgent_quantity} = req.body
+    const schema = req.schema
     try {
         const result = await updateItemInStock(item_id, item_name, category, quantity, atention_quantity, urgent_quantity, schema)
         res.status(200).json({
@@ -79,7 +82,7 @@ const updateItemInStockController = async (req, res) => {
     }
 }
 const getStockCategoriesController = async (req,res) => {
-    const {schema} = req.params
+    const {schema} = req.schema
     try {
         const result = await getStockCategories(schema)
         res.status(200).json({
@@ -94,7 +97,8 @@ const getStockCategoriesController = async (req,res) => {
     }
 }
 const createStockCategoryController = async (req, res) => {
-    const {category_name, schema} = req.body
+    const {category_name} = req.body
+    const schema = req.schema
     try {
         const result = await createStockCategory(category_name, schema)
         res.status(200).json({
@@ -109,7 +113,8 @@ const createStockCategoryController = async (req, res) => {
     }
 }
 const deleteStockCategoryController = async (req,res) => {
-    const {category_id, schema} = req.params
+    const {category_id} = req.params
+    const schema = req.schema
     try {
         const result = await deleteStockCategory(category_id, schema)
         res.status(200).json({

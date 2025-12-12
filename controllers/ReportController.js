@@ -2,7 +2,7 @@ const { getReports, summary, getSummaryByChatId } = require("../services/ReportS
 const XLSX = require("xlsx");
 
 const getReportsController = async (req, res) => {
-    const {schema} = req.params
+    const {schema} = req.schema
     const { user_id, user_role } = req.query;
     try {
         const result = await getReports(schema, user_id, user_role)
@@ -18,7 +18,8 @@ const getReportsController = async (req, res) => {
     }
 }
 const generateSummaryController = async (req, res) => {
-    const {chat_id, schema} = req.body
+    const {chat_id} = req.body
+    const schema = req.schema
     try {
         const result = await summary(chat_id, schema)
         res.status(200).json({
@@ -35,7 +36,8 @@ const generateSummaryController = async (req, res) => {
 }
 
 const getSummaryController = async (req, res) => {
-    const {chat_id, schema} = req.params
+    const {chat_id} = req.params
+    const schema = req.schema
 
     try {
         const result = await getSummaryByChatId(chat_id, schema)

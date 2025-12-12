@@ -1,7 +1,8 @@
 const { getCategories, createCategory } = require("../utils/Category");
 
 const createCategoryController = async (req, res) => {
-    const {name, schema} = req.body;
+    const {name} = req.body;
+    const schema = req.schema;
     try {
         const result = await createCategory(name, schema);
         res.status(201).json({ success: true, data: result });
@@ -12,7 +13,7 @@ const createCategoryController = async (req, res) => {
 }
 
 const getCategoriesController = async (req, res) => {
-    const schema = req.params.schema;
+    const schema = req.schema;
 
     try{
         const categories = await getCategories(schema);

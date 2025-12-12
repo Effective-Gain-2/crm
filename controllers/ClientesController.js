@@ -2,7 +2,8 @@ const ClientesService = require('../services/ClientesService');
 
 const createCliente = async (req, res) => {
   try {
-    const { nome, numero, email, idade, schema } = req.body;
+    const { nome, numero, email, idade} = req.body;
+    const schema = req.schema
     if (!schema) {
       return res.status(400).json({ success: false, message: "Schema é obrigatório" });
     }
@@ -15,7 +16,7 @@ const createCliente = async (req, res) => {
 
 const getAllClientes = async (req, res) => {
   try {
-    const { schema } = req.params;
+    const { schema } = req.schema;
     const clientes = await ClientesService.getAllClientes(schema);
     return res.json({ success: true, data: clientes });
   } catch (error) {
@@ -25,7 +26,8 @@ const getAllClientes = async (req, res) => {
 
 const getClienteById = async (req, res) => {
   try {
-    const { id, schema } = req.params;
+    const { id} = req.params;
+    const schema = req.schema
     const cliente = await ClientesService.getClienteById(id, schema);
     if (!cliente) return res.status(404).json({ success: false, message: "Cliente não encontrado" });
     return res.json({ success: true, data: cliente });
@@ -37,7 +39,8 @@ const getClienteById = async (req, res) => {
 const updateCliente = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nome, numero, email, idade, schema } = req.body;
+    const { nome, numero, email, idade } = req.body;
+    const schema = req.schema;
     if (!schema) {
       return res.status(400).json({ success: false, message: "Schema é obrigatório" });
     }
@@ -50,7 +53,8 @@ const updateCliente = async (req, res) => {
 
 const deleteCliente = async (req, res) => {
   try {
-    const { id, schema } = req.params;
+    const { id} = req.params;
+    const schema = req.schema
     await ClientesService.deleteCliente(id, schema);
     return res.json({ success: true, message: "Cliente removido com sucesso" });
   } catch (error) {

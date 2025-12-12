@@ -52,7 +52,6 @@ const refreshTokenController = (req, res) => {
 const createUserController = async (req, res) => {
     try {
       const { name, email, password, role } = req.body;
-  
       const user = new Users(
         uuidv4(),
         name,
@@ -73,7 +72,7 @@ const createUserController = async (req, res) => {
   };
   const updateUserController = async (req, res) => {
     const { userId, userName, userEmail, userRole } = req.body;
-    const schema = req.body.schema;
+    const schema = req.schema;
     try {
       const result = await updateUser(userId, userName, userEmail, userRole, schema);
       res.status(200).json({
@@ -85,7 +84,7 @@ const createUserController = async (req, res) => {
     }
   }
 const getAllUsersController = async (req, res) => {
-  const schema = req.params.schema;
+  const schema = req.schema;
   
   try {
     const result = await getAllUsers(schema);
@@ -165,7 +164,8 @@ const searchUserController = async (req, res) => {
 }
 
 const searchUserByIdController = async (req, res) => {
-  const { user_id, schema } = req.params;
+  const { user_id} = req.params;
+  const schema = req.schema;
   try {
     const result = await getUserById(user_id, schema);
 
@@ -184,7 +184,7 @@ const searchUserByIdController = async (req, res) => {
   }
 }
 const getOnlineUsersController = async (req, res) => {
-  const { schema } = req.query 
+  const { schema } = req.schema
   try {
     const result = await getOnlineUsers(schema);
     res.status(201).json({
@@ -201,7 +201,7 @@ const getOnlineUsersController = async (req, res) => {
 
 const changeOfflineController = async(req, res)=>{
   const { userID } = req.query 
-  const schema = req.param?.schema
+  const schema = req.schema
   try {
     const result = await changeOffline(userID, schema)
     res.status(201).json({
@@ -216,7 +216,7 @@ const changeOfflineController = async(req, res)=>{
 }
 const deleteUserController = async(req, res)=>{
   const {user_id} = req.body
-  const schema = req.body.schema
+  const schema = req.schema
 
   try{
     const result = await deleteUser(user_id, schema)
@@ -264,7 +264,8 @@ const googleCallbackController = async (req, res) => {
 
 const gerarLembretesController = async (req, res) => {
   try {
-    const { lembrete_name, message, date, user_id, schema } = req.body;
+    const { lembrete_name, message, date, user_id } = req.body;
+    const { schema } = req.schema;
 
     console.log('=== TESTE DE INTEGRAÇÃO GOOGLE CALENDAR ===');
     console.log('Dados recebidos:', { lembrete_name, message, date, user_id, schema });

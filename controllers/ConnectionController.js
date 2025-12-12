@@ -13,7 +13,7 @@ const createConnectionController = async(req, res)=>{
             number,
             []
         )
-        const schema = req.body.schema
+        const schema = req.schema
         const result = await createConnection(conn, schema);
 
       res.status(201).json(result);
@@ -25,7 +25,7 @@ const createConnectionController = async(req, res)=>{
 const setQueueController = async(req, res)=>{
     try{
         const {connection_id, queue_id} = req.body
-        const schema = req.body.schema;
+        const schema = req.schema;
         const result = await setQueue(connection_id, queue_id, schema);
 
       res.status(201).json({
@@ -40,7 +40,7 @@ const setQueueController = async(req, res)=>{
 
 const getAllConnectionsController = async (req, res) => {
     try {
-        const schema = req.params.schema;
+        const schema = req.schema;
         
         if (!schema || schema === 'null' || schema === 'undefined') {
             return res.status(400).json({
@@ -58,7 +58,7 @@ const getAllConnectionsController = async (req, res) => {
 
 const getAllConnectionsWithStatusController = async (req, res) => {
     try {
-        const schema = req.params.schema;
+        const schema = req.schema;
         
         if (!schema || schema === 'null' || schema === 'undefined') {
             return res.status(400).json({
@@ -92,7 +92,8 @@ const getAllConnectionsWithStatusController = async (req, res) => {
 }
 const deleteConnectionController =async (req, res) => {
     try {
-        const {connection_id, instanceName, schema} = req.params
+        const {connection_id, instanceName} = req.params
+        const schema = req.schema;
         const result = await deleteConnection(connection_id, schema)
         await deleteInstance(instanceName)
 
@@ -105,7 +106,8 @@ const deleteConnectionController =async (req, res) => {
     }
 }
 const searchConnByIdController = async (req, res) => {
-    const {connection_id, schema} = req.params
+    const {connection_id} = req.params
+    const schema = req.schema
     try {
         const result = await searchConnById(connection_id, schema)
         res.status(200).json({
@@ -123,9 +125,9 @@ const searchConnByIdController = async (req, res) => {
 }
 
 const deleteApiOfcDataController = async (req, res) => {
-    console.log(req.params)
     try {
-        const { phone_id, schema } = req.params;
+        const { phone_id} = req.params;
+        const schema = req.schema;
         await deleteEverythingApiOfc(phone_id, schema);
         res.status(200).json({
             success: true,
@@ -142,7 +144,7 @@ const deleteApiOfcDataController = async (req, res) => {
 
 const getAllApiOfcConnectionsController = async (req, res) => {
     try {
-        const { schema } = req.params;
+        const { schema } = req.schema;
 
         if (!schema || schema === 'null' || schema === 'undefined') {
             return res.status(400).json({

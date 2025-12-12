@@ -3,7 +3,8 @@ const { getPreferencesByUser } = require('../services/UserPreferencesService');
 const { google } = require('googleapis');
 
 const createLembreteController = async (req, res) => {
-    const {lembrete_name, tag, message, date, icone, user_id, schema, filas} = req.body
+    const {lembrete_name, tag, message, date, icone, user_id, filas} = req.body
+    const {schema} = req.schema
 
     try {
         const result = await createLembrete(lembrete_name, tag, message, date, icone, user_id, schema, filas)
@@ -16,7 +17,7 @@ const createLembreteController = async (req, res) => {
 }
 
 const getLembretesController = async (req, res) => {
-    const {schema} = req.params
+    const {schema} = req.schema
     try {
         const result = await getLembretes(schema)
         res.status(200).json(result);
@@ -27,7 +28,8 @@ const getLembretesController = async (req, res) => {
 }
 
 const updateLembretesController = async (req, res) => {
-    const {id, lembrete_name, tag, message, date, icone, schema, filas} = req.body
+    const {id, lembrete_name, tag, message, date, icone, filas} = req.body
+    const {schema} = req.schema
     try {
         const result = await updateLembretes(id, lembrete_name, tag, message, date, icone, schema, filas)
         res.status(200).json(result);
@@ -38,7 +40,8 @@ const updateLembretesController = async (req, res) => {
 }
 
 const deleteLembreteController = async (req, res) => {
-    const {id, schema, user_id} = req.body;
+    const {id, user_id} = req.body;
+    const schema = req.schema;
     try {
         // Buscar o lembrete antes de deletar para pegar o google_event_id
         const lembreteResult = await require('../db/queries').query(`SELECT * FROM ${schema}.lembretes WHERE id = $1`, [id]);

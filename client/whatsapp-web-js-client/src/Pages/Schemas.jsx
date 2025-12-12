@@ -51,11 +51,15 @@ function SchemasPage({ theme: themeProp }) {
     fetchSchemas();
   }, [url]);
 
-  const handleEnterSchema = (schema) => {
+  const handleEnterSchema = async(schema) => {
     const userData = JSON.parse(localStorage.getItem('user')) || {};
     userData.schema = schema.schema_name || schema;
     userData.empresa = schema.company_name || schema.empresa || '';
     localStorage.setItem('user', JSON.stringify(userData));
+    await axios.post(`${url}/company/set-schema`, { schema: schema.schema_name || schema },
+    {
+      withCredentials: true
+    });
     setSelectedSchema(schema.schema_name || schema);
     navigate('/painel');
   };

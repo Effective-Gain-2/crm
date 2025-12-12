@@ -3,7 +3,7 @@ const { createMessageForBlast, getAllBlastMessages, deleteAllBlastMessages } = r
 
 const startCampaingController = async (req, res) => {
   const { campaing_id } = req.body;
-  const schema = req.body.schema;
+  const schema = req.schema;
   try {
     const result = await startCampaing(campaing_id, null, schema);
     res.status(201).json(result);
@@ -16,9 +16,9 @@ const startCampaingController = async (req, res) => {
 };
 
 const getCampaingsController = async (req, res) => {
-  const schema = req.params;
+  const schema = req.schema;
   try {
-    const result = await getCampaings(schema.schema);
+    const result = await getCampaings(schema);
     res.status(201).json(result);
   } catch (error) {
     console.error('Erro ao buscar campanhas:', error);
@@ -29,7 +29,8 @@ const getCampaingsController = async (req, res) => {
 };
 
 const getCampaingByIdController = async (req, res) => {
-  const { campaing_id, schema } = req.params;
+  const { campaing_id } = req.params;
+  const schema = req.schema;
   try {
     const result = await getCampaingById(campaing_id, schema);
     res.status(200).json(result);
@@ -39,8 +40,8 @@ const getCampaingByIdController = async (req, res) => {
 };
 
 const createCampaingController = async (req, res) => {
-  console.log('entrou')
-  const {campaing_id, name, sector, kanban_stage, connection_id, start_date, schema, mensagem, intervalo, new_stage, queue_id, init_time, end_time } = req.body;
+  const {campaing_id, name, sector, kanban_stage, connection_id, start_date, mensagem, intervalo, new_stage, queue_id, init_time, end_time } = req.body;
+  const schema = req.schema;
   if (!schema) {
     return res.status(400).json({ erro: 'Schema não informado!' });
   }
@@ -83,7 +84,8 @@ const createCampaingController = async (req, res) => {
 
 const getAllBlastMessagesController = async(req, res)=>{
   try {
-    const {campaing_id, schema} = req.params
+    const {campaing_id} = req.params
+    const {schema} = req.schema
     const result = await getAllBlastMessages(campaing_id, schema)
     res.status(200).json({
       result
@@ -98,7 +100,8 @@ const getAllBlastMessagesController = async(req, res)=>{
 
 const deleteCampaingController = async(req, res)=>{
   try {
-    const {campaing_id, schema} = req.params
+    const {campaing_id} = req.params
+    const schema = req.schema
     const result = await deleteCampaing(campaing_id, schema)
     res.status(200).json({
       success: true,
@@ -114,7 +117,8 @@ const deleteCampaingController = async(req, res)=>{
 }
 
 const getCampaingChatsController = async (req, res) => {
-  const {campaing_id, schema} = req.params;
+  const {campaing_id} = req.params;
+  const schema = req.schema;
   try {
     const result = await getCampaingChats(campaing_id, schema);
     res.status(200).json({
@@ -130,7 +134,7 @@ const getCampaingChatsController = async (req, res) => {
 }
 
 const getCampaingsDataController = async (req, res) => {
-  const { schema } = req.params;
+  const schema = req.schema;
   try {
     const result = await getCampaingsData(schema);
     res.status(200).json({

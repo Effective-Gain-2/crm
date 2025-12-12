@@ -11,7 +11,7 @@ const createQueueController = async(req, res)=>{
 
         const queue = new Queue(uuidv4(), name, color)
         
-        const schema = req.body.schema
+        const schema = req.schema
         const result = await createQueue(queue, super_user, distribution, stage_id || null, schema)
         global.socketIoServer.to(`schema_${schema}`).emit('new_queue', result)
         res.status(201).json({
@@ -26,7 +26,7 @@ const createQueueController = async(req, res)=>{
 const addUserinQueueController = async(req, res)=>{   
    try{
     const {user, queue}=req.body;
-    const schema = req.body.schema;
+    const schema = req.schema;
 
     const result = addUserinQueue(user, queue, schema)
 
@@ -41,7 +41,7 @@ const addUserinQueueController = async(req, res)=>{
 const getUserQueuesController=async(req,res)=>{
     try{
         const {userId}=req.params
-        const schema = req.params.schema
+        const schema = req.schema
 
         if (!schema || schema === 'null' || schema === 'undefined') {
             return res.status(400).json({
@@ -62,7 +62,7 @@ const getUserQueuesController=async(req,res)=>{
 
 const getAllQueuesControllers = async(req, res)=> {
     try{
-        const {schema} = req.params
+        const {schema} = req.schema
         
         if (!schema || schema === 'null' || schema === 'undefined') {
             return res.status(400).json({
@@ -81,7 +81,8 @@ const getAllQueuesControllers = async(req, res)=> {
 }
 const deleteQueueController = async(req, res)=>{
     try{
-        const {queueId, schema} = req.params;
+        const {queueId} = req.params;
+        const schema = req.schema;
         const result = await deleteQueue(queueId, schema)
         res.status(201).json({success:true})
     }catch(error){
@@ -91,7 +92,8 @@ const deleteQueueController = async(req, res)=>{
 }
 const getQueueByIdController = async(req, res)=> {
     try{
-        const {queue_id, schema} = req.params
+        const {queue_id} = req.params
+        const schema = req.schema
         
         if (!schema || schema === 'null' || schema === 'undefined') {
             return res.status(400).json({
@@ -120,7 +122,8 @@ const getQueueByIdController = async(req, res)=> {
 
 const transferQueueController = async (req, res) => {
   try {
-    const { chatId, newQueueId, schema } = req.body;
+    const { chatId, newQueueId } = req.body;
+    const schema = req.schema;
     const result = await transferQueue(chatId, newQueueId, schema);
     const updatedChat = await setUserChat(chatId, schema);
     if (updatedChat.assigned_user) {
@@ -136,7 +139,8 @@ const transferQueueController = async (req, res) => {
 
 const updateUserQueuesController = async (req, res) => {
   try {
-    const { userId, queueIds, schema } = req.body;
+    const { userId, queueIds} = req.body;
+    const schema = req.schema;
 
     if (!userId || !schema) {
       return res.status(400).json({ error: 'userId e schema são obrigatórios' });
@@ -155,7 +159,8 @@ const updateUserQueuesController = async (req, res) => {
 };
 
 const updateWebhookUrlController = async (req, res) => {
-    const { queue_id, webhook_url, schema } = req.body;
+    const { queue_id, webhook_url} = req.body;
+    const schema = req.schema;
     try {
         const result = await updateWebhookUrl(queue_id, webhook_url, schema)
         res.status(200).json({
@@ -170,7 +175,8 @@ const updateWebhookUrlController = async (req, res) => {
     }
 }
 const toggleWebhookStatusController = async (req, res) => {
-    const { queue_id, status, schema } = req.body;
+    const { queue_id, status} = req.body;
+    const schema = req.schema;
     try {
         const result = await toggleWebhookStatus(queue_id, status, schema)
         res.status(200).json({
@@ -186,7 +192,8 @@ const toggleWebhookStatusController = async (req, res) => {
 }
 const getUsersInQueueController = async (req, res) => {
     try {
-        const { queue_id, schema } = req.params;
+        const { queue_id} = req.params;
+        const schema = req.schema;
         
         if (!schema || schema === 'null' || schema === 'undefined') {
             return res.status(400).json({
@@ -217,8 +224,9 @@ const getUsersInQueueController = async (req, res) => {
 
 const updateQueueController = async (req, res) => {
     try {
-        const { queueId, name, super_user, distribution, stage_id, schema } = req.body;
-        
+        const { queueId, name, super_user, distribution, stage_id } = req.body;
+        const schema = req.schema;
+
         if (!queueId || !name || !super_user || !schema) {
             return res.status(400).json({ 
                 error: 'queueId, name, super_user e schema são obrigatórios' 
@@ -241,7 +249,8 @@ const updateQueueController = async (req, res) => {
 };
 
 const updateAssistantController = async (req, res) => {
-    const {queue_id, assistant_id, schema} = req.body
+    const {queue_id, assistant_id} = req.body
+    const schema = req.schema;
     try {
         const result = await updateAssistantId(queue_id, assistant_id, schema)
         res.status(200).json({

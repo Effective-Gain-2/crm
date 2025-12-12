@@ -12,7 +12,7 @@ const { getApiConnections } = require('../services/ApiConnection');
 const createInstanceController = async (req, res) => {
     try {
         const { instanceName, number } = req.body;
-        const schema = req.body.schema
+        const schema = req.schema
 
         const result = await createInstance({
             instanceName: instanceName,
@@ -32,7 +32,7 @@ const createInstanceController = async (req, res) => {
 
 const fetchInstanceController = async (req, res) => {
     try {
-        const schema = req.query.schema || 'effective_gain';
+        const schema = req.schema || 'effective_gain';
 
         const instances = await fetchInstance(schema);
 
@@ -52,7 +52,8 @@ const fetchInstanceController = async (req, res) => {
 
 const sendTextMessageController = async (req, res) => {
     try {
-        const { body, user_id, chatId, schema, isApi, text, number, instanceId } = req.body;
+        const { body, user_id, chatId, isApi, text, number, instanceId } = req.body;
+        const schema = req.schema;
         let instance;
         isApi?instance=await getApiConnections(instanceId, schema):instance = await searchConnById(instanceId, schema);
         if (!instance) {

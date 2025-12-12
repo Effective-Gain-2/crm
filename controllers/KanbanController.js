@@ -7,7 +7,7 @@ const { changeKanbanPreference, getKanbanPreference } = require("../services/Con
 const createKanbanStageController = async (req, res) => {
     try {
         const { name, pos, sector, color } = req.body;
-        const schema = req.body.schema;
+        const schema = req.schema;
         const result = await createKanbanStage(name, pos, color, sector, schema);
         
         res.status(201).json(result);
@@ -20,7 +20,7 @@ const createKanbanStageController = async (req, res) => {
 const createMessageForBlastController = async (req, res) => {
     try {
         const { messageValue, sector, campaingId } = req.body;
-        const schema = req.body.schema || 'effective_gain';
+        const schema = req.schema || 'effective_gain';
         const result = await createMessageForBlast(messageValue, sector, campaingId, schema);
         
         res.status(201).json(result);
@@ -31,7 +31,7 @@ const createMessageForBlastController = async (req, res) => {
 }
 const getFunisController = async (req, res) => {
     try{
-        const schema = req.params.schema
+        const schema = req.schema
         const funis = await getFunis(schema)
         res.status(200).json(funis);
     }catch (err) {
@@ -42,7 +42,7 @@ const getFunisController = async (req, res) => {
 const getKanbanStagesController = async (req, res) => {
     try {
         const funil = req.params.funil;
-        const schema = req.params.schema
+        const schema = req.schema
         
         const stages = await getKanbanStages(funil, schema);
         res.status(200).json(stages);
@@ -54,7 +54,8 @@ const getKanbanStagesController = async (req, res) => {
 
 const getChatsInKanbanController = async (req, res) => {
     try {
-        const {sector, schema} = req.params
+        const {sector} = req.params
+        const schema = req.schema
         const result = await getChatsInKanban(sector, schema)
         res.status(200).json(result)
     } catch (error) {
@@ -65,7 +66,7 @@ const getChatsInKanbanController = async (req, res) => {
 const changeKanbanStageController = async (req, res) => {
     try {
         const { chat_id, number, stage_id } = req.body;
-        const schema = req.body.schema;
+        const schema = req.schema;
         let result;
         if (number) {
             const contact_exists = await getSpecificContactInKanban(number, schema);
@@ -86,7 +87,8 @@ const changeKanbanStageController = async (req, res) => {
 };
 
 const updateStageNameController = async (req, res) => {
-    const {etapa_id, etapa_nome, sector, color, schema, index} = req.body
+    const {etapa_id, etapa_nome, sector, color, index} = req.body
+    const schema = req.schema;
     try {
         if(color){
             const result = await updateStageName(etapa_id, etapa_nome, color, sector, schema)
@@ -104,7 +106,8 @@ const updateStageNameController = async (req, res) => {
     }
 }
 const createFunilController = async (req, res) => {
-    const {sector, schema} = req.body
+    const {sector} = req.body
+    const schema = req.schema;
     try {
         const result = await createFunil(sector, schema)
         res.status(200).json({
@@ -116,8 +119,9 @@ const createFunilController = async (req, res) => {
     }
 }
 const deleteFunilController = async (req, res) => {
-    const {sector, schema} = req.params
+    const {sector} = req.params
     const {password, userRole} = req.body
+    const schema = req.schema;
 
     
     try {
@@ -169,7 +173,8 @@ const deleteFunilController = async (req, res) => {
     }
 }
 const deleteEtapaController = async (req, res) => {
-    const {etapa_id, sector, schema} = req.body
+    const {etapa_id, sector} = req.body
+    const schema = req.schema;
     try {
         const result = await deleteEtapa(etapa_id, sector, schema)
         res.status(200).json(result)
@@ -179,7 +184,7 @@ const deleteEtapaController = async (req, res) => {
     }
 }
 const getCustomFieldsController = async (req, res) => {
-    const {schema} = req.params
+    const {schema} = req.schema
     try {
         const result = await getCustomFields(schema)
         res.status(200).json(result)
@@ -188,7 +193,8 @@ const getCustomFieldsController = async (req, res) => {
     }
 }
 const transferAllChatsToStage = async (req, res) => {
-    const {stage_id, new_stage, schema} = req.body
+    const {stage_id, new_stage} = req.body
+    const schema = req.schema;
     try {
         const chats = await getChatsInKanbanStage(stage_id, schema)
         for(const chat of chats){
@@ -205,7 +211,8 @@ const transferAllChatsToStage = async (req, res) => {
 }
 const getContactsInKanbanStageController = async (req, res) => {
     try {
-        const { stage, schema } = req.params;
+        const { stage} = req.params;
+        const schema = req.schema;
         const result = await getContactsInKanbanStage(stage, schema);
         res.status(200).json(result);
     } catch (error) {
@@ -214,7 +221,8 @@ const getContactsInKanbanStageController = async (req, res) => {
     }
 };
 const transferAllContactsToStage = async (req, res) => {
-    const { numbers, new_stage, schema } = req.body;
+    const { numbers, new_stage} = req.body;
+    const schema = req.schema;
     try {
         for (const number of numbers) {
             await changeContactInKanban(number, new_stage, schema);
@@ -227,7 +235,8 @@ const transferAllContactsToStage = async (req, res) => {
     }
 };
 const changeKanbanPreferenceController = async (req, res) => {
-    const {sector, label, color, schema} = req.body
+    const {sector, label, color} = req.body
+    const schema = req.schema;
     try {
         const result = await changeKanbanPreference(sector, label, color, schema)
         res.status(200).json({
@@ -242,7 +251,9 @@ const changeKanbanPreferenceController = async (req, res) => {
     }
 }
 const getKanbanPreferenceController = async (req, res) => {
-    const { sector, schema } = req.params;
+    const { sector} = req.params;
+    
+    const schema = req.schema;
     try {
         const result = await getKanbanPreference(sector, schema);
         res.status(200).json(result || {});
@@ -254,7 +265,7 @@ const getKanbanPreferenceController = async (req, res) => {
 const transferChatToKanbanStageController = async (req, res) => {
     try {
         const { chat_id, funil, etapa_id } = req.body;
-        const schema = req.body.schema;
+        const schema = req.schema;
         
         if (!chat_id || !funil || !etapa_id) {
             return res.status(400).json({ error: 'chat_id, funil e etapa_id são obrigatórios' });

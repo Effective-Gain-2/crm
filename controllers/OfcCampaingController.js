@@ -8,7 +8,8 @@ const { decryptText } = require("../utils/crypt");
 const token = process.env.WHATSAPP_API_TOKEN
 
 const listTemplatesController = async (req, res) => {
-    const { wa_id, schema } = req.params;
+    const { wa_id} = req.params;
+    const { schema } = req.schema;
     const token_phone = await getApiConnections(wa_id, schema)
     try {
         const result = await listTemplates(token_phone.waba_id, token_phone.token)
@@ -20,7 +21,8 @@ const listTemplatesController = async (req, res) => {
 }
 
 const createTemplateController = async (req, res) => {
-    const { wa_id, name, language, category, parameter, components, schema } = req.body;
+    const { wa_id, name, language, category, parameter, components} = req.body;
+    const { schema } = req.schema;
     try {
         const token_phone = await getApiConnections(wa_id, schema)
         const result = await createTemplate(token_phone.waba_id, token_phone.token, name, language, category, parameter, components)
@@ -32,7 +34,8 @@ const createTemplateController = async (req, res) => {
 }
 
 const sendTemplateMessageController = async (req, res) => {
-    const { phone_id, template_name, etapa_id, variables, schema } = req.body;
+    const { phone_id, template_name, etapa_id, variables } = req.body;
+    const { schema } = req.schema;
     try {
         const token_phone = await getApiConnections(phone_id, schema)
         const contatos = await getContactsInKanbanStage(etapa_id, schema)
@@ -83,7 +86,6 @@ const deleteTemplateController = async (req, res) => {
 
 const editTemplateController = async (req, res) => {
     const { template_id, name, language, category, parameter, components } = req.body;
-    console.log(components.buttons)
     try {
         const componentsArray = [
             components.header?.text && {
