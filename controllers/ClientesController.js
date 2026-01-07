@@ -16,7 +16,7 @@ const createCliente = async (req, res) => {
 
 const getAllClientes = async (req, res) => {
   try {
-    const { schema } = req.schema;
+    const schema = req.schema;
     const clientes = await ClientesService.getAllClientes(schema);
     return res.json({ success: true, data: clientes });
   } catch (error) {
