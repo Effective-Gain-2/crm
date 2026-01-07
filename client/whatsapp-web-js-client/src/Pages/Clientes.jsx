@@ -7,7 +7,7 @@ function Clientes({ theme }) {
   const [clientes, setClientes] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [showError, showSuccess] = useToast();
+  const { showError, showSuccess } = useToast();
   const [formData, setFormData] = useState({
     nome: '',
     numero: '',
