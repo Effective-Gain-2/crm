@@ -252,11 +252,10 @@ const updateChatMessages = async (chat, schema, message) => {
 };
 
 const getMessages = async(chat_Id, schema)=>{
-  // const MessagesCache = await bullConn.get(`getMessages_${chat_Id}`)
-
-  // if(MessagesCache){
-  //   return JSON.parse(MessagesCache)
-  // }else{
+  const MessagesCache = await bullConn.get(`getMessages_${chat_Id}`)
+  if (MessagesCache && JSON.parse(MessagesCache).length > 0) {
+    return JSON.parse(MessagesCache);
+  } else {
     const result = await pool.query(
       `SELECT * FROM ${schema}.messages WHERE chat_id=$1 ORDER BY created_at DESC LIMIT 20`,
       [chat_Id]
@@ -553,9 +552,12 @@ const setMessageAsRead = async(chat_id, schema)=>{
   }
 }
 
-const closeChat = async(chat_id, schema)=>{
+const closeChat = async(chat_id, schema, isApi)=>{
   try {
-    const result = await pool.query(`UPDATE ${schema}.chats set status=$1 where id=$2 RETURNING *`,
+    let result = null
+    isApi?result=await pool.query(`UPDATE ${schema}.api_ofc_chats set status=$1 where id=$2 RETURNING *`,
+      ['closed', chat_id]
+    ): result = await pool.query(`UPDATE ${schema}.chats set status=$1 where id=$2 RETURNING *`,
       ['closed', chat_id]
     )
     return result.rows[0]
@@ -564,17 +566,18 @@ const closeChat = async(chat_id, schema)=>{
   }
 }
 
-const closeChatContact = async (chat_id, status, schema) => {
+const closeChatContact = async (chat_id, status, schema, isApi) => {
   try {
-    const number = await pool.query(`SELECT * FROM ${schema}.chats where id=$1`, [chat_id])
+    let number = null
+    isApi? number = await pool.query(`SELECT * FROM ${schema}.api_ofc_chats where id=$1`, [chat_id]) : number = await pool.query(`SELECT * FROM ${schema}.chats where id=$1`, [chat_id])
     const result = await pool.query(`
       INSERT INTO ${schema}.chat_contact(id, chat_id, contact_number, status, user_id) VALUES($1,$2,$3,$4,$5) RETURNING *  
-    `, [uuid4(), chat_id, number.rows[0].contact_phone, status, number.rows[0].assigned_user || null])
+    `, [uuid4(), chat_id, number.rows[0].contact_phone || number.rows[0].number, status, number.rows[0].assigned_user || null])
 
     try {
       const report = await getGptResponse(chat_id, schema, status)
     } catch (gptError) {
-      console.error('Erro ao gerar relatório GPT:', gptError.message);
+      console.error('Erro ao gerar relatório GPT:', gptError);
     }
     
     return result.rows[0]

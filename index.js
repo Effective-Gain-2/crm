@@ -29,7 +29,9 @@ const publicRoutes = require('./routes/PublicRoutes');
 const botRoutes = require('./routes/BotRoutes');
 const limitsRoutes = require('./routes/LimitsRoutes');
 const stockRoutes = require('./routes/StockRoutes')
-const ajudaRoutes = require('./routes/AjudaRoutes')
+const OfcCampaingRoutes = require('./routes/OfcCampaingRoutes')
+const ajudaRoutes = require('./routes/AjudaRoute');
+const clientesRoutes = require('./routes/ClientesRoute');
 
 
 const { setGlobalSocket } = require('./services/LembreteService');
@@ -46,11 +48,11 @@ const cookieParser = require('cookie-parser');
 
 const app = express();
 
-const oauth2Client  = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  'http://localhost:3002/auth/redirect'
-)
+// const oauth2Client  = new google.auth.OAuth2(
+//   process.env.GOOGLE_CLIENT_ID,
+//   process.env.GOOGLE_CLIENT_SECRET,
+//   'http://localhost:3002/auth/redirect'
+// )
 
 app.use(session({
   secret: 'secret',
@@ -61,24 +63,25 @@ app.use(passport.initialize())
 app.use(passport.session());
 
 
-passport.use(new googleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: 'http://localhost:3002/auth/google'  
-},(accessToken, refreshToken, profile, done)=>{
-  return done(null, profile)
-}))
+// passport.use(new googleStrategy({
+//   clientID: process.env.GOOGLE_CLIENT_ID,
+//   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+//   callbackURL: 'http://localhost:3002/auth/google'  
+// },(accessToken, refreshToken, profile, done)=>{
+//   return done(null, profile)
+// }))
 
-passport.serializeUser((user, done)=>{
-  done(null, user)
-})
-passport.deserializeUser((user, done)=>done(null, user))
+// passport.serializeUser((user, done)=>{
+//   done(null, user)
+// })
+// passport.deserializeUser((user, done)=>done(null, user))
 
 // const userHeartbeats = new Map();
 
 
 
 const corsOptions = {
+
   origin: function (origin, callback) {
 
     // Permitir requests sem origin (como mobile apps ou Postman)
@@ -97,7 +100,7 @@ const allowedOrigins = [
       'http://localhost:3002',
       'http://localhost:3002/'
     ];
-    
+
 
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -106,7 +109,8 @@ const allowedOrigins = [
     }
   },
   methods: ['GET', 'POST', 'DELETE', 'PUT'],
-  credentials: true
+  credentials: true,
+   
 };
 
 const server = http.createServer(app);
@@ -132,7 +136,7 @@ const io = socketIo(server, {
     methods: ['GET', 'POST', 'DELETE', 'PUT'],
   },
   transports: ['websocket', 'polling'],
-  allowEIO3: true
+  allowEIO3: true,
 });
 
 const socketServer = http.createServer();
@@ -269,11 +273,20 @@ socketIoServer.on('connection', async(socket) => {
 });
 
 app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use('/webhook', webhook((msg) => io.emit('message', msg)));
+app.get('/api/test', (_req, res) => {
+  res.status(200).json({ success: true });
+});
 app.use('/api', userRoutes);
 app.use('/company', companyRoutes);
 app.use('/queue', queueRoutes);
@@ -301,7 +314,10 @@ app.use('/effective_gain', publicRoutes);
 app.use('/bot', botRoutes)
 app.use('/limits', limitsRoutes)
 app.use('/stock', stockRoutes)
-app.use('/ajuda', ajudaRoutes)
+app.use('/ofc-campaing', OfcCampaingRoutes)
+app.use('/api/ajuda', ajudaRoutes);
+app.use('/api/clientes', clientesRoutes);
+
 
 const axios = require('axios');
 const fs = require('fs');

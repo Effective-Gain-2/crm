@@ -14,49 +14,58 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
   const schema = userData?.schema
   const url = process.env.REACT_APP_URL;
 
-  useEffect(()=>{
-    const handleQueues = async()=>{
-      if (!contato) return;
-      setLoading(true);
-      try{  
-        if(!contato.connection.queue_id){
-          setFilaAtual(null);
-        }else{
+   useEffect(() => {
+    if (!contato) return;
+    let cancelled = false;
+    setLoading(true);
 
-          const responseFilaAtual = await axios.get(`${url}/queue/get-conn-queues/${contato.connection.queue_id}/${schema}`,
-          {
-        withCredentials: true
-        // Buscar fila atual do contato
-      })
-      const filaAtualData = Array.isArray(responseFilaAtual.data.result) 
-        ? responseFilaAtual.data.result[0] 
-        : responseFilaAtual.data.result;
-      setFilaAtual(filaAtualData);
-
+    const fetchQueues = async () => {
+      try {
+        // Se não houver fila no contato
+        if (!contato.connection?.queue_id) {
+          if (!cancelled) setFilaAtual(null);
+          // Ainda busca todas as filas para o dropdown (opcional — remova se não quiser)
+          const respTodas = await axios.get(`${url}/queue/get-all-queues/${schema}`, { withCredentials: true });
+          if (!cancelled) setTodasFilas(respTodas.data.result || []);
+          return;
         }
-        
-        // Buscar todas as filas disponíveis
-        const responseTodasFilas = await axios.get(`${url}/queue/get-all-queues/${schema}`,
-        {
-      withCredentials: true
-    })
+
+        // Buscar fila atual e todas as filas em paralelo
+        const [responseFilaAtual, responseTodasFilas] = await Promise.all([
+          axios.get(`${url}/queue/get-conn-queues/${contato.connection.queue_id}/${schema}`, { withCredentials: true }),
+          axios.get(`${url}/queue/get-all-queues/${schema}`, { withCredentials: true })
+        ]);
+
+        if (cancelled) return;
+
+        const filaAtualData = Array.isArray(responseFilaAtual.data.result)
+          ? responseFilaAtual.data.result[0]
+          : responseFilaAtual.data.result;
+
+        setFilaAtual(filaAtualData || null);
         setTodasFilas(responseTodasFilas.data.result || []);
-      }catch(error){
-        console.error(error)
+      } catch (error) {
+        if (!cancelled) console.error('Erro ao carregar filas:', error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    }
-    handleQueues()
-  }, [contato, schema])
+    };
+
+    fetchQueues();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [contato, schema]);
 
   const trocarFila = async (novaFilaId) => {
     if (!contato || !novaFilaId) return;
+    console.log(contato)
     
     setLoading(true);
     try {
       const response = await axios.post(`${url}/connection/setConnQueue`, {
-        connection_id: contato.id,
+        connection_id: contato.connection.id,
         queue_id: novaFilaId,
         schema: schema
       },
@@ -70,7 +79,7 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
         
         // Notificar o componente pai sobre a mudança
         if (onQueueChange) {
-          onQueueChange(contato.id, novaFilaId, novaFila);
+          onQueueChange(contato.connection.id, novaFilaId, novaFila);
         }
         
       }
@@ -87,7 +96,7 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
     setLoading(true);
     try {
       const response = await axios.post(`${url}/connection/setConnQueue`, {
-        connection_id: contato.id,
+        connection_id: contato.connection.id,
         queue_id: null,
         schema: schema
       },
@@ -100,7 +109,7 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
         
         // Notificar o componente pai sobre a mudança
         if (onQueueChange) {
-          onQueueChange(contato.id, null, null);
+          onQueueChange(contato.connection.id, null, null);
         }
         
         // Feedback visual

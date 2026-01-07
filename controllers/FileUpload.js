@@ -23,7 +23,8 @@ const upload = multer({ storage: storage });
 
 const uploadFileController = async(req, res) => {
   const file = req.file;
-  const{connection_id, sector, schema} = req.body
+  const{connection_id, sector} = req.body
+  const schema = req.schema;
   if (!file) {
     return res.status(400).send('No file uploaded.');
   }

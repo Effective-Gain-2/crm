@@ -337,7 +337,8 @@ const FinalizarAtendimentoModal = ({ show, onHide, theme, selectedChat, onFinish
       await axios.post(`${url}/chat/close`, {
         chat_id: selectedChat.id,
         schema,
-        status
+        status,
+        isApi:selectedChat.isApi || false
       }, { withCredentials: true });
       if (onFinish) onFinish();
       onHide();

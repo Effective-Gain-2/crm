@@ -2,7 +2,8 @@ const { insertBotInTable, deleteBotInTable, getBots, getFunctions, insertBotFunc
 const { createAssistant, deleteAssistant, updateAssistant } = require("../services/OpenAi")
 
 const createAssistantController = async (req, res) => {
-    const {name, instructions, model, schema} = req.body
+    const {name, instructions, model} = req.body
+    const {schema} = req.schema
     try {
         const result = await createAssistant(name, instructions, model)
         await insertBotInTable(result.id, name, instructions, model, false, schema)
@@ -20,7 +21,8 @@ const createAssistantController = async (req, res) => {
 }
 
 const deleteAssistantController = async (req, res) => {
-    const {assistant_id, schema} = req.params
+    const {assistant_id} = req.params
+    const {schema} = req.schema
     try {
         await deleteAssistant(assistant_id)
     } catch (error) {
@@ -45,7 +47,7 @@ const deleteAssistantController = async (req, res) => {
 }
 }
 const getBotsController = async (req, res) => {
-    const {schema} = req.params
+    const {schema} = req.schema
     try {
         if(!schema){
             return res.status(400).json({
@@ -68,7 +70,7 @@ const getBotsController = async (req, res) => {
     }
 }
 const getFunctionsController = async (req, res) => {
-    const {schema} = req.params
+    const {schema} = req.schema
     try {
         const result = await getFunctions(schema)
         res.status(200).json({
@@ -84,7 +86,8 @@ const getFunctionsController = async (req, res) => {
     }
 }
 const insertBotFunctionsController = async (req, res) => {
-    const {assistant_id, function_id, schema} = req.body
+    const {assistant_id, function_id} = req.body
+    const {schema} = req.schema
     try {
         await deleteAllBotFunctions(assistant_id, schema)
         const result = await insertBotFunctions(assistant_id, function_id, schema)
@@ -102,7 +105,8 @@ const insertBotFunctionsController = async (req, res) => {
 }
 const updateBotController = async (req, res) => {
     const {assistant_id} = req.params
-    const {name, instructions, model, functions, schema} = req.body
+    const {name, instructions, model, functions} = req.body
+    const {schema} = req.schema
     try {
         let tools = []
         if(functions && functions.length>0){
@@ -122,7 +126,6 @@ const updateBotController = async (req, res) => {
                 })
             }
         }
-        console.log(JSON.stringify(tools, null, 2));
         const result = await updateAssistant(assistant_id, name, instructions, model, tools)
         await updateBotInTable(assistant_id, name, instructions, model, null, schema)
         res.status(200).json({

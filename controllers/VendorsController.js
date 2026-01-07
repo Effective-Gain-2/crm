@@ -1,7 +1,8 @@
 const { getVendors, createVendor } = require("../services/VendorService");
 
 const createVendorController = async (req, res) => {
-    const { vendor_name, schema } = req.body;
+    const { vendor_name } = req.body;
+    const schema = req.schema;
 
     try {
         const result = await createVendor(vendor_name, schema);
@@ -12,8 +13,8 @@ const createVendorController = async (req, res) => {
     }
 }
 
-const getVendorsController = async (req,res)=>{
-    const schema = req.params.schema;
+const getVendorsController = async (req, res) => {
+    const schema = req.schema;
 
     try {
         const vendors = await getVendors(schema);

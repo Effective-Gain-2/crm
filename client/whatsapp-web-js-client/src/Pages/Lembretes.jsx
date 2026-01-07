@@ -5,6 +5,7 @@ import LembreteDeletarLembrete from './modalPages/Lembrete_deletarLembrete';
 import anime from 'animejs';
 import axios from 'axios';
 import { useToast } from '../contexts/ToastContext';
+import { socket } from '../socket';
 
 // Estilo moderno para o botão Google Calendar
 const style = document.createElement('style');
@@ -60,32 +61,6 @@ document.head.appendChild(style);
 
 const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-// Mock de lembretes (mantido para referência, mas os dados da API terão prioridade)
-const mockLembretes = [
-    { id: 1, tipo: 'geral', titulo: 'Reunião Geral', mensagem: 'Reunião mensal da empresa', data: '2025-06-10T10:00', icone: 'bi-globe-americas', filas: ['1', '2', '3', '4', '5'] },
-    { id: 2, tipo: 'setorial', titulo: 'Meta do Setor', mensagem: 'Alinhar metas do mês', data: '2025-06-10T14:00', icone: 'bi-diagram-3', filas: ['1', '2'] },
-    { id: 3, tipo: 'pessoal', titulo: 'Dentista', mensagem: 'Consulta marcada', data: '2025-06-10T15:30', icone: 'bi-alarm', filas: [] },
-    { id: 4, tipo: 'geral', titulo: 'Treinamento de Equipe', mensagem: 'Treinamento sobre novas funcionalidades', data: '2025-06-05T09:00', icone: 'bi-people', filas: ['1', '2', '3', '4', '5'] },
-    { id: 5, tipo: 'setorial', titulo: 'Reunião de Vendas', mensagem: 'Análise de resultados do mês', data: '2025-06-05T11:00', icone: 'bi-graph-up', filas: ['2'] },
-    { id: 6, tipo: 'pessoal', titulo: 'Entrega de Relatório', mensagem: 'Finalizar relatório mensal', data: '2025-06-18T16:00', icone: 'bi-file-earmark-text', filas: [] },
-    { id: 7, tipo: 'geral', titulo: 'Atualização do Sistema', mensagem: 'Manutenção programada', data: '2025-06-18T22:00', icone: 'bi-gear', filas: ['1', '2', '3', '4', '5'] },
-    { id: 8, tipo: 'setorial', titulo: 'Capacitação', mensagem: 'Workshop de atendimento', data: '2025-06-08T13:00', icone: 'bi-book', filas: ['1', '2'] },
-    { id: 9, tipo: 'pessoal', titulo: 'Aniversário Cliente', mensagem: 'Enviar parabéns para João Silva', data: '2025-06-14T10:00', icone: 'bi-gift', filas: [] },
-    { id: 10, tipo: 'geral', titulo: 'Feriado', mensagem: 'Dia de Corpus Christi', data: '2025-06-19T00:00', icone: 'bi-calendar-event', filas: ['1', '2', '3', '4', '5'] },
-    { id: 11, tipo: 'setorial', titulo: 'Reunião de Suporte', mensagem: 'Alinhamento da equipe de suporte', data: '2025-06-19T11:00', icone: 'bi-headset', filas: ['1'] },
-    { id: 12, tipo: 'pessoal', titulo: 'Follow-up Cliente', mensagem: 'Ligar para Maria Souza', data: '2025-06-19T14:30', icone: 'bi-telephone', filas: [] },
-    { id: 13, tipo: 'geral', titulo: 'Encerramento do Mês', mensagem: 'Fechamento das atividades de junho', data: '2025-06-30T17:00', icone: 'bi-calendar-check', filas: ['1', '2', '3', '4', '5'] },
-    { id: 14, tipo: 'setorial', titulo: 'Análise de Métricas', mensagem: 'Revisão dos indicadores de performance', data: '2025-06-30T10:00', icone: 'bi-bar-chart', filas: ['1', '2', '3'] },
-    { id: 15, tipo: 'pessoal', titulo: 'Backup Mensal', mensagem: 'Realizar backup dos dados', data: '2025-06-30T23:00', icone: 'bi-cloud-upload', filas: [] },
-    { id: 16, tipo: 'geral', titulo: 'Coffee Break', mensagem: 'Pausa para café com a equipe', data: '2025-06-10T16:00', icone: 'bi-cup-hot', filas: ['1', '2', '3', '4', '5'] },
-    { id: 17, tipo: 'setorial', titulo: 'Feedback Individual', mensagem: 'Reuniões individuais de feedback', data: '2025-06-05T14:00', icone: 'bi-person-lines-fill', filas: ['1'] },
-    { id: 18, tipo: 'pessoal', titulo: 'Almoço com Cliente', mensagem: 'Almoço com Tech Solutions', data: '2025-06-18T12:00', icone: 'bi-basket', filas: [] },
-    { id: 19, tipo: 'geral', titulo: 'Apresentação de Projeto', mensagem: 'Apresentar novo projeto ao cliente', data: '2025-06-19T15:00', icone: 'bi-presentation', filas: ['1', '2', '3', '4', '5'] },
-    { id: 20, tipo: 'setorial', titulo: 'Treinamento de Vendas', mensagem: 'Workshop de técnicas de vendas', data: '2025-06-30T09:00', icone: 'bi-graph-up-arrow', filas: ['2'] },
-    { id: 21, tipo: 'pessoal', titulo: 'Reunião de Equipe', mensagem: 'Alinhamento diário da equipe', data: '2025-06-10T09:00', icone: 'bi-people-fill', filas: [] },
-    { id: 22, tipo: 'geral', titulo: 'Integração de Sistemas', mensagem: 'Teste de integração com novo sistema', data: '2025-06-05T16:00', icone: 'bi-hdd-network', filas: ['1', '2', '3', '4', '5'] }
-];
-
 function getDaysInMonth(year, month) {
     return new Date(year, month + 1, 0).getDate();
 }
@@ -95,7 +70,7 @@ function getFirstDayOfWeek(year, month) {
 
 
 function LembretesPage({ theme, lembretes, atualizarLembretes }) {
-    const { showError } = useToast();
+    const { showError, showSuccess } = useToast();
     const [showNovoLembrete, setShowNovoLembrete] = useState(false);
     const hoje = new Date();
     const [mesAtual, setMesAtual] = useState(hoje.getMonth());
@@ -104,24 +79,21 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
     const [lembreteEditando, setLembreteEditando] = useState(null);
     const [lembreteDeletando, setLembreteDeletando] = useState(null);
     const [lembretesState, setLembretesState] = useState(lembretes);
-    const [shownToasts, setShownToasts] = useState([]);
     const buttonRefs = useRef({});
     const userData = JSON.parse(localStorage.getItem('user'));
     const schema = userData?.schema;
-    const url = process.env.REACT_APP_URL;
     const [loadingGoogle, setLoadingGoogle] = useState(false);
-    const [googleEventsLoaded, setGoogleEventsLoaded] = useState(false);
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);
 
     // Verifica se está conectado ao Google Calendar
     useEffect(() => {
         const checkGoogleStatus = async () => {
             try {
-                const response = await axios.get('/calendar/events', {
-                  params: {
-                    user_id: userData.id,
-                    schema: schema
-                  }
+                await axios.get('/calendar/events', {
+                    params: {
+                        user_id: userData.id,
+                        schema: schema
+                    }
                 });
                 setIsGoogleConnected(true);
             } catch (err) {
@@ -129,7 +101,7 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
             }
         };
         checkGoogleStatus();
-    }, []);
+    }, [userData.id, schema]);
 
     const handleDisconnectGoogleCalendar = async () => {
         try {
@@ -208,63 +180,66 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
         setAnoAtual(hoje.getFullYear());
     };
 
-    
 
-const handleSalvarLembrete = (lembreteCriadoOuEditado) => {
-  setLembretesState(prev => {
-    // Mantém os eventos do Google
-    const googleEvents = prev.filter(l => l.tipo === 'google');
-    // Atualiza ou adiciona o lembrete do sistema
-    const outros = prev.filter(l => l.tipo !== 'google');
-    const idx = outros.findIndex(l => l.id === lembreteCriadoOuEditado.id);
-    let novosLembretes;
-    if (idx !== -1) {
-      outros[idx] = lembreteCriadoOuEditado;
-      novosLembretes = outros;
-    } else {
-      novosLembretes = [...outros, lembreteCriadoOuEditado];
-    }
-    return [...novosLembretes, ...googleEvents];
-  });
-  setShowNovoLembrete(false);
-  setLembreteEditando(null);
-};
- useEffect(() => {
-    setLembretesState(prev => {
-        // Mantém os eventos do Google
-        const googleEvents = prev.filter(l => l.tipo === 'google');
-        // Adiciona os lembretes do sistema recebidos por props
-        return [...lembretes, ...googleEvents];
-    });
-}, [lembretes]);
+
+    const handleSalvarLembrete = (lembreteCriadoOuEditado) => {
+        console.log('Salvando lembrete:', lembreteCriadoOuEditado);
+        setLembretesState(prev => {
+            // Mantém os eventos do Google
+            const googleEvents = prev.filter(l => l.tipo === 'google');
+            // Atualiza ou adiciona o lembrete do sistema
+            const outros = prev.filter(l => l.tipo !== 'google');
+            const idx = outros.findIndex(l => l.id === lembreteCriadoOuEditado.id);
+            let novosLembretes;
+            if (idx !== -1) {
+                outros[idx] = lembreteCriadoOuEditado;
+                novosLembretes = outros;
+                showSuccess('Lembrete atualizado com sucesso!');
+            } else {
+                novosLembretes = [...outros, lembreteCriadoOuEditado];
+                showSuccess('Lembrete criado com sucesso!');
+            }
+            return [...novosLembretes, ...googleEvents];
+        });
+        setShowNovoLembrete(false);
+        setLembreteEditando(null);
+    };
+    useEffect(() => {
+        setLembretesState(prev => {
+            // Mantém os eventos do Google
+            const googleEvents = prev.filter(l => l.tipo === 'google');
+            // Adiciona os lembretes do sistema recebidos por props
+            return [...lembretes, ...googleEvents];
+        });
+    }, [lembretes]);
 
     // Função para buscar eventos do Google Calendar
-    const fetchGoogleEvents = async () => {
+    const fetchGoogleEvents = React.useCallback(async () => {
         try {
             const response = await axios.get('/calendar/events', {
-              params: {
-                user_id: userData.id,
-                schema: schema
-              }
+                params: {
+                    user_id: userData.id,
+                    schema: schema
+                }
             });
             const googleEvents = (response.data || []).map(ev => {
-              let timestamp;
-              if (ev.start?.dateTime) {
-                timestamp = Math.floor(new Date(ev.start.dateTime).getTime() / 1000);
-              } else if (ev.start?.date) {
-                timestamp = Math.floor(new Date(ev.start.date + 'T00:00:00').getTime() / 1000);
-              } else {
-                timestamp = null;
-              }
-              return {
-                id: 'google-' + ev.id,
-                google_event_id: ev.id,
-                titulo: ev.summary,
-                mensagem: ev.description || '',
-                date: timestamp, // padronizado
-                icone: 'bi-calendar-event',
-                tipo: 'google',
-              };
+                let timestamp;
+                if (ev.start?.dateTime) {
+                    timestamp = Math.floor(new Date(ev.start.dateTime).getTime() / 1000);
+                } else if (ev.start?.date) {
+                    timestamp = Math.floor(new Date(ev.start.date + 'T00:00:00').getTime() / 1000);
+                } else {
+                    timestamp = null;
+                }
+                return {
+                    id: 'google-' + ev.id,
+                    google_event_id: ev.id,
+                    titulo: ev.summary,
+                    mensagem: ev.description || '',
+                    date: timestamp, // padronizado
+                    icone: 'bi-calendar-event',
+                    tipo: 'google',
+                };
             });
             setLembretesState(prev => {
                 // Filtra eventos do Google que já possuem lembrete do sistema com o mesmo google_event_id
@@ -273,16 +248,55 @@ const handleSalvarLembrete = (lembreteCriadoOuEditado) => {
                 const googleEventsFiltrados = googleEvents.filter(ev => !googleEventIdsSistema.has(ev.google_event_id));
                 return [...lembretesSistema, ...googleEventsFiltrados];
             });
-            setGoogleEventsLoaded(true);
         } catch (err) {
-            setGoogleEventsLoaded(true);
+            console.error('Erro ao buscar eventos do Google:', err);
         }
-    };
+    }, [userData.id, schema]);
 
     // Buscar eventos do Google Calendar ao carregar
     useEffect(() => {
         fetchGoogleEvents();
-    }, []);
+    }, [fetchGoogleEvents]);
+
+    // Socket.IO - Escutar novos lembretes em tempo real
+    useEffect(() => {
+        const socketConnection = socket();
+
+        // Escutar quando um novo lembrete é criado
+        const handleNovoLembrete = (novoLembrete) => {
+            console.log('Novo lembrete recebido:', novoLembrete);
+            setLembretesState(prev => {
+                // Evitar duplicatas
+                const exists = prev.find(l => l.id === novoLembrete.id);
+                if (exists) return prev;
+
+                // Adicionar o novo lembrete
+                return [...prev, novoLembrete];
+            });
+            showSuccess('Novo lembrete criado com sucesso!');
+        };
+
+        // Escutar quando um lembrete é criado (evento alternativo)
+        const handleLembreteCriado = (data) => {
+            console.log('Lembrete criado:', data);
+            if (data.lembrete) {
+                setLembretesState(prev => {
+                    const exists = prev.find(l => l.id === data.lembrete.id);
+                    if (exists) return prev;
+                    return [...prev, data.lembrete];
+                });
+            }
+        };
+
+        socketConnection.on('novo-lembrete', handleNovoLembrete);
+        socketConnection.on('lembrete-criado', handleLembreteCriado);
+
+        return () => {
+            socketConnection.off('novo-lembrete', handleNovoLembrete);
+            socketConnection.off('lembrete-criado', handleLembreteCriado);
+            socketConnection.disconnect();
+        };
+    }, [showSuccess]);
 
     // Inicializar tooltips do Bootstrap
     useEffect(() => {
@@ -310,7 +324,7 @@ const handleSalvarLembrete = (lembreteCriadoOuEditado) => {
     for (let d = 1; d <= diasNoMes; d++) dias.push(d);
 
     const lembretesPorDia = lembretesState.reduce((acc, l) => {
-        const data = new Date(Number(l.date || l.data) * 1000); 
+        const data = new Date(Number(l.date || l.data) * 1000);
         if (data.getMonth() === mesAtual && data.getFullYear() === anoAtual) {
             const dia = data.getDate();
             if (!acc[dia]) acc[dia] = [];
@@ -321,7 +335,7 @@ const handleSalvarLembrete = (lembreteCriadoOuEditado) => {
 
 
     const lembretesOrdenados = [...lembretesState].sort((a, b) => {
-        const dateA = new Date(Number(a.date || a.data) * 1000); 
+        const dateA = new Date(Number(a.date || a.data) * 1000);
         const dateB = new Date(Number(b.date || b.data) * 1000);
         return dateA - dateB;
     });
@@ -431,12 +445,12 @@ const handleSalvarLembrete = (lembreteCriadoOuEditado) => {
                         onClick={handleDisconnectGoogleCalendar}
                         style={{ minWidth: 120 }}
                     >
-                        
+
                         Desconectar Google
                     </button>
                 ) : (
                     <button
-                        className="d-flex align-items-center gap-2 google-calendar-btn"
+                        className="d-flex align-items-center gap-2 google-calendar-btn d-none"
                         onClick={handleConnectGoogleCalendar}
                         disabled={loadingGoogle}
                     >
@@ -462,68 +476,68 @@ const handleSalvarLembrete = (lembreteCriadoOuEditado) => {
                             <div className="text-muted">Nenhum lembrete cadastrado.</div>
                         )}
                         {lembretesOrdenados.map(l => {
-        const podeExcluir =
-        userData?.role === 'admin' ||
-        userData?.role === 'tecnico' ||
-        l.user_id === userData?.id;
+                            const podeExcluir =
+                                userData?.role === 'admin' ||
+                                userData?.role === 'tecnico' ||
+                                l.user_id === userData?.id;
 
-    return (
-        <div key={l.id} className={`d-flex align-items-center gap-2 mb-2 rounded px-3`} style={{ background: 'var(--input-bg-color-' + theme + ')', border: '1px solid var(--border-color-' + theme + ')', minHeight: 44, paddingTop: 8, paddingBottom: 8 }}>
-            <i className={`bi ${getReminderIconClass(l)} fs-5 header-text-${theme} ${l.tipo === 'google' || l.google_event_id ? 'text-primary' : ''}`}></i>
-                                <div className={`flex-grow-1 header-text-${theme}`}>
-                <div className="fw-semibold d-flex align-items-center">
-                  {isGoogleConnected && (l.tipo === 'google' || l.google_event_id) && (
-                                                                  <span 
-                          className="badge bg-primary me-2 flex-shrink-0" 
-                          data-bs-toggle="tooltip"
-                          data-bs-placement="right"
-                          data-bs-title="Evento no Google Calendar"
-                          style={{ 
-                            cursor: 'help',
-                            width: '20.5px',
-                            height: '20px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: '0'
-                          }}
-                        >
-                        <i className="bi bi-google d-flex align-items-center justify-content-center" style={{ flex: 1 }}></i>
-                      </span>
-                  )}
-                  <span>{getReminderTitle(l)}</span>
-                </div>
-                <div className="small">
-                    {new Date(Number(l.date) * 1000).toLocaleString('pt-BR', {
-                        day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit'
-                    })}
-                    {' • '}
-                    {l.tag ? l.tag.charAt(0).toUpperCase() + l.tag.slice(1) : (l.tipo ? l.tipo.charAt(0).toUpperCase() + l.tipo.slice(1) : '')}
-                </div>
-            </div>
-            {podeExcluir && l.tipo !== 'google' && (
-                <button
-                className={`btn btn-sm btn-2-${theme}`}
-                style={{ maxWidth: '38px' }}
-                title="Editar"
-                onClick={() => { setLembreteEditando(l); setShowNovoLembrete(true); }}
-            >
-                <i className="bi bi-pencil-fill"></i>
-            </button>
-            )}
-            {podeExcluir && l.tipo !== 'google' && (
-                <button
-                    className={`btn btn-sm delete-btn`}
-                    style={{ maxWidth: '38px' }}
-                    title="Excluir"
-                    onClick={() => setLembreteDeletando(l)}
-                >
-                    <i className="bi bi-trash"></i>
-                </button>
-            )}
-        </div>
-    )
-})}
+                            return (
+                                <div key={l.id} className={`d-flex align-items-center gap-2 mb-2 rounded px-3`} style={{ background: 'var(--input-bg-color-' + theme + ')', border: '1px solid var(--border-color-' + theme + ')', minHeight: 44, paddingTop: 8, paddingBottom: 8 }}>
+                                    <i className={`bi ${getReminderIconClass(l)} fs-5 header-text-${theme} ${l.tipo === 'google' || l.google_event_id ? 'text-primary' : ''}`}></i>
+                                    <div className={`flex-grow-1 header-text-${theme}`}>
+                                        <div className="fw-semibold d-flex align-items-center">
+                                            {isGoogleConnected && (l.tipo === 'google' || l.google_event_id) && (
+                                                <span
+                                                    className="badge bg-primary me-2 flex-shrink-0"
+                                                    data-bs-toggle="tooltip"
+                                                    data-bs-placement="right"
+                                                    data-bs-title="Evento no Google Calendar"
+                                                    style={{
+                                                        cursor: 'help',
+                                                        width: '20.5px',
+                                                        height: '20px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        padding: '0'
+                                                    }}
+                                                >
+                                                    <i className="bi bi-google d-flex align-items-center justify-content-center" style={{ flex: 1 }}></i>
+                                                </span>
+                                            )}
+                                            <span>{getReminderTitle(l)}</span>
+                                        </div>
+                                        <div className="small">
+                                            {new Date(Number(l.date) * 1000).toLocaleString('pt-BR', {
+                                                day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit'
+                                            })}
+                                            {' • '}
+                                            {l.tag ? l.tag.charAt(0).toUpperCase() + l.tag.slice(1) : (l.tipo ? l.tipo.charAt(0).toUpperCase() + l.tipo.slice(1) : '')}
+                                        </div>
+                                    </div>
+                                    {podeExcluir && l.tipo !== 'google' && (
+                                        <button
+                                            className={`btn btn-sm btn-2-${theme}`}
+                                            style={{ maxWidth: '38px' }}
+                                            title="Editar"
+                                            onClick={() => { setLembreteEditando(l); setShowNovoLembrete(true); }}
+                                        >
+                                            <i className="bi bi-pencil-fill"></i>
+                                        </button>
+                                    )}
+                                    {podeExcluir && l.tipo !== 'google' && (
+                                        <button
+                                            className={`btn btn-sm delete-btn`}
+                                            style={{ maxWidth: '38px' }}
+                                            title="Excluir"
+                                            onClick={() => setLembreteDeletando(l)}
+                                        >
+                                            <i className="bi bi-trash"></i>
+                                        </button>
+                                    )}
+                                </div>
+                            )
+                        })}
                     </div>
                 </div>
                 {/* Calendário à direita */}
@@ -753,10 +767,10 @@ const handleSalvarLembrete = (lembreteCriadoOuEditado) => {
                 isGoogleConnected={isGoogleConnected}
             />
             <LembreteDeletarLembrete
-    theme={theme}
-    lembrete={lembreteDeletando}
-   onDelete={handleDeleteLembrete}
-/>
+                theme={theme}
+                lembrete={lembreteDeletando}
+                onDelete={handleDeleteLembrete}
+            />
         </div>
     );
 }

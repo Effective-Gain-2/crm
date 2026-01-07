@@ -2,7 +2,8 @@ const { createMessageForBlast } = require("../services/MessageBlast");
 
 const createMessageForBlastController = async (req, res) => {
     try{
-        const {messageValue, sector, campaing_id, schema} = req.body
+        const {messageValue, sector, campaing_id} = req.body
+        const schema = req.schema;
         const result = await createMessageForBlast( messageValue, sector, campaing_id, schema);
         res.status(201).json(result);
     }catch (error) {

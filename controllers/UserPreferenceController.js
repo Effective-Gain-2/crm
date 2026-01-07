@@ -1,7 +1,9 @@
 const { setPreference, getPreferencesByUser, updatePreference } = require("../services/UserPreferencesService")
 
 const setPreferenceController = async (req, res) => {
-    const {user_id, key, value, schema, userRole} = req.body
+    const {user_id, key, value, userRole} = req.body
+    
+    const schema = req.schema
     try {
         const result = await setPreference(user_id, key, value, schema, userRole)
         res.status(201).json({
@@ -18,7 +20,8 @@ const setPreferenceController = async (req, res) => {
 }
 
 const getPreferencesByUserController = async (req, res) => {
-    const {user_id, schema} = req.params
+    const {user_id} = req.params
+    const schema = req.schema
     try {
         if(!user_id){
             res.status(404).json({
@@ -43,7 +46,8 @@ const getPreferencesByUserController = async (req, res) => {
 }
 
 const updatePreferenceController = async (req, res) => {
-    const {user_id, key, value, schema} = req.body
+    const {user_id, key, value} = req.body
+    const schema = req.schema
     try {
         const result = await updatePreference(user_id, key, value, schema)
         res.status(200).json({

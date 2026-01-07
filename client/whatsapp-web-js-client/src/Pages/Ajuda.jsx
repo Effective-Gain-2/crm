@@ -5,15 +5,17 @@ import axios from 'axios';
 
 function AjudaPage({ theme }) {
   const [activeSection, setActiveSection] = useState('introducao');
-  const [textos, setTextos] = useState([])
-  
-  const fetchTextos = useEffect(()=>{
-    const fetchTextos = async () => {
-      const response = await axios.get(`${process.env.REACT_APP_URL}/ajuda/get-textos`)
-      setTextos(Array.isArray(response.data.result)?response.data.result:[response.data.result])
-    }
-    fetchTextos()
-  },[])
+  const [ajudaTextos, setAjudaTextos] = useState({});
+
+  useEffect(() => {
+    fetch('/api/ajuda/textos')
+      .then(res => res.json())
+      .then(data => {
+        const textos = {};
+        data.forEach(item => { textos[item.section] = item.texto; });
+        setAjudaTextos(textos);
+      });
+  }, []);
 
   const sections = {
     introducao: {
@@ -35,9 +37,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Introdução</h5>
             <p className={`header-text-${theme}`}>
-              {textos.filter(t=>t.section==='introducao')[0]?.texto}
+              {ajudaTextos['introducao'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -62,9 +64,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Teórico</h5>
             <p className={`header-text-${theme}`}>
-              {textos.filter(t=>t.section==='teoria')[0]?.texto || 'Conteúdo não disponível para Teoria.'}
+              {ajudaTextos['teoria'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -89,9 +91,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Pratica</h5>
             <p className={`header-text-${theme}`}>
-              {textos.filter(t=>t.section==='pratica')[0]?.texto || 'Conteúdo não disponível para Prática Geral.'}
+              {ajudaTextos['pratica'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -116,9 +118,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Filas</h5>
             <p className={`header-text-${theme}`}>
-              {textos.filter(t=>t.section==='filas')[0]?.texto || 'Conteúdo não disponível para Filas.'}
+              {ajudaTextos['filas'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -143,9 +145,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Usuários</h5>
             <p className={`header-text-${theme}`}>
-              {textos.filter(t=>t.section==='usuarios')[0]?.texto || 'Conteúdo não disponível para Usuários.'}
+              {ajudaTextos['usuarios'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -170,9 +172,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Conectar o whatsapp</h5>
             <p className={`header-text-${theme}`}>
-              {textos.filter(t=>t.section==='conexao')[0]?.texto || 'Conteúdo não disponível para Conexão WhatsApp.'}
+              {ajudaTextos['conexao'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -195,11 +197,11 @@ function AjudaPage({ theme }) {
               allowFullScreen
               style={{ borderRadius: '8px' }}
             ></iframe>
-          </div>
+           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Chat</h5>
             <p className={`header-text-${theme}`}>
-              {textos.filter(t=>t.section==='chat')[0]?.texto || 'Conteúdo não disponível para Chat.'}
+              {ajudaTextos['chat'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -224,9 +226,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Conversas</h5>
             <p className={`header-text-${theme}`}>
-              {textos.filter(t=>t.section==='conversas')[0]?.texto || 'Conteúdo não disponível para Conversas.'}
+              {ajudaTextos['conversas'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -251,9 +253,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>KanBan</h5>
             <p className={`header-text-${theme}`}>
-              {textos.filter(t=>t.section==='kanban')[0]?.texto || 'Conteúdo não disponível para Kanban.'}
+              {ajudaTextos['kanban'] || 'espere um momento'}
             </p>
           </div>
         </div>
@@ -278,9 +280,9 @@ function AjudaPage({ theme }) {
             ></iframe>
           </div>
           <div style={{ flex: 1 }}>
-            <h5 className={`header-text-${theme} mb-3`}>Área de Texto</h5>
+            <h5 className={`header-text-${theme} mb-3`}>Disparos</h5>
             <p className={`header-text-${theme}`}>
-              {textos.filter(t=>t.section==='disparo')[0]?.texto || 'Conteúdo não disponível para Disparo.'}
+              {ajudaTextos['disparo'] || 'espere um momento'}
             </p>
           </div>
         </div>

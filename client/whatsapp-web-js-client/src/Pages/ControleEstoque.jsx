@@ -18,10 +18,22 @@ function ControleEstoque({ theme }) {
     quantidade_atencao: 0,
     quantidade_urgencia: 0
   });
+  const [nfType, setNfType] = useState('compra');
+  const [nfFile, setNfFile] = useState(null);
+  const [uploadingNF, setUploadingNF] = useState(false);
+  const [showItensNotFoundModal, setShowItensNotFoundModal] = useState(false);
+  const [itensNotFound, setItensNotFound] = useState([]);
+  const [itensMapSelection, setItensMapSelection] = useState({});
+  const itensSelecionados = itens.filter(item => 
+    Object.values(itensMapSelection).includes(item.id)
+  );
 
   const userData = JSON.parse(localStorage.getItem('user'));
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
+
+
+  
 
   useEffect(() => {
     loadItens();
@@ -34,7 +46,6 @@ function ControleEstoque({ theme }) {
       const response = await axios.get(`${url}/stock/get-all-itens/${schema}`, {
         withCredentials: true
       });
-      console.log(response.data)
       
       if (response.data.success) {
         setItens(response.data.data || []);
@@ -47,18 +58,96 @@ function ControleEstoque({ theme }) {
     }
   };
 
+  const handleUploadNF = async () => {
+    if (!nfFile || !nfType) return;
+    const isXml =
+      nfFile?.type === 'application/xml' ||
+      nfFile?.type === 'text/xml' ||
+      nfFile?.name?.toLowerCase().endsWith('.xml');
+    if (!isXml) return;
+    try {
+      setUploadingNF(true);
+      const form = new FormData();
+      form.append('file', nfFile);
+      form.append('type', nfType);
+      form.append('schema', schema);
+
+      const response = await axios.post(`https://cf343672f491.ngrok-free.app/file/`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const itensNotFound = Array.isArray(response.data.itens_not_found) ? response.data.itens_not_found : [response.data.itens_not_found];
+
+      if (itensNotFound.length > 0) {
+        setItensNotFound(itensNotFound);
+        setShowItensNotFoundModal(true);
+      }
+      setNfFile(null);
+      setNfType('compra');
+    } catch (error) {
+      console.error('Erro ao enviar NF:', error);
+    } finally {
+      setUploadingNF(false);
+    }
+  };
+
+  const handleSelectMapItem = (key, value) => {
+    setItensMapSelection(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleCloseItensNotFound = () => {
+    setShowItensNotFoundModal(false);
+    setItensNotFound([]);
+    setItensMapSelection({});
+  };
+
+  const handleConfirmItensNotFound = async (itens) => {
+    for (let index = 0; index < itensNotFound.length; index++) {
+      const nfItem = itensNotFound[index];
+      const itemObj = nfItem?.item ?? nfItem;
+      const base = itemObj?.id || itemObj?.name || itemObj?.item || String(index);
+      const selectionKey = `${base}-${index}`;
+      const estoqueId = itensMapSelection[selectionKey];
+      const quantidadeStr = itemObj?.quantidade || itemObj?.qCom || "1";
+      
+      if (estoqueId) {
+        const estoqueItem = itens.find(i => String(i.id) === String(estoqueId));
+        const quantidade = parseFloat(String(quantidadeStr).replace(',', '.'));
+
+        await axios.put(`${url}/stock/alter-item-quantity`, {
+          item_id: estoqueItem.id,
+          quantity: parseInt(nfItem.qCom),
+          isSum: true,
+          schema: schema
+        })
+      }
+    }
+    setShowItensNotFoundModal(false);
+  };
+
+  const handleAddItemFromNF = (itemName) => {
+    setEditingItem(null);
+    setFormData({
+      categoria_id: '',
+      nome: itemName || '',
+      quantidade: 0,
+      quantidade_atencao: 0,
+      quantidade_urgencia: 0
+    });
+    setShowModal(true);
+  };
+
   const loadCategorias = async () => {
     try {
-      console.log('Carregando categorias...');
       const response = await axios.get(`${url}/stock/get-categories/${schema}`, {
         withCredentials: true
       });
       
-      console.log('Resposta das categorias:', response.data);
       
       if (response.data.success) {
         setCategorias(response.data.data || []);
-        console.log('Categorias carregadas:', response.data.data);
       }
     } catch (error) {
       console.error('Erro ao carregar categorias:', error);
@@ -80,7 +169,6 @@ function ControleEstoque({ theme }) {
         withCredentials: true
       });
 
-      console.log('Resposta da API:', response.data);
 
       if (response.data.success) {
         const novaCategoria = response.data.data;
@@ -92,7 +180,6 @@ function ControleEstoque({ theme }) {
         }));
         setNewCategoryName('');
         setShowNewCategoryModal(false);
-        console.log('Categoria criada com sucesso!');
       } else {
         console.error('Erro na resposta da API:', response.data);
       }
@@ -344,14 +431,79 @@ function ControleEstoque({ theme }) {
                 <i className="bi bi-box-seam me-2"></i>
                 Controle de Estoque
               </h4>
-              <Button
-                onClick={() => setShowModal(true)}
-                className={`btn-1-${theme} btn-sm`}
-              >
-                <i className="bi bi-plus-circle me-1"></i>
-                Novo Item
-              </Button>
+              <div className="d-flex gap-2">
+
+
+                <Button
+                  onClick={() => setShowModal(true)}
+                  className={`btn-1-${theme} btn-sm`}
+                >
+                  <i className="bi bi-plus-circle me-1"></i>
+                  Novo Item
+                </Button>
+              </div>
             </div>
+          </Col>
+        </Row>
+
+        {/* Área de Upload de Nota Fiscal */}
+        <Row className="mb-4">
+          <Col>
+            <Card className={`bg-form-${theme} border-0 shadow`}>
+              <Card.Header className={`bg-form-${theme} border-0`}>
+                <h6 className={`header-text-${theme} mb-0`}>
+                  <i className="bi bi-receipt-cutoff me-2"></i>
+                  Enviar Nota Fiscal
+                </h6>
+              </Card.Header>
+              <Card.Body className={`bg-form-${theme}`}>
+                <Row className="g-3 align-items-end">
+                  <Col md={3} sm={6}>
+                    <Form.Group>
+                      <Form.Label className={`header-text-${theme}`}>Tipo</Form.Label>
+                      <Form.Select
+                        value={nfType}
+                        onChange={(e) => setNfType(e.target.value)}
+                        className={`input-${theme}`}
+                      >
+                        <option value="compra">Compra</option>
+                        <option value="venda">Venda</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                  <Col md={6} sm={12}>
+                    <Form.Group>
+                      <Form.Label className={`header-text-${theme}`}>
+                        Arquivo da NF (XML)
+                      </Form.Label>
+                      <Form.Control
+                        type="file"
+                        accept=".xml,application/xml,text/xml"
+                        className={`input-${theme}`}
+                        onChange={(e) => setNfFile(e.target.files?.[0] || null)}
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={3} sm={6}>
+                    <Button
+                      className={`btn-1-${theme} w-100`}
+                      onClick={handleUploadNF}
+                      disabled={
+                        !nfFile ||
+                        uploadingNF ||
+                        !(
+                          nfFile?.type === 'application/xml' ||
+                          nfFile?.type === 'text/xml' ||
+                          nfFile?.name?.toLowerCase().endsWith('.xml')
+                        )
+                      }
+                    >
+                      {uploadingNF ? 'Enviando...' : 'Enviar NF'}
+                    </Button>
+                  </Col>
+                </Row>
+              </Card.Body>
+            </Card>
           </Col>
         </Row>
 
@@ -531,6 +683,74 @@ function ControleEstoque({ theme }) {
               ) : (
                 'Criar Categoria'
               )}
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Modal: Itens não encontrados na NF */}
+        <Modal show={showItensNotFoundModal} onHide={handleCloseItensNotFound} centered>
+          <Modal.Header closeButton className={`bg-form-${theme}`}>
+            <Modal.Title className={`header-text-${theme}`}>
+              Itens não encontrados
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body className={`bg-form-${theme}`}>
+            <p className={`header-text-${theme}`} style={{ marginBottom: '12px' }}>
+              Associe cada item não identificado a um item existente do estoque.
+            </p>
+            <Form>
+              {itensNotFound && itensNotFound.length > 0 ? (
+                itensNotFound.map((nfItem, index) => {
+                  const itemObj = nfItem?.item ?? nfItem;
+                  const keyBase = itemObj?.id || itemObj?.name || itemObj?.item || String(index);
+                  const key = `${keyBase}-${index}`;
+                  const label = itemObj?.xProd || itemObj?.item || String(itemObj);
+                  return (
+                    <Form.Group className="mb-3" key={key}>
+                      <Form.Label className={`header-text-${theme}`}>
+                        {label}
+                      </Form.Label>
+                      <div className="d-flex gap-2">
+                        <Form.Select
+                          value={itensMapSelection[key] || ''}
+                          onChange={(e) => handleSelectMapItem(key, e.target.value)}
+                          className={`input-${theme}`}
+                        >
+                          <option value="">Selecionar item correspondente</option>
+                          {itens.map(op => (
+                            <option key={op.id} value={op.id}>
+                              {op.name || op.item || String(op) || op.xProd}
+                            </option>
+                            
+                          ))}
+                        </Form.Select>
+                        <Button
+                          type="button"
+                          variant="outline-primary"
+                          size="sm"
+                          className={`btn-outline-${theme === 'light' ? 'primary' : 'light'}`}
+                          onClick={() => handleAddItemFromNF(label)}
+                          title="Adicionar novo item"
+                          style={{ whiteSpace: 'nowrap' }}
+                        >
+                          <i className="bi bi-plus-circle me-1"></i>
+                          Adicionar
+                        </Button>
+                      </div>
+                    </Form.Group>
+                  );
+                })
+              ) : (
+                <div className={`header-text-${theme}`}>Nenhum item a exibir.</div>
+              )}
+            </Form>
+          </Modal.Body>
+          <Modal.Footer className={`bg-form-${theme}`}>
+            <Button onClick={handleCloseItensNotFound} className={`btn-2-${theme} btn-sm`}>
+              Cancelar
+            </Button>
+            <Button onClick={() => handleConfirmItensNotFound(itensSelecionados)} className={`btn-1-${theme} btn-sm`}>
+              Confirmar
             </Button>
           </Modal.Footer>
         </Modal>

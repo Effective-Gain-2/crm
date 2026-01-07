@@ -686,7 +686,47 @@ const updateSchema = async (schema) => {
                         urgent_quantity integer
                         )`)
 
+            await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.api_ofc_chats(
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                chat_id TEXT,
+                connection_id TEXT,
+                number TEXT,
+                name TEXT,
+                queue_id UUID,
+                user_id UUID,
+                status TEXT,
+                created_at BIGINT,
+                updated_at BIGINT,
+                is_bot_on BOOLEAN DEFAULT TRUE,
+                thread_id TEXT
 
+                )`)
+            
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS ${schema}.preferences_kanban (
+                sector TEXT primary key NOT NULL,
+                label TEXT,
+                color TEXT NOT NULL
+                );
+            `)
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS ${schema}.tag (
+                id uuid primary key,
+                name text,
+                color text
+                );
+                `)
+
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS ${schema}.api_connections(
+                id UUID PRIMARY KEY,
+                phone_id text not null,
+                name text not null,
+                number text not null,
+                token text not null,
+                queue_id UUID 
+                )`)
+            
         await pool.query(`alter table ${schema}.messages add column if not exists user_id uuid`)
         await pool.query(`alter table ${schema}.queues add column if not exists stage_id uuid`)
         await pool.query(`ALTER TABLE ${schema}.custom_fields add column if not exists graph boolean default false`)

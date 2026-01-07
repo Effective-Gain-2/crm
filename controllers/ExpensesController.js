@@ -1,7 +1,8 @@
 const { createExpense, getExpenses, deleteAllExpensesItens, insertExpenseItens, createTaxRate, getTaxRates, insertExpenseItensTax, getExpensesById, deleteExpense, getExpenseItemById } = require("../services/ExpensesService");
 
 const createExpenseController = async (req, res) => {
-    const {user_id, vendor_id, description, category_id, total_amount, currency, date_incurred, due_date, payment_date, payment_method, status, created_at, itens=[], schema } = req.body;
+    const {user_id, vendor_id, description, category_id, total_amount, currency, date_incurred, due_date, payment_date, payment_method, status, created_at, itens=[]} = req.body;
+    const schema = req.schema;
     try {
         const result = await createExpense(user_id, vendor_id, description, category_id, total_amount, currency, date_incurred, due_date, payment_date, payment_method, status, created_at, schema);
         await deleteAllExpensesItens(result.id, schema)
@@ -20,7 +21,7 @@ const createExpenseController = async (req, res) => {
 }
 
 const getExpensesController = async (req, res) => {
-    const { schema } = req.params;
+    const { schema } = req.schema;
     try {
         const expenses = await getExpenses(schema);
         res.status(200).json({ success: true, data: expenses });
@@ -31,7 +32,8 @@ const getExpensesController = async (req, res) => {
 }
 
 const createTaxRateController = async (req, res) => {
-    const { name, rate, type, is_compound, schema } = req.body;
+    const { name, rate, type, is_compound} = req.body;
+    const schema = req.schema;
     try {
         const result = await createTaxRate(name, rate, type, is_compound, schema);
         res.status(201).json({ success: true, data: result });
@@ -42,7 +44,7 @@ const createTaxRateController = async (req, res) => {
 }
 
 const getTaxRatesController = async (req, res) => {
-    const { schema } = req.params;
+    const { schema } = req.schema;
     try {
         const taxRates = await getTaxRates(schema);
         res.status(200).json({ success: true, data: taxRates });
@@ -53,7 +55,8 @@ const getTaxRatesController = async (req, res) => {
 }
 
 const getExpensesByIdController = async (req, res) => {
-    const { expense_id, schema } = req.params;
+    const { expense_id} = req.params;
+    const schema = req.schema;
     try {
         const result = await getExpensesById(expense_id, schema)
         res.status(200).json({ success: true, data: result });
@@ -65,7 +68,8 @@ const getExpensesByIdController = async (req, res) => {
 }
 
 const deleteExpenseController = async (req, res) => {
-    const {expense_id, schema} = req.body
+    const {expense_id} = req.body
+    const schema = req.schema;
     try {
         await deleteExpense(expense_id, schema)
         res.status(200).json({ success: true});
@@ -76,7 +80,8 @@ const deleteExpenseController = async (req, res) => {
 }
 
 const getExpenseItemByIdController = async (req, res) => {
-    const {expense_item_id, schema} = req.params
+    const {expense_item_id} = req.params
+    const schema = req.schema;
     try {
         const result = await getExpenseItemById(expense_item_id, schema)
         res.status(200).json({ success: true, data: result});

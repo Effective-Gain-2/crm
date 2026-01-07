@@ -1,28 +1,23 @@
-const { text } = require("express")
-const { getAjudaMensagens, upsertAjudaTextos } = require("../services/AjudaService")
+const pool = require('../db/queries');
 
-const getAjudaMensagensController = async (req,res) => {
-    try {
-        const result = await getAjudaMensagens()
-        res.status(200).json({success:true, result})
-    } catch (error) {
-        console.error(error)
-        res.status(500).json({success:false})
-    }
-}
+exports.getAjudaTextos = async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT section, texto FROM effective_gain.ajuda_textos');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar textos de ajuda.' });
+  }
+};
 
-const upsertAjudaTextosController = async (req, res) => {
-    const {section, texto} = req.body
-    try {
-        const result = await upsertAjudaTextos(section, texto)
-        res.status(200).json({success:true, result})
-    } catch (error) {
-        console.error(error)
-        res.status(500).json({success:false})
-    }
-}
-
-module.exports={
-    getAjudaMensagensController,
-    upsertAjudaTextosController
-}
+exports.updateAjudaTexto = async (req, res) => {
+  const { section, texto } = req.body;
+  try {
+    await pool.query(
+      'UPDATE effective_gain.ajuda_textos SET texto = $1 WHERE section = $2',
+      [texto, section]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao atualizar texto de ajuda.' });
+  }
+};

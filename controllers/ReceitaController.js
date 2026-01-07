@@ -2,8 +2,8 @@ const { deleteAllExpensesItens, insertExpenseItens, insertExpenseItensTax } = re
 const { createReceita, getReceitas, getReceitaById, updateReceita, deleteReceita, getReceitasStats, testConnection } = require("../services/ReceitaService");
 
 const createReceitaController = async (req, res) => {
-    const { nome, user_id, category_id, valor_receita, data, payment_method, status, itens=[], schema } = req.body;
-    console.log(req.body)
+    const { nome, user_id, category_id, valor_receita, data, payment_method, status, itens=[]} = req.body;
+    const schema = req.schema;
     try {
         const result = await createReceita(nome, user_id, category_id, valor_receita, data, payment_method, status, schema);
         await deleteAllExpensesItens(result.id, schema)
@@ -39,7 +39,7 @@ const createReceitaController = async (req, res) => {
 };
 
 const getReceitasController = async (req, res) => {
-    const { schema } = req.params;
+    const { schema } = req.schema;
     
     try {
         const receitas = await getReceitas(schema);
@@ -51,7 +51,8 @@ const getReceitasController = async (req, res) => {
 };
 
 const getReceitaByIdController = async (req, res) => {
-    const { receita_id, schema } = req.params;
+    const { receita_id } = req.params;
+    const schema = req.schema;
     
     try {
         const result = await getReceitaById(receita_id, schema);
@@ -68,8 +69,9 @@ const getReceitaByIdController = async (req, res) => {
 };
 
 const updateReceitaController = async (req, res) => {
-    const { receita_id, schema } = req.params;
+    const { receita_id } = req.params;
     const { nome, valor_receita, status } = req.body;
+    const schema = req.schema;
     
     try {
         const result = await updateReceita(receita_id, nome, valor_receita, status, schema);
@@ -86,7 +88,8 @@ const updateReceitaController = async (req, res) => {
 };
 
 const deleteReceitaController = async (req, res) => {
-    const { receita_id, schema } = req.body;
+    const { receita_id} = req.body;
+    const schema = req.schema;
     try {
         const result = await deleteReceita(receita_id, schema);
         res.status(200).json({ success: true, message: 'Receita excluída com sucesso' });
@@ -97,7 +100,7 @@ const deleteReceitaController = async (req, res) => {
 };
 
 const getReceitasStatsController = async (req, res) => {
-    const { schema } = req.params;
+    const { schema } = req.schema;
     
     try {
         const stats = await getReceitasStats(schema);
@@ -119,7 +122,8 @@ const testConnectionController = async (req, res) => {
 };
 
 const getMonthlyGainController = async (req, res) => {
-    const { year, month, schema } = req.params;
+    const { year, month } = req.params;
+    const schema = req.schema;
     try {
         const { calculateMonthlyGain } = require('../utils/CalculateMonthly');
         const result = await calculateMonthlyGain(parseInt(year), parseInt(month), schema);
@@ -131,7 +135,8 @@ const getMonthlyGainController = async (req, res) => {
 };
 
 const getLastNMonthsGainController = async (req, res) => {
-    const { months, schema } = req.params;
+    const { months } = req.params;
+    const schema = req.schema;
     try {
         const { calculateLastNMonthsGain } = require('../utils/CalculateMonthly');
         const result = await calculateLastNMonthsGain(parseInt(months), schema);
@@ -143,7 +148,8 @@ const getLastNMonthsGainController = async (req, res) => {
 };
 
 const getNextNMonthsProjectionController = async (req, res) => {
-    const { months, schema } = req.params;
+    const { months} = req.params;
+    const schema = req.schema;
     try {
         const { calculateNextNMonthsProjection } = require('../utils/CalculateMonthly');
         const result = await calculateNextNMonthsProjection(parseInt(months), schema);

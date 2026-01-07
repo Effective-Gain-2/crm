@@ -1,7 +1,6 @@
 const pool = require("../db/queries");
 const { v4: uuidv4 } = require("uuid");
 const { get } = require("../routes/ConnectionRoutes");
-const SocketServer = require("../server");
 const { getContactByNumber } = require("./ContactService");
 
 const createKanbanStage = async (name, pos, color, sector, schema) => {

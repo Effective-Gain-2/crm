@@ -18,6 +18,7 @@
   import KanbanPage from './Kanban';
   import DisparosPage from './Disparos';
   import WhatsappModal from './modalPages/Whatsapp';
+  import IntegracoesPage from './Integracoes';
   import Manutencao from './Manutencao';
   import AjudaPage from './Ajuda';
   import LembretesPage from './Lembretes';
@@ -27,6 +28,8 @@
   import useUserPreferences from '../hooks/useUserPreferences';
   import CustomValuesModal from './modalPages/CustomValuesModal';
   import { useToast } from '../contexts/ToastContext';
+  import ClientesPage from './Clientes';
+  import WhatsappTemplatesPage from './WhatsappTemplates';
 
   window.addEventListener('error', function (event) {
     if (
@@ -470,6 +473,9 @@
         case 'kanban': return <KanbanPage theme={theme} />;
         case 'filas': return <FilaPage theme={theme} />;
         case 'usuarios': return <UsuariosPage theme={theme} />;
+        case 'clientes': return <ClientesPage theme={theme} />;
+        case 'integracoes': return <IntegracoesPage theme={theme} onOpenWhatsappModal={handleWhatsapp} />;
+        case 'whatsapp-templates': return <WhatsappTemplatesPage theme={theme} />;
         case 'agenda': return <LembretesPage
     theme={theme}
     lembretes={lembretes}
@@ -506,7 +512,7 @@
         {/* <div id="toast-container" className="toast-container position-fixed bottom-0 end-0 p-3" style={{ zIndex: 1060 }}></div> */}
         <div className="d-flex h-100">
           <div id="sidebar" className={`bg-form-${theme} h-100 sidebar ${isSidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'} border-end border-${theme} card-${theme}`}>
-            <div id="sidebar-top" style={{ height: '10%', width: '100%', transition: '0.01s' }} className="p-2 d-flex flex-row align-items-center justify-content-evenly">
+            <div id="sidebar-top" style={{ height: '5%', width: '100%', transition: '0.01s' }} className="p-2 d-flex flex-row align-items-center justify-content-evenly">
               <img src={isSidebarExpanded ? logo : shortlogo} alt="Logo" className="img-fluid" style={{ height: 'auto', width: isSidebarExpanded ? '80%' : '65%' }} />
             </div>
             <div style={{ flexGrow: 1, width: '100%' }} id="sidebar-body" className="d-flex flex-column align-items-center justify-content-start my-5 gap-3">
@@ -614,15 +620,37 @@
                 <span className="sidebar-label d-none">Usuários</span>
               </button>
               <button
-                id="whatsapp"
-                onClick={handleWhatsapp}
+                id="clientes"
+                onClick={() => handlePageChange('clientes')}
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
-                data-bs-title="WhatsApp"
-                className={`btn btn-2-${theme} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+                data-bs-title="Clientes"
+                className={`btn ${page === 'clientes' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
-                <i className="bi bi-whatsapp"></i>
-                <span className="sidebar-label d-none">WhatsApp</span>
+                <i className="bi bi-person-badge"></i>
+                <span className="sidebar-label d-none">Clientes</span>
+              </button>
+              <button
+                id="integracoes"
+                onClick={() => handlePageChange('integracoes')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Integrações"
+                className={`btn ${page === 'integracoes' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-puzzle"></i>
+                <span className="sidebar-label d-none">Integrações</span>
+              </button>
+              <button
+                id="whatsapp-templates"
+                onClick={() => handlePageChange('whatsapp-templates')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Templates WhatsApp"
+                className={`btn ${page === 'whatsapp-templates' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-file-text"></i>
+                <span className="sidebar-label d-none">Templates WhatsApp</span>
               </button>
               <button
                 id="lembretes"
@@ -659,7 +687,7 @@
                 <span className="sidebar-label d-none">Insights</span>
               </button>
               <hr className={`hr-${theme} mx-auto my-0 d-none`} style={{ width: '50%' }} />
-              <button
+              {/* <button
                 id="ajuda"
                 onClick={() => handlePageChange('ajuda')}
                 data-bs-toggle="tooltip"
@@ -669,7 +697,7 @@
               >
                 <i className="bi bi-question-circle"></i>
                 <span className="sidebar-label d-none">Ajuda</span>
-              </button>
+              </button> */}
   <button
     id="chatinterno"
     onClick={() => handlePageChange('ChatInterno')}

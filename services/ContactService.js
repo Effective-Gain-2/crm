@@ -133,6 +133,10 @@ const getKanbanPreference = async (sector, schema) => {
     return result.rows[0] || null;
 };
 
+const getCustomValueById = async (id, number, schema) => {
+    const result = await pool.query(`SELECT * FROM ${schema}.contact_custom_values where field_id=$1 and contact_number=$2`, [id, number])
+    return result.rows[0]
+}
 
 
 
@@ -144,5 +148,6 @@ module.exports = {
     getChatsForUser,
     getCustomFieldsByContact,
     changeKanbanPreference,
-    getKanbanPreference
+    getKanbanPreference,
+    getCustomValueById
 };

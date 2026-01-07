@@ -1,6 +1,8 @@
 const { v4: uuidv4 } = require('uuid');
 const { Company } = require('../entities/company');
 const { createCompany, getAllCompanies, getAllCompaniesTecUser, updateSchema } = require('../services/CompanyService');
+const { returnForbiddenError } = require('../Errors/Errors');
+const jwt = require('jsonwebtoken');
 
 const createCompanyController = async (req, res) => {
     try {
@@ -72,4 +74,51 @@ const updateSchemaController = async (req, res) => {
     }
 };
 
-module.exports = { createCompanyController, getAllCompaniesController, getAllCompaniesTecUserController, updateSchemaController };
+const setSchemaController = async (req, res) => {
+    const { schema } = req.body;
+    const {user_id, user_role} = req;
+    try {
+        const token = jwt.sign(
+              { user_id: user_id, schema:schema, user_role: user_role  },
+              process.env.JWT_SECRET,
+              { expiresIn: '15m' }
+            );
+        
+            const refreshToken = jwt.sign(
+              { user_id: user_id, schema:schema, user_role: user_role },
+              process.env.JWT_SECRET,
+              { expiresIn: '7d' }
+            );
+
+            res.cookie('token', token, {
+      maxAge: 15 * 60 * 1000, // 15 minutos em millisegundos
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+      path: '/',
+      domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias em millisegundos
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+      path: '/',
+      domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined
+    });
+
+    res.status(200).json({
+      success: true,
+      user: user_id,
+      role: user_role,
+      company: schema,
+      schema: schema
+    });
+    } catch (error) {
+        console.error("Erro ao definir schema:", error);
+        returnForbiddenError(res)
+    }
+}
+
+module.exports = { createCompanyController, getAllCompaniesController, getAllCompaniesTecUserController, updateSchemaController, setSchemaController };

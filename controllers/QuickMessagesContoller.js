@@ -1,7 +1,7 @@
 const { createQuickMessage, getAllQuickMessages, getQuickMessageById, updateQuickMessage, deleteQuickMessage, getAllQuickMessagesByUser } = require('../services/QuickMessagesService');
 
 const getAllQuickMessagesController = async (req, res) => {
-  const { schema } = req.params;
+  const { schema } = req.schema;
   
   try {
     const result = await getAllQuickMessages(schema);
@@ -15,7 +15,8 @@ const getAllQuickMessagesController = async (req, res) => {
 };
 
 const getQuickMessageByIdController = async (req, res) => {
-  const { quick_message_id, schema } = req.params;
+  const { quick_message_id } = req.params;
+  const schema = req.schema
   
   try {
     const result = await getQuickMessageById(quick_message_id, schema);
@@ -35,7 +36,8 @@ const getQuickMessageByIdController = async (req, res) => {
 
 const createQuickMessageController = async (req, res) => {
   try {
-    const { type, queue_id, user_id, message, is_command_on, shortcut, schema } = req.body;
+    const { type, queue_id, user_id, message, is_command_on, shortcut } = req.body;
+    const schema = req.schema;
     
     if (!type || !user_id || !message || !shortcut || !schema) {
       return res.status(400).json({ error: 'Dados obrigatórios não fornecidos' });
@@ -55,8 +57,9 @@ const createQuickMessageController = async (req, res) => {
 
 const updateQuickMessageController = async (req, res) => {
   try {
-    const { quick_message_id, type, queue_id, message, shortcut, schema } = req.body;
-    
+    const { quick_message_id, type, queue_id, message, shortcut} = req.body;
+    const schema = req.schema;
+
     if (!quick_message_id || !message || !shortcut || !schema) {
       return res.status(400).json({ error: 'Dados obrigatórios não fornecidos' });
     }
@@ -79,7 +82,8 @@ const updateQuickMessageController = async (req, res) => {
 
 const deleteQuickMessageController = async (req, res) => {
   try {
-    const { quick_message_id, schema } = req.params;
+    const { quick_message_id} = req.params;
+    const schema = req.schema;
     
     if (!quick_message_id || !schema) {
       return res.status(400).json({ error: 'ID da mensagem e schema são obrigatórios' });
@@ -99,7 +103,8 @@ const deleteQuickMessageController = async (req, res) => {
 
 const getAllQuickMessagesByUserController = async (req, res) => {
   try {
-    const { user_id, schema } = req.params;
+    const { user_id} = req.params;
+    const schema = req.schema;
     
     if (!user_id || !schema) {
       return res.status(400).json({ error: 'ID do usuário e schema são obrigatórios' });

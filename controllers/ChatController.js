@@ -13,14 +13,18 @@ const { searchConnById } = require('../services/ConnectionService');
 const { getCurrentTimestamp } = require('../services/getCurrentTimestamp');
 const { getAllUsers } = require('../services/UserService');
 const { chat } = require('googleapis/build/src/apis/chat');
+const { getApiChats } = require('../services/ChatApiOfc');
 
 const bullConn = createRedisConnection();
 const closeChatQueue = new Queue('closeQueue', { connection: bullConn });
 
 new Worker('closeQueue', async (job) => {
-  const { chat_id, status, schema } = job.data;
+  const { chat_id, status, schema, isApi } = job.data;
+  if(isApi){
+    return
+  }
   try { 
-    await closeChatContact(chat_id, status, schema);
+    await closeChatContact(chat_id, status, schema, isApi);
     await deleteCacheMessages(chat_id)
     } catch (error) {
     console.error('Erro ao processar o fechamento do chat:', error);
@@ -120,7 +124,7 @@ const setUserChatController = async (req, res) => {
   const { chat } = req.body;
 
   try {
-    const schema = req.body.schema || 'effective_gain';
+    const schema = req.body.schema;
     const result = await setUserChat(chat, schema);
 
     res.status(201).json(result);
@@ -156,9 +160,10 @@ const processReceivedAudio = async (req, res) => {
 
 const getChatsController = async (req, res) => {
   try {
-    const schema = req.params?.schema || 'effective_gain';
+    const schema = req.params?.schema;
     const result = await getChats(schema);
-    res.status(201).json(result);
+    const api_ofc_chats = await getApiChats(schema);
+    res.status(201).json({ result, api_ofc_chats });
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -180,6 +185,7 @@ const getMessagesController = async (req, res) => {
 
 const updateQueueController = async (req, res) => {
   try {
+
     const { queueId, chatId } = req.body;
     const schema = req.body.schema || 'effective_gain';
 
@@ -234,15 +240,17 @@ const getChatDataController = async (req, res) => {
 const getChatByUserController = async (req, res) => {
   const { userId, role} = req.params;
   const schema = req.params.schema;
-
+  let api_ofc_chats = []
   if (!userId) {
     return res.status(400).json({ error: 'O parâmetro userId é obrigatório.' });
   }
 
   try {
     const result = await getChatByUser(userId, role, schema);
-    res.status(200).json({ messages: result });
+    // api_ofc_chats = await getApiChats(schema);
+    res.status(200).json({ messages: result, api_ofc: api_ofc_chats});
   } catch (err) {
+    console.error('Erro ao buscar chats do usuário:', err);
     res.status(500).json({ error: 'Erro ao buscar chats do usuário.' });
   }
 };
@@ -347,11 +355,13 @@ const getStatusController = async (req, res) => {
 }
 const closeChatContoller = async(req, res)=>{
   try{
-    const {chat_id, status} = req.body
+    const {chat_id, status, isApi} = req.body
     const schema = req.body.schema
-    
-    const result = await closeChat(chat_id, schema)
-    const job = await closeChatQueue.add('closeChat', { chat_id, status, schema },{attempts: 3});
+
+    const result = await closeChat(chat_id, schema, isApi)
+    if(!isApi){
+      const job = await closeChatQueue.add('closeChat', { chat_id, status, schema, isApi },{attempts: 3});
+    }
     global.socketIoServer.to(`schema_${schema}`).emit('removeChat', result)
 
    res.status(200).json({
@@ -381,6 +391,7 @@ const getClosedChatsController = async (req, res) => {
 
 const setSpecificUserController = async(req, res) => {
   try {
+
     const {user_id, chat_id} = req.body
     const schema = req.body.schema
     
