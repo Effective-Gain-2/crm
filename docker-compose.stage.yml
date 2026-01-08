@@ -8,10 +8,10 @@ services:
       - "3333"
 
   frontend:
-    build: ./client/whatsapp-web-js-client
+  build:
+    context: ./client/whatsapp-web-js-client
     args:
-      - REACT_APP_URL=https://backend-stage.effectivegain.com
-      - REACT_APP_WS_URL=http://backend:3333
-    restart: always
-    expose:
-      - "80"
+      REACT_APP_API_URL: https://backend-stage.effectivegain.com
+  restart: always
+  expose:
+    - "80"
