@@ -1,4 +1,3 @@
-version: "3.9"
 
 services:
   backend:
@@ -8,7 +7,7 @@ services:
     env_file:
       - ./backend/.env
     ports:
-      - "3002:3000:3333"
+      - "3002:3333"
 
   frontend:
     build: ./frontend
