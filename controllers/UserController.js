@@ -2,6 +2,7 @@ const { createUser, getAllUsers, searchUser, changeOnline, getOnlineUsers, chang
 const { Users } = require('../entities/Users');
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
+const { getLimitsBySchema } = require('../services/LimitsService');
 
 function verifyToken(req, res, next) {
   const { token } = req.cookies;
@@ -16,6 +17,7 @@ function verifyToken(req, res, next) {
     req.user_role = decoded.user_role;
     req.schema = decoded.schema;
     next();
+
   });
 }
 
@@ -112,11 +114,19 @@ const searchUserController = async (req, res) => {
     }
 
     const isBlocked = await getLoginAttempts(ip, result.company.schema_name);
-    if(isBlocked===true){
-      return res.status(403).json({ error: 'IP bloqueado por tentativas excessivas' });
+    console.log("isBlocked:", isBlocked);
+    if(isBlocked){
+      return res.status(429).json({ error: 'IP bloqueado por tentativas excessivas' });
     }
 
     changeOnline(result.user.id, result.company.schema_name);
+
+
+    //Bloqueando acesso caso pagamento não esteja em dia
+    const limits = await getLimitsBySchema(result.company.schema_name);
+    if(limits.payment==='false'){
+      return res.status(402).json({ error: 'Pagamento pendente. Acesso negado.' });
+    }
 
     const token = jwt.sign(
       { user_id: result.user.id, schema:result.company.schema_name, user_role: result.user.permission  },

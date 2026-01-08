@@ -1,8 +1,9 @@
 const { v4: uuidv4 } = require('uuid');
 const { Company } = require('../entities/company');
-const { createCompany, getAllCompanies, getAllCompaniesTecUser, updateSchema } = require('../services/CompanyService');
+const { createCompany, getAllCompanies, getAllCompaniesTecUser, updateSchema, createCompanySelfService } = require('../services/CompanyService');
 const { returnForbiddenError } = require('../Errors/Errors');
 const jwt = require('jsonwebtoken');
+const { insertLimits } = require('../services/LimitsService');
 
 const createCompanyController = async (req, res) => {
     try {
@@ -22,6 +23,21 @@ const createCompanyController = async (req, res) => {
         });
     }
 };
+const createCompanySelfServiceController = async (req, res) => {
+    try{
+        const { empresa_name, name, email, password } = req.body;
+        const company = await createCompanySelfService(empresa_name, name, email, password);
+        await insertLimits('payment', false, null, company.schema);
+        res.status(201).json({
+            message: 'Empresa criada com sucesso'
+        })
+    }catch(error){
+        console.error("Erro ao criar empresa:", error);
+        res.status(500).json({
+            message: 'Erro ao criar empresa'
+        });
+    }
+}
 
 const getAllCompaniesController = async(req, res)=>{
     try{
@@ -121,4 +137,4 @@ const setSchemaController = async (req, res) => {
     }
 }
 
-module.exports = { createCompanyController, getAllCompaniesController, getAllCompaniesTecUserController, updateSchemaController, setSchemaController };
+module.exports = { createCompanyController, getAllCompaniesController, getAllCompaniesTecUserController, updateSchemaController, setSchemaController, createCompanySelfServiceController };

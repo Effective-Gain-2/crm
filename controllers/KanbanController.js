@@ -186,7 +186,7 @@ const deleteEtapaController = async (req, res) => {
 const getCustomFieldsController = async (req, res) => {
     const {schema} = req.schema
     try {
-        const result = await getCustomFields(schema)
+        const result = await getCustomFields(req.schema)
         res.status(200).json(result)
     } catch (error) {
         console.error(error)

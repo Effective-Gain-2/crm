@@ -1,9 +1,9 @@
-    const Queue = require("../entities/Queue");
-const { v4: uuidv4 } = require('uuid');
-const { createQueue, addUserinQueue, getUserQueues, getAllQueues, deleteQueue, getQueueById, transferQueue, updateUserQueues, toggleWebhookStatus, updateWebhookUrl, getUsersInQueue, updateQueue, updateAssistantId } = require("../services/QueueService");
-const { setUserChat } = require("../services/ChatService");
-const { getUserById } = require("../services/UserService");
-const { getFunilByKanbanStage } = require("../services/KanbanService");
+const Queue = require("../entities/Queue")
+const { v4: uuidv4 } = require('uuid')
+const { createQueue, addUserinQueue, getUserQueues, getAllQueues, deleteQueue, getQueueById, transferQueue, updateUserQueues, toggleWebhookStatus, updateWebhookUrl, getUsersInQueue, updateQueue, updateAssistantId } = require("../services/QueueService")
+const  setUserChat=require("../services/ChatService")
+const { getUserById } = require("../services/UserService")
+const { getFunilByKanbanStage } = require("../services/KanbanService")
 
 
 const createQueueController = async(req, res)=>{
@@ -63,7 +63,7 @@ const getUserQueuesController=async(req,res)=>{
 
 const getAllQueuesControllers = async(req, res)=> {
     try{
-        const {schema} = req.schema
+        const schema = req.schema
         
         if (!schema || schema === 'null' || schema === 'undefined') {
             return res.status(400).json({

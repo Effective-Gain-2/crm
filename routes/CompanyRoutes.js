@@ -1,5 +1,5 @@
 const express = require('express');
-const { createCompanyController, getAllCompaniesController, getAllCompaniesTecUserController, updateSchemaController, setSchemaController } = require('../controllers/CompanyController');
+const { createCompanyController, getAllCompaniesController, getAllCompaniesTecUserController, updateSchemaController, setSchemaController, createCompanySelfServiceController } = require('../controllers/CompanyController');
 const { allowedRoles } = require('../middlewares/RequireUser');
 const { verifyToken } = require('../controllers/UserController');
 
@@ -10,5 +10,6 @@ router.get('/companies', verifyToken, allowedRoles('tec'), getAllCompaniesContro
 router.get('/tecnico', verifyToken, allowedRoles('tec'), getAllCompaniesTecUserController)
 router.post('/update-schema', verifyToken, allowedRoles('tec'), updateSchemaController)
 router.post('/set-schema', verifyToken, allowedRoles('tec'), setSchemaController)
+router.post('/company-self-service', createCompanySelfServiceController)
 
 module.exports = router

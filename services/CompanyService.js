@@ -2,6 +2,7 @@ const { Users } = require('../entities/Users');
 const { v4: uuidv4 } = require('uuid');
 const { createUser } = require('./UserService');
 const pool = require('../db/queries');
+const { Company } = require('../entities/company');
 
 const createCompany = async (company, schema) => {
     const superAdminId = uuidv4();
@@ -759,4 +760,13 @@ const getAllCompaniesTecUser = async () => {
         throw new Error("Erro ao buscar empresas")
     }
 }
-module.exports = { createCompany, getAllCompanies, getAllCompaniesTecUser, updateSchema };
+
+const createCompanySelfService = async (empresa_name, name, email, password) => {
+    const schema = empresa_name.normalize('NFD').replace(/\s+/g, '_').replace(/[\u0300-\u036f]/g, "").replace(/ç/g, 'c').replace(/Ç/g, 'c')
+    .replace(/[^a-zA-Z0-9_]/g, '').toLowerCase().replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+    const company = new Company(uuidv4(), empresa_name, {name, email, password})
+    await createCompany(company, schema);
+    return {schema}
+}
+module.exports = { createCompany, getAllCompanies, getAllCompaniesTecUser, updateSchema, createCompanySelfService };

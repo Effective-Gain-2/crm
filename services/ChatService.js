@@ -263,8 +263,7 @@ const getMessages = async(chat_Id, schema)=>{
     // await bullConn.set(`getMessages_${chat_Id}`, JSON.stringify(result.rows))
     return result.rows.reverse()
   }
-// }
-
+ }
 const get20MoreMessages = async(chat_id, last_message, schema)=>{
   const result = await pool.query(`SELECT * FROM ${schema}.messages WHERE chat_id=$1 AND created_at < $2 ORDER BY created_at DESC LIMIT 20`, [chat_id, last_message])
   return result.rows.reverse()

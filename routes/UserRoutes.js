@@ -8,7 +8,7 @@ router.get('/users/online', verifyToken, allowedRoles(), getOnlineUsersControlle
 router.get('/search-user/:schema/:user_id', verifyToken, allowedRoles(), searchUserByIdController);
 router.post('/users', verifyToken, allowedRoles('tec-admin'), createUserController);
 router.post('/login', searchUserController);
-router.post('/logout', logoutController);
+router.post('/logout', verifyToken, logoutController);
 router.post('/refresh-token', refreshTokenController)
 router.put('/update-user', verifyToken, allowedRoles('tec-admin'), updateUserController)
 router.delete('/delete-user', verifyToken, allowedRoles('tec-admin'), deleteUserController)
