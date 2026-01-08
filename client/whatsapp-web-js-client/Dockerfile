@@ -6,6 +6,9 @@ RUN npm install --legacy-peer-deps
 RUN npm install bootstrap bootstrap-icons axios xlsx react-input-mask emoji-picker-react --legacy-peer-deps
 COPY . .
 RUN npm run build
-RUN npm install -g serve
-EXPOSE 3001
-CMD ["serve", "-s", "build", "-l", "3001"]
+
+
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
