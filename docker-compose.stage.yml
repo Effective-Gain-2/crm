@@ -9,6 +9,9 @@ services:
 
   frontend:
     build: ./client/whatsapp-web-js-client
+    args:
+      - REACT_APP_BACKEND_URL=https://backend-stage.effectivegain.com
+      - REACT_APP_WS_URL=http://backend:3333
     restart: always
     expose:
       - "80"
