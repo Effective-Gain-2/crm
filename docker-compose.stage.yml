@@ -1,7 +1,7 @@
 
 services:
   backend:
-    build: ./backend
+    build: ./
     container_name: crm_backend_stage
     restart: always
     ports:
