@@ -1,4 +1,3 @@
-
 services:
   backend:
     build: ./
@@ -7,12 +6,11 @@ services:
       - "3002"
       - "3333"
 
-
-frontend:
-build:
-  context: ./client/whatsapp-web-js-client
-  args:
-    REACT_APP_API_URL: https://backend-stage.effectivegain.com
-restart: always
-expose:
-  - "80"
+  frontend:
+    build:
+      context: ./client/whatsapp-web-js-client
+      args:
+        REACT_APP_API_URL: https://backend-stage.effectivegain.com
+    restart: always
+    expose:
+      - "80"
