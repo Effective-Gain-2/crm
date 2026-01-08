@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: crm_backend_stage
+    restart: always
+    env_file:
+      - ./backend/.env.stage
+    ports:
+      - "3002:3000"
+
+  frontend:
+    build: ./frontend
+    container_name: crm_frontend_stage
+    restart: always
+    ports:
+      - "3001:3001"
