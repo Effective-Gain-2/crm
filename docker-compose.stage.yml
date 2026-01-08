@@ -4,8 +4,6 @@ services:
     build: ./backend
     container_name: crm_backend_stage
     restart: always
-    env_file:
-      - ./backend/.env
     ports:
       - "3002:3333"
 
