@@ -8,7 +8,7 @@ services:
       - "3002:3333"
 
   frontend:
-    build: ./frontend
+    build: ./client/whatsapp-web-js-client
     container_name: crm_frontend_stage
     restart: always
     ports:
