@@ -4,10 +4,10 @@ const { createCliente, getAllClientes, getClienteById, updateCliente, deleteClie
 const { verifyToken } = require('../controllers/UserController');
 const { allowedRoles } = require('../middlewares/RequireUser');
 
-router.post('/', verifyToken, createCliente);
+router.post('/', verifyToken, allowedRoles('tec-admin', true, 'Cliente criado'), createCliente);
 router.get('/get-all/:schema', verifyToken, allowedRoles(), getAllClientes);
 router.get('/get/:id/:schema', verifyToken, allowedRoles(),getClienteById);
-router.put('/:id', verifyToken, allowedRoles('tec-admin'), updateCliente);
-router.delete('/:id/:schema', verifyToken, allowedRoles('tec-admin'), deleteCliente);
+router.put('/:id', verifyToken, allowedRoles('tec-admin', true, 'Cliente atualizado'), updateCliente);
+router.delete('/:id/:schema', verifyToken, allowedRoles('tec-admin', true, 'Cliente deletado'), deleteCliente);
 
 module.exports = router;

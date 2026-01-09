@@ -1,7 +1,7 @@
 const { getAllStockItens, insertItemInStock, getItemById, alterItemQuantityInStock, updateItemInStock, getStockCategories, createStockCategory, deleteStockCategory } = require("../services/StockService")
 
 const getAllStockItensController = async (req, res) => {
-    const {schema} = req.schema
+    const schema = req.schema
     try {
         const result = await getAllStockItens(schema)
         res.status(200).json({
@@ -82,7 +82,7 @@ const updateItemInStockController = async (req, res) => {
     }
 }
 const getStockCategoriesController = async (req,res) => {
-    const {schema} = req.schema
+    const schema = req.schema
     try {
         const result = await getStockCategories(schema)
         res.status(200).json({

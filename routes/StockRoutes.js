@@ -9,11 +9,11 @@ const router = express.Router()
 router.get('/get-categories/:schema', verifyToken, allowedRoles(), getStockCategoriesController)
 router.get('/get-all-itens/:schema', verifyToken, allowedRoles(), getAllStockItensController)
 router.get('/get-by-id/:item_id/:schema', verifyToken, allowedRoles(), getItemByIdController)
-router.post('/insert-stock-item', verifyToken, allowedRoles(), insertItemInStockController)
-router.post('/create-category', verifyToken, allowedRoles(), createStockCategoryController)
-router.put('/alter-item-quantity', verifyToken, allowedRoles('tec-admin'), alterItemQuantityInStockController)
-router.put('/update-item', verifyToken, allowedRoles('tec-admin'), updateItemInStockController)
-router.delete('/delete-category/:category_id/:schema', verifyToken, allowedRoles('tec-admin'), deleteStockCategoryController)
+router.post('/insert-stock-item', verifyToken, allowedRoles(null, true, 'Item inserido no estoque'), insertItemInStockController)
+router.post('/create-category', verifyToken, allowedRoles(null, true, 'Categoria criada'), createStockCategoryController)
+router.put('/alter-item-quantity', verifyToken, allowedRoles('tec-admin', true, 'Quantidade de item alterada'), alterItemQuantityInStockController)
+router.put('/update-item', verifyToken, allowedRoles('tec-admin', true, 'Item atualizado'), updateItemInStockController)
+router.delete('/delete-category/:category_id/:schema', verifyToken, allowedRoles('tec-admin', true, 'Categoria deletada'), deleteStockCategoryController)
 
 
 module.exports = router

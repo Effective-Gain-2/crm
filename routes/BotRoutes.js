@@ -6,9 +6,9 @@ const router = express.Router()
 
 router.get('/get-bots/:schema', verifyToken, allowedRoles(), getBotsController)
 router.get('/get-functions/:schema', verifyToken, allowedRoles(), getFunctionsController)
-router.post('/create', verifyToken, allowedRoles('tec-admin'),createAssistantController)
-router.post('/insert-functions', verifyToken, allowedRoles('tec-admin'), insertBotFunctionsController)
-router.put('/update-assistant/:assistant_id', verifyToken, allowedRoles('tec-admin'), updateBotController)
-router.delete('/delete/:schema/:assistant_id', verifyToken, allowedRoles('tec-admin'), deleteAssistantController)
+router.post('/create', verifyToken, allowedRoles('tec-admin', true, 'Assistente criado'),createAssistantController)
+router.post('/insert-functions', verifyToken, allowedRoles('tec-admin', true, 'Função inserida'), insertBotFunctionsController)
+router.put('/update-assistant/:assistant_id', verifyToken, allowedRoles('tec-admin', true, 'Assistente atualizado'), updateBotController)
+router.delete('/delete/:schema/:assistant_id', verifyToken, allowedRoles('tec-admin', true, 'Assistente deletado'), deleteAssistantController)
 
 module.exports = router

@@ -727,6 +727,13 @@ const updateSchema = async (schema) => {
                 token text not null,
                 queue_id UUID 
                 )`)
+
+                await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.logs (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID,
+                    action TEXT,
+                    created_at bigint
+                    );`)
             
         await pool.query(`alter table ${schema}.messages add column if not exists user_id uuid`)
         await pool.query(`alter table ${schema}.queues add column if not exists stage_id uuid`)

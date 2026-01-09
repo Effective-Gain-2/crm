@@ -5,6 +5,6 @@ const { allowedRoles } = require('../middlewares/RequireUser');
 const router = express.Router();
 
 router.get('/get-vendors/:schema', verifyToken, allowedRoles(), getVendorsController);
-router.post('/create-vendor', verifyToken, allowedRoles('tec-admin'), createVendorController);
+router.post('/create-vendor', verifyToken, allowedRoles('tec-admin', true, 'Vendedor criado'), createVendorController);
 
 module.exports = router;

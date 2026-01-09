@@ -28,20 +28,20 @@ router.get('/scheduled-messages/:chat_id/:schema', verifyToken, allowedRoles(), 
 router.get('/get-status/:schema', verifyToken, allowedRoles(), getStatusController)
 router.get('/get-closed-chats/:schema', verifyToken, allowedRoles(), getClosedChatsController)
 router.get('/average-time-to-close/:schema', verifyToken, allowedRoles(), getAverageTimeToCloseController);
-router.post('/create-status', verifyToken, allowedRoles(), createStatusController)
 router.get('/:schema/:chatId', verifyToken, allowedRoles(), getChatDataController);
-router.post('/setChat', verifyToken, allowedRoles('tec-admin'), setUserChatController);
+router.post('/create-status', verifyToken, allowedRoles(null, true, 'Status criado'), createStatusController)
+router.post('/setChat', verifyToken, allowedRoles('tec-admin', true, 'Chat transferido'), setUserChatController);
 router.post('/getMessages', verifyToken, allowedRoles(),  getMessagesController);
-router.post('/setQueue', verifyToken, allowedRoles('tec-admin'), updateQueueController);
+router.post('/setQueue', verifyToken, allowedRoles('tec-admin', true, 'Fila atualizada'), updateQueueController);
 router.post('/sendAudio', uploadAudio.single('audio'), verifyToken, allowedRoles(), sendAudioController);
 router.post('/chat/processReceivedAudio', verifyToken, allowedRoles(), processReceivedAudio);
 router.post('/sendImage', uploadImage.single('image'), verifyToken, allowedRoles(), sendImageController); 
 router.post('/setAsRead', verifyToken, allowedRoles(), setMessageAsReadController)
-router.post('/close', verifyToken, allowedRoles(), closeChatContoller)
-router.post('/setUser', verifyToken, allowedRoles('tec-admin'), setSpecificUserController)
-router.post('/schedule-message', verifyToken, allowedRoles(), scheduleMessageController)
+router.post('/close', verifyToken, allowedRoles(null, true, 'Chat fechado'), closeChatContoller)
+router.post('/setUser', verifyToken, allowedRoles('tec-admin', 'Chat transferido para usuário específico'), setSpecificUserController)
+router.post('/schedule-message', verifyToken, allowedRoles(null, true, 'Mensagem agendada'), scheduleMessageController)
 router.post('/disable-bot', verifyToken, allowedRoles(), disableBotController)
-router.post('/redistribute-waiting', verifyToken, allowedRoles('tec-admin'), redistributeWaitingChatsController)
+router.post('/redistribute-waiting', verifyToken, allowedRoles('tec-admin', true, 'Todos os chats aguardando foram redistribuidos '), redistributeWaitingChatsController)
 router.put('/active-bot', verifyToken, allowedRoles(), activeBotController)
 router.delete('/scheduled-message/:id/:schema', verifyToken, allowedRoles(), deleteScheduledMessageController)
 module.exports = router;

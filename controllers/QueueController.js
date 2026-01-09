@@ -1,9 +1,9 @@
 const Queue = require("../entities/Queue")
 const { v4: uuidv4 } = require('uuid')
 const { createQueue, addUserinQueue, getUserQueues, getAllQueues, deleteQueue, getQueueById, transferQueue, updateUserQueues, toggleWebhookStatus, updateWebhookUrl, getUsersInQueue, updateQueue, updateAssistantId } = require("../services/QueueService")
-const  setUserChat=require("../services/ChatService")
 const { getUserById } = require("../services/UserService")
 const { getFunilByKanbanStage } = require("../services/KanbanService")
+const { setUserChat } = require("../services/ChatService")
 
 
 const createQueueController = async(req, res)=>{
