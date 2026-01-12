@@ -11,7 +11,7 @@ services:
       context: ./client/whatsapp-web-js-client
       args:
         REACT_APP_URL: https://backend-stage.effectivegain.com
-        REACT_APP_RECAPTCHA_SITE_KEY: 6LeBGEgsAAAAAJr5c0LFFLyHy4r3d2eFF1_pNAbp
+        REACT_APP_RECAPTCHA_SITE_KEY: 6LcJHEgsAAAAAFjk-C-WxC5srLhsc_yPeGcVNYsm
     restart: always
     expose:
       - "80"
