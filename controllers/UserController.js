@@ -3,6 +3,7 @@ const { Users } = require('../entities/Users');
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
 const { getLimitsBySchema } = require('../services/LimitsService');
+const { getLogs } = require('../middlewares/Log');
 
 function verifyToken(req, res, next) {
   const { token } = req.cookies;
@@ -391,6 +392,23 @@ const logoutController = async (req, res) => {
     });
   }
 };
+
+const getLogsController = async (req, res) => {
+  const schema = req.schema;
+  try {
+    const logs = await getLogs(schema);
+    res.status(200).json({
+      success: true,
+      data: logs
+    });
+  } catch (error) {
+    console.error('Erro ao obter logs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao obter logs'
+    });
+  }
+}
   module.exports = {
     createUserController,
     getAllUsersController,
@@ -404,5 +422,6 @@ const logoutController = async (req, res) => {
     verifyToken,
     refreshTokenController,
     googleCallbackController,
-    gerarLembretesController
+    gerarLembretesController,
+    getLogsController
   }

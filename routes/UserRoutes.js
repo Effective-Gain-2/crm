@@ -1,11 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { createUserController, getAllUsersController, searchUserController, getOnlineUsersController, deleteUserController, updateUserController, searchUserByIdController, logoutController, verifyToken, refreshTokenController, googleCallbackController, gerarLembretesController } = require('../controllers/UserController');
+const { createUserController, getAllUsersController, searchUserController, getOnlineUsersController, deleteUserController, updateUserController, searchUserByIdController, logoutController, verifyToken, refreshTokenController, googleCallbackController, gerarLembretesController, getLogsController } = require('../controllers/UserController');
 const { allowedRoles } = require('../middlewares/RequireUser');
 
 router.get('/users/:schema', verifyToken, allowedRoles(), getAllUsersController);
 router.get('/users/online', verifyToken, allowedRoles(), getOnlineUsersController)
 router.get('/search-user/:schema/:user_id', verifyToken, allowedRoles(), searchUserByIdController);
+//logs
+router.get('/logs/:schema', verifyToken, allowedRoles('tec-admin'), getLogsController)
+
 router.post('/users', verifyToken, allowedRoles('tec-admin', true, 'Usuário criado'), createUserController);
 router.post('/login', searchUserController);
 router.post('/logout', verifyToken, logoutController);

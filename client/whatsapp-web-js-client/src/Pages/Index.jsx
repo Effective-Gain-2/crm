@@ -28,8 +28,9 @@
   import useUserPreferences from '../hooks/useUserPreferences';
   import CustomValuesModal from './modalPages/CustomValuesModal';
   import { useToast } from '../contexts/ToastContext';
-  import ClientesPage from './Clientes';
-  import WhatsappTemplatesPage from './WhatsappTemplates';
+import ClientesPage from './Clientes';
+import WhatsappTemplatesPage from './WhatsappTemplates';
+import LogsPage from './Logs';
 
   window.addEventListener('error', function (event) {
     if (
@@ -476,6 +477,7 @@
         case 'clientes': return <ClientesPage theme={theme} />;
         case 'integracoes': return <IntegracoesPage theme={theme} onOpenWhatsappModal={handleWhatsapp} />;
         case 'whatsapp-templates': return <WhatsappTemplatesPage theme={theme} />;
+        case 'logs': return <LogsPage theme={theme} />;
         case 'agenda': return <LembretesPage
     theme={theme}
     lembretes={lembretes}
@@ -662,6 +664,17 @@
               >
                 <i className="bi bi-bell"></i>
                 <span className="sidebar-label d-none">Lembretes</span>
+              </button>
+              <button
+                id="logs"
+                onClick={() => handlePageChange('logs')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Logs"
+                className={`btn ${page === 'logs' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-journal-text"></i>
+                <span className="sidebar-label d-none">Logs</span>
               </button>
               <hr className={`hr-${theme} mx-auto my-0`} style={{ width: '50%' }} />
               <button

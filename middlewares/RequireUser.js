@@ -32,18 +32,18 @@ async function verifyUserRoleAndId(req, res, next, roles, saveLog = false, actio
             break;
     }
     if (!allowedRoles.includes(user_role)) {
-        returnForbiddenError(res);
+        return returnForbiddenError(res);
     }
     if (user_role === "tecnico") {
         const user = await getUserById(user_id, "effective_gain");
         if (user.rowsCount === 0) {
-            return ForbiddenError(res);
+            return returnForbiddenError(res);
         }
         return next();
     }
     const user = await getUserById(user_id, schema);
     if (user.rowsCount === 0) {
-        return ForbiddenError(res);
+        return returnForbiddenError(res);
     }
     if (saveLog) {
         await insertLog(user_id, action_name, schema)
