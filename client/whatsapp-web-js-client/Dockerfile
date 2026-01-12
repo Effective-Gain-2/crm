@@ -7,6 +7,8 @@ RUN npm install bootstrap bootstrap-icons axios xlsx react-input-mask emoji-pick
 COPY . .
 ARG REACT_APP_URL
 ENV REACT_APP_URL=$REACT_APP_URL
+ARG REACT_APP_RECAPTCHA_SITE_KEY
+ENV REACT_APP_RECAPTCHA_SITE_KEY=$REACT_APP_RECAPTCHA_SITE_KEY
 RUN npm run build
 
 
