@@ -13,12 +13,13 @@ import {
   Legend,
 } from 'chart.js';
 import ChatViewModal from './Componentes/ChatViewModal';
+import { useAuth } from '../contexts/AuthContext';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
 function Dashboard({ theme }) {
   const url = process.env.REACT_APP_URL;
-  const userData = JSON.parse(localStorage.getItem('user'));
+  const userData = useAuth()
   const [user, setUser] = useState()
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeGraficoTab, setActiveGraficoTab] = useState('ganhos');

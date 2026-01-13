@@ -7,6 +7,7 @@ import FilasWebhookModal from './modalPages/Filas_webhook';
 import {socket} from '../socket'
 import EditQueueModal from './modalPages/Filas_editarFila';
 import FilasAssistenteModal from './modalPages/Filas_assistente';
+import { useAuth } from '../contexts/AuthContext';
 
 function FilaPage({ theme }) {
   const [filas, setFilas] = useState([]);
@@ -15,7 +16,7 @@ function FilaPage({ theme }) {
   const [showWebhookModal, setShowWebhookModal] = useState(false);
   const [showAssistantModal, setShowAssistantModal] = useState(false)
   const [selectedFila, setSelectedFila] = useState(null);
-  const userData = JSON.parse(localStorage.getItem('user'));
+  const userData = useAuth()
   const [socketInstance] = useState(socket)  
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;

@@ -36,11 +36,6 @@ function NewContactModal({ theme, show, onHide }) {
     fetchConnections();
   }, []); 
 
-  
-if (!userData || !userData.id) {
-  navigate('/')  
-  return;
-}
 
   const handleSave = async () => {
     if (!contactName || !contactNumber || !attendant) {

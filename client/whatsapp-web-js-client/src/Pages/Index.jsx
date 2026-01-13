@@ -31,6 +31,7 @@
 import ClientesPage from './Clientes';
 import WhatsappTemplatesPage from './WhatsappTemplates';
 import LogsPage from './Logs';
+import { useAuth } from '../contexts/AuthContext';
 
   window.addEventListener('error', function (event) {
     if (
@@ -105,7 +106,7 @@ import LogsPage from './Logs';
     const navigate = useNavigate();
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
     const [shownToasts, setShownToasts] = useState([]);
-    const userData = JSON.parse(localStorage.getItem('user'));
+    const { userData, logout } = useAuth()
     const schema = userData?.schema;
     const url = process.env.REACT_APP_URL;
     const [socketInstance] = useState(() => socket());
@@ -341,20 +342,13 @@ import LogsPage from './Logs';
   }, [socketInstance, userData?.id, schema, url]);
 
     useEffect(() => {
-      try {
-        const userData = JSON.parse(localStorage.getItem('user'));
-        if (!userData || !userData.schema || !userData.id) {
-          navigate('/'); // Redireciona para login se não estiver logado ou sem dados necessários
-          return;
-        }
+      // Usa userData do contexto em vez de ler diretamente do localStorage
+      if (userData) {
         setUsername(userData.username);
         setRole(userData.role);
         setEmpresa(userData.empresa);
-      } catch (error) {
-        console.error('Erro ao verificar dados do usuário:', error);
-        navigate('/'); // Redireciona para login em caso de erro
       }
-    }, [navigate]);
+    }, [userData]);
     
     const toggleTheme = () => {
       const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -494,13 +488,11 @@ import LogsPage from './Logs';
     const handleLogout = async () => {
       try {
         await axios.post(`${url}/api/logout`, {},);
-        
-        localStorage.removeItem('user');
-        navigate('/');
       } catch (error) {
         console.error('Erro no logout:', error);
-        // Mesmo com erro, limpar dados locais
-        localStorage.removeItem('user');
+      } finally {
+        // Sempre limpar dados locais usando a função do contexto
+        logout();
         navigate('/');
       }
     };

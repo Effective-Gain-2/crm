@@ -7,9 +7,9 @@ import { Card, Button } from 'react-bootstrap';
 import DisparoModal from './modalPages/Disparos_novoDisparo';
 import DeleteDisparoModal from './modalPages/Disparos_delete';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 
-const userData = JSON.parse(localStorage.getItem('user'));
-const isAdmin = userData?.role === 'admin' || userData?.role === 'tecnico';
+
 
 function formatDateHour(timestamp) {
   let ts = Number(timestamp);
@@ -42,12 +42,12 @@ function formatInterval(intervalInSeconds) {
 function DisparosPage({ theme }) {
   const { showError, showSuccess } = useToast();
   const [disparoSelecionado, setDisparoSelecionado] = useState(null);
-  const userData = JSON.parse(localStorage.getItem('user')); 
-  const schema = userData?.schema
   const url = process.env.REACT_APP_URL;
   const [disparos, setDisparos] = useState([]);
   const [conexoes, setConexoes] = useState([]);
-
+  const userData = useAuth()
+  const isAdmin = userData?.role === 'admin' || userData?.role === 'tecnico';
+  const schema = userData?.schema;
   const formatarDataHora = (dataHoraString) => {
     const data = new Date(dataHoraString);
     return data.toLocaleString('pt-BR', {

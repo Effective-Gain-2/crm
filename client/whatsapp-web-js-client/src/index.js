@@ -13,14 +13,14 @@ import { ToastProvider } from './contexts/ToastContext';
 import Toast from './Componentes/Toast';
 import ToastWrapper from './Componentes/ToastWrapper';
 
-// Importar configuração global do axios
 import './utils/axiosConfig';
 import { setToastCallback } from './utils/axiosConfig';
 
-// Importar estilos
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './index.css';
+import { PrivateRoute } from './contexts/PrivateRoute';
+import { AuthProvider } from './contexts/AuthContext';
 
 // Configurar o router
 const router = createBrowserRouter([
@@ -34,7 +34,11 @@ const router = createBrowserRouter([
   },
   {
     path: "/painel", 
-    element: <Painel />
+    element: (
+      <PrivateRoute>
+        <Painel />
+      </PrivateRoute>
+    )
   },
   {
     path: '/schemas',
@@ -42,26 +46,24 @@ const router = createBrowserRouter([
   }
 ]);
 
-// Garantir que o elemento root existe
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error('Failed to find the root element');
 }
 
-// Criar a raiz do React e renderizar a aplicação
 const root = ReactDOM.createRoot(rootElement);
 
-// Renderizar a aplicação com StrictMode
 root.render(
-  <React.StrictMode>
+
+    <AuthProvider>
     <ToastProvider>
       <ToastWrapper>
         <RouterProvider router={router} />
         <Toast />
       </ToastWrapper>
     </ToastProvider>
-  </React.StrictMode>
+    </AuthProvider>
+
 );
 
-// Inicializar web vitals
 reportWebVitals();

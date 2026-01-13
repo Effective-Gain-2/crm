@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import logo from './assets/effective-gain_logo.png';
 import { useTheme } from './assets/js/useTheme';
+import { useAuth } from '../contexts/AuthContext';
 
 function SchemasPage({ theme: themeProp }) {
   const [schemas, setSchemas] = useState([]);
@@ -20,6 +21,7 @@ function SchemasPage({ theme: themeProp }) {
   const [currentSchemaLimits, setCurrentSchemaLimits] = useState(null);
   const [loadingLimits, setLoadingLimits] = useState(false);
   const [limits, setLimits] = useState([]);
+  const userData = useAuth()
   const [newLimit, setNewLimit] = useState({
     name: '',
     is_on: true,
@@ -52,7 +54,6 @@ function SchemasPage({ theme: themeProp }) {
   }, [url]);
 
   const handleEnterSchema = async(schema) => {
-    const userData = JSON.parse(localStorage.getItem('user')) || {};
     userData.schema = schema.schema_name || schema;
     userData.empresa = schema.company_name || schema.empresa || '';
     localStorage.setItem('user', JSON.stringify(userData));

@@ -17,7 +17,7 @@ const createLembreteController = async (req, res) => {
 }
 
 const getLembretesController = async (req, res) => {
-    const {schema} = req.schema
+    const schema = req.schema
     try {
         const result = await getLembretes(schema)
         res.status(200).json(result);

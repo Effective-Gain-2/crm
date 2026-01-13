@@ -26,6 +26,7 @@ import DocumentUploadModal from './modalPages/Chats_uploadPdf';
 import ResumoModal from './modalPages/ResumoModal';
 import { getFileIcon } from '../utils/fileUtils';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 
 function formatHour(timestamp) {
   const date = new Date(Number(timestamp));
@@ -98,8 +99,8 @@ function groupMessagesByDate(messages) {
 function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, setSelectedChat, setSelectedMessages, onEditName, showResumoModal, setShowResumoModal }) {
   const { showError, showSuccess } = useToast();
   const url = process.env.REACT_APP_URL;
-  const userData = JSON.parse(localStorage.getItem('user'));
-  const schema = userData.schema;
+  const {userData} = useAuth();
+  const schema = userData?.schema ;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showChangeQueueModal, setShowChangeQueueModal] = useState(false);
   const [showListaAgendamentosModal, setShowListaAgendamentosModal] = useState(false);
@@ -109,12 +110,6 @@ function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, set
   const [queues, setQueues] = useState([]);
   const [transferLoading, setTransferLoading] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!schema || !userData?.id) {
-      navigate('/');
-    }
-  }, [schema, userData?.id, navigate]);
 
   const handleCloseChat = async () => {
     try {
@@ -303,11 +298,14 @@ function ChatPage({ theme, chat_id }) {
   const selectedChatRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const userData = JSON.parse(localStorage.getItem('user'));
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [audioChunks, setAudioChunks] = useState([]);
-  const schema = userData.schema;
+
+  //Auth context
+  const {userData} = useAuth();
+  const schema = userData?.schema ;
+
   const [recordingTime, setRecordingTime] = useState(0);
   const recordingIntervalRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -387,11 +385,6 @@ function ChatPage({ theme, chat_id }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showQuickMsgPopover]);
 
-  useEffect(() => {
-    if (!schema || !userData?.id) {
-      navigate('/');
-    }
-  }, [schema, userData?.id, navigate]);
 
   // Função para ordenar chats por timestamp mais recente
   const sortChatsByTimestamp = (chats) => {
@@ -596,7 +589,6 @@ function ChatPage({ theme, chat_id }) {
         const res = await axios.get(`${url}/api/users/${schema}`, {
           withCredentials: true
         });
-        console.log(res.data)
         setUsers(res.data.users || []);
       } catch (err) {
         setUsers([]);
@@ -825,7 +817,7 @@ function ChatPage({ theme, chat_id }) {
 
             // Adicionar novos chats que não existiam antes
             chats.forEach(chat => {
-              
+
               if (!prevChats.some(c => c.id === chat.id)) {
                 merged.push(chat);
               }
@@ -2008,8 +2000,8 @@ function ChatPage({ theme, chat_id }) {
                       gap: '8px'
                     }}>
                       <div style={{
-                       fontSize:'150%',
-                       color:`var(--primary-color)`
+                        fontSize: '150%',
+                        color: `var(--primary-color)`
                       }}>
                         {chat.isApi ? <i className="bi bi-whatsapp"></i> : <i className="bi bi-globe"></i>}
                       </div>
@@ -2452,7 +2444,7 @@ function ChatPage({ theme, chat_id }) {
                                     : msg.base64;
                                   // debug info - will appear in browser console
                                   try {
-                                  } catch (e) {}
+                                  } catch (e) { }
                                   return (
                                     <img
                                       src={imgSrc}
@@ -2474,7 +2466,7 @@ function ChatPage({ theme, chat_id }) {
                           ) : (msg.message_type === 'document' || msg.message_type === 'documentMessage' || msg.message_type === 'arquivo') ? (
                             (() => {
                               const name = msg.file_name || msg.filename || msg.name || 'Documento';
-                              const b64 = typeof msg.base64 === 'string' ? msg.base64.startsWith('data:')? msg.base64 : `data:application/${msg.mimetype};base64,`:'';
+                              const b64 = typeof msg.base64 === 'string' ? msg.base64.startsWith('data:') ? msg.base64 : `data:application/${msg.mimetype};base64,` : '';
                               let mime = msg.mimetype || msg.mime || '';
 
                               // Determinar o tipo de arquivo baseado na extensão se o MIME não estiver disponível
@@ -3105,7 +3097,7 @@ function ChatPage({ theme, chat_id }) {
         selectedChat={selectedChat}
         onFinish={() => {
           setChats(prevChats => prevChats.filter(c => c.id !== selectedChat.id));
-          setApiChats(apiChats=>apiChats.filter(c=>c.id!==selectedChat.id))
+          setApiChats(apiChats => apiChats.filter(c => c.id !== selectedChat.id))
           setSelectedChat(null);
           setSelectedMessages([]);
         }}

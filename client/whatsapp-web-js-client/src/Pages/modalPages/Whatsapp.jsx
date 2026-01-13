@@ -6,6 +6,7 @@ import WhatsappFilasModal from './Whatsapp_filas';
 import { useToast } from '../../contexts/ToastContext';
 
 import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 
 function WhatsappModal({ theme, show, onHide }) {
   const [contatos, setContatos] = useState([]);
@@ -19,7 +20,7 @@ function WhatsappModal({ theme, show, onHide }) {
   const { showError, showSuccess } = useToast();
   
 
-  const userData = JSON.parse(localStorage.getItem('user')); 
+  const userData = useAuth(); 
   const schema = userData?.schema
   const url = process.env.REACT_APP_URL;
 

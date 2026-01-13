@@ -85,7 +85,7 @@ const createCampaingController = async (req, res) => {
 const getAllBlastMessagesController = async(req, res)=>{
   try {
     const {campaing_id} = req.params
-    const {schema} = req.schema
+    const schema = req.schema
     const result = await getAllBlastMessages(campaing_id, schema)
     res.status(200).json({
       result

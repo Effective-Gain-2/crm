@@ -6,6 +6,7 @@ import anime from 'animejs';
 import axios from 'axios';
 import { useToast } from '../contexts/ToastContext';
 import { socket } from '../socket';
+import { useAuth } from '../contexts/AuthContext';
 
 // Estilo moderno para o botão Google Calendar
 const style = document.createElement('style');
@@ -80,7 +81,7 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
     const [lembreteDeletando, setLembreteDeletando] = useState(null);
     const [lembretesState, setLembretesState] = useState(lembretes);
     const buttonRefs = useRef({});
-    const userData = JSON.parse(localStorage.getItem('user'));
+    const userData = useAuth()
     const schema = userData?.schema;
     const [loadingGoogle, setLoadingGoogle] = useState(false);
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);

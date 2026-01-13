@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 const socket = io(process.env.REACT_APP_SOCKET_URL || window.location.origin, {
   transports: ['websocket', 'polling'],
@@ -11,7 +12,7 @@ const socket = io(process.env.REACT_APP_SOCKET_URL || window.location.origin, {
 });
 
 function ChatInterno() {
-  const userData = JSON.parse(localStorage.getItem('user'));
+  const userData = useAuth()
   const userId = userData?.id;
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -19,7 +20,7 @@ function ChatInterno() {
   const [msg, setMsg] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const messagesEndRef = useRef(null);
-  const schema = userData?.schema;
+  const schema = userData.schema || null;
 
 
 useEffect(() => {

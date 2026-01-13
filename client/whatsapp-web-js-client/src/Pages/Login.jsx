@@ -9,6 +9,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 
 function Redirecionar(){
   const navigate = useNavigate()
@@ -23,6 +24,7 @@ function Redirecionar(){
 
 function Login() {
   const { showError } = useToast();
+
   const [errorCount, setErrorCount] = useState(0);
   const [recaptchaValue, setRecaptchaValue] = useState(null);
   const [theme, setTheme] = useTheme();
@@ -32,6 +34,9 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const url = process.env.REACT_APP_URL;
+  // Auth context
+  const { login } = useAuth();
+
 
   useEffect(() => {
     const rememberedCredentials = JSON.parse(localStorage.getItem('rememberedCredentials')) || {};
@@ -75,6 +80,8 @@ const handleLogin = async (e) => {
         schema: response.data.company.schema_name,
       };
       localStorage.setItem('user', JSON.stringify(userData));
+
+      login(userData)
 
       const rememberedCredentials = JSON.parse(localStorage.getItem('rememberedCredentials')) || {};
       if (rememberMe) {

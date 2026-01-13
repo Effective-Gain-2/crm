@@ -4,14 +4,15 @@ import NewAssistantModal from './modalPages/Assistentes_novoAssistente';
 import DeleteAssistantModal from './modalPages/Assistentes_delete';
 import EditAssistantModal from './modalPages/Assistentes_editarAssistente';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 function AssistentesPage({ theme }) {
   const [assistentes, setAssistentes] = useState([]);
   const [assistente, setAssistente] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAssistant, setSelectedAssistant] = useState(null);
-  const userData = JSON.parse(localStorage.getItem('user'));
-  const schema = userData?.schema;
+  const userData = useAuth()
+  const schema = userData?.schema || '';
   const url = process.env.REACT_APP_URL;
   // Mock data para demonstração - será substituído pela API real
   useEffect(() => {

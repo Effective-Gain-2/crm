@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Row, Col, Card } from 'react-bootstrap';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 function ControleEstoque({ theme }) {
   const [itens, setItens] = useState([]);
@@ -28,7 +29,7 @@ function ControleEstoque({ theme }) {
     Object.values(itensMapSelection).includes(item.id)
   );
 
-  const userData = JSON.parse(localStorage.getItem('user'));
+  const userData = useAuth()
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
 

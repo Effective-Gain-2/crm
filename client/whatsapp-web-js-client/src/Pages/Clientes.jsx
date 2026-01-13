@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Row, Col, Card } from 'react-bootstrap';
 import axios from 'axios';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 
 function Clientes({ theme }) {
   const [clientes, setClientes] = useState([]);
@@ -15,7 +16,7 @@ function Clientes({ theme }) {
     idade: ''
   });
 
-  const userData = JSON.parse(localStorage.getItem('user'));
+  const userData = useAuth()
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
 

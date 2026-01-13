@@ -8,6 +8,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { socket } from '../socket'
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 
 // Função para refresh token
 // const refreshToken = async () => {
@@ -41,7 +42,7 @@ import { useToast } from '../contexts/ToastContext';
 // clearInterval(tokenRefreshInterval);
 
 function UsuariosPage({ theme }) {
-  const userData = JSON.parse(localStorage.getItem('user'));
+  const userData = useAuth()
   const schema = userData?.schema
   const [usuarios, setUsuarios] = useState([]);
   const [usuarioSelecionado, setUsuarioSelecionado] = useState(null);

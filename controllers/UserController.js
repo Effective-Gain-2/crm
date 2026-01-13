@@ -8,7 +8,7 @@ const { getLogs } = require('../middlewares/Log');
 function verifyToken(req, res, next) {
   const { token } = req.cookies;
   if (!token) {
-    return res.status(401).json({ error: 'Token não fornecido' });
+    return res.redirect('/login');
   }
   jwt.verify(token, process.env.JWT_SECRET, (error, decoded) => {
     if (error) {

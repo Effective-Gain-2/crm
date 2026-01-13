@@ -19,6 +19,7 @@ import Tooltip from 'react-bootstrap/Tooltip';
 import useDashboardData from '../hooks/useDashboardData';
 import useDashboardFilters from '../hooks/useDashboardFilters';
 import axios from '../utils/axiosConfig';
+import { useAuth } from '../contexts/AuthContext';
 
 ChartJS.register(
   CategoryScale,
@@ -34,7 +35,7 @@ ChartJS.register(
 
 function NewDashboard({ theme }) {
   const url = process.env.REACT_APP_URL;
-  const userData = JSON.parse(localStorage.getItem('user'));
+  const userData = useAuth()
   const schema = userData?.schema;
   const { showError, showSuccess } = useToast();
   const xlsx = require('xlsx');
