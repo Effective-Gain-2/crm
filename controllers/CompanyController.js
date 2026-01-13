@@ -4,6 +4,7 @@ const { createCompany, getAllCompanies, getAllCompaniesTecUser, updateSchema, cr
 const { returnForbiddenError } = require('../Errors/Errors');
 const jwt = require('jsonwebtoken');
 const { insertLimits } = require('../services/LimitsService');
+const { createPaymentRequestQrCode } = require('../requests/payment');
 
 const createCompanyController = async (req, res) => {
     try {
@@ -25,11 +26,18 @@ const createCompanyController = async (req, res) => {
 };
 const createCompanySelfServiceController = async (req, res) => {
     try{
-        const { empresa_name, name, email, password } = req.body;
+        const { empresa_name, name, email, password, cpf } = req.body;
         const company = await createCompanySelfService(empresa_name, name, email, password);
         await insertLimits('payment', false, null, company.schema);
+        const qr_code = await createPaymentRequestQrCode(
+            name,
+            email,
+            cpf,
+            `Assinatura - ${empresa_name}`,
+            500
+        );
         res.status(201).json({
-            message: 'Empresa criada com sucesso'
+            message: qr_code.qr_codes[0].links[0].href
         })
     }catch(error){
         console.error("Erro ao criar empresa:", error);
