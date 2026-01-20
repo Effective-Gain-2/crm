@@ -8,7 +8,7 @@ const { getLogs } = require('../middlewares/Log');
 function verifyToken(req, res, next) {
   const { token } = req.cookies;
   if (!token) {
-    return res.redirect('/login');
+    return res.status(401).json({error:'Token não fornecido' });
   }
   jwt.verify(token, process.env.JWT_SECRET, (error, decoded) => {
     if (error) {
@@ -25,7 +25,6 @@ function verifyToken(req, res, next) {
 const refreshTokenController = (req, res) => {
   const { refreshToken } = req.cookies;
   if (!refreshToken) {
-    console.log('Refresh token não encontrado nos cookies');
     return res.status(401).json({ error: 'Refresh token não fornecido' });
   }
   try {
