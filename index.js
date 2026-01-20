@@ -156,7 +156,8 @@ const socketIoServer = socketIo(socketServer, {
       "https://campo-grande.effectivegain.com",
       "https://porto-alegre.effectivegain.com",
       "https://ilha-backend.9znbc3.easypanel.host",
-      "https://crm-stage.effectivegain.com"
+      "https://crm-stage.effectivegain.com",
+      "http://localhost:3000"
     ],
     methods: ["GET", "POST", "DELETE", "PUT"],
     allowedHeaders: ["Content-Type"],
