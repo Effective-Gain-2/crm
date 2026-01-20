@@ -619,7 +619,7 @@ import { useAuth } from '../contexts/AuthContext';
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
                 data-bs-title="Clientes"
-                className={`btn ${page === 'clientes' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+                className={`btn ${page === 'clientes' ? `btn-1-${theme}` : `btn-2-${theme}`} d-none d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
                 <i className="bi bi-person-badge"></i>
                 <span className="sidebar-label d-none">Clientes</span>
