@@ -183,7 +183,7 @@ function KanbanPage({ theme }) {
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
-  const userData = useAuth()
+  const userData = useAuth().userData
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
   const [socketInstance] = useState(socket)

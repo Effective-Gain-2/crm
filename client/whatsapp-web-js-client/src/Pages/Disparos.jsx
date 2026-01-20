@@ -45,7 +45,7 @@ function DisparosPage({ theme }) {
   const url = process.env.REACT_APP_URL;
   const [disparos, setDisparos] = useState([]);
   const [conexoes, setConexoes] = useState([]);
-  const userData = useAuth()
+  const userData = useAuth().userData
   const isAdmin = userData?.role === 'admin' || userData?.role === 'tecnico';
   const schema = userData?.schema;
   const formatarDataHora = (dataHoraString) => {

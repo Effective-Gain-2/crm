@@ -19,7 +19,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tool
 
 function Dashboard({ theme }) {
   const url = process.env.REACT_APP_URL;
-  const userData = useAuth()
+  const userData = useAuth().userData
   const [user, setUser] = useState()
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeGraficoTab, setActiveGraficoTab] = useState('ganhos');

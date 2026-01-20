@@ -21,7 +21,7 @@ function SchemasPage({ theme: themeProp }) {
   const [currentSchemaLimits, setCurrentSchemaLimits] = useState(null);
   const [loadingLimits, setLoadingLimits] = useState(false);
   const [limits, setLimits] = useState([]);
-  const userData = useAuth()
+  const userData = useAuth().userData
   const [newLimit, setNewLimit] = useState({
     name: '',
     is_on: true,

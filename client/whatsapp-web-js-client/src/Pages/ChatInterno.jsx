@@ -12,7 +12,7 @@ const socket = io(process.env.REACT_APP_SOCKET_URL || window.location.origin, {
 });
 
 function ChatInterno() {
-  const userData = useAuth()
+  const userData = useAuth().userData
   const userId = userData?.id;
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);

@@ -42,7 +42,7 @@ import { useAuth } from '../contexts/AuthContext';
 // clearInterval(tokenRefreshInterval);
 
 function UsuariosPage({ theme }) {
-  const userData = useAuth()
+  const userData = useAuth().userData
   const schema = userData?.schema
   const [usuarios, setUsuarios] = useState([]);
   const [usuarioSelecionado, setUsuarioSelecionado] = useState(null);
@@ -55,6 +55,7 @@ function UsuariosPage({ theme }) {
   const { showError, showSuccess } = useToast();
 
   // Verificar se o usuário tem permissão para gerenciar usuários
+
   const canManageUsers = userData?.role === 'admin' || userData?.role === 'tecnico';
   useEffect(() => {
     if (socketInstance) {

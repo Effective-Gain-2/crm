@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 function WhatsappTemplates({ theme }) {
   const url = process.env.REACT_APP_URL;
-  const userData = useAuth()
+  const userData = useAuth().userData
   const schema = userData?.schema;
 
   const [templates, setTemplates] = useState([]);

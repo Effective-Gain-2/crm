@@ -12,7 +12,7 @@ function IntegracoesPage({ theme, onOpenWhatsappModal }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const { showError, showSuccess } = useToast();
   
-  const userData = useAuth()
+  const userData = useAuth().userData
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
 

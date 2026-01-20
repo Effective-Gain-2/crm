@@ -81,7 +81,7 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
     const [lembreteDeletando, setLembreteDeletando] = useState(null);
     const [lembretesState, setLembretesState] = useState(lembretes);
     const buttonRefs = useRef({});
-    const userData = useAuth()
+    const userData = useAuth().userData
     const schema = userData?.schema;
     const [loadingGoogle, setLoadingGoogle] = useState(false);
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);

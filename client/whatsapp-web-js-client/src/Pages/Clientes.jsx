@@ -16,7 +16,7 @@ function Clientes({ theme }) {
     idade: ''
   });
 
-  const userData = useAuth()
+  const userData = useAuth().userData
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
 

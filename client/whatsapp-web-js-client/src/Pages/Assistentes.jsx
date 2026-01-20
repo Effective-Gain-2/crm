@@ -11,7 +11,7 @@ function AssistentesPage({ theme }) {
   const [assistente, setAssistente] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAssistant, setSelectedAssistant] = useState(null);
-  const userData = useAuth()
+  const userData = useAuth().userData
   const schema = userData?.schema || '';
   const url = process.env.REACT_APP_URL;
   // Mock data para demonstração - será substituído pela API real

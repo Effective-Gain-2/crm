@@ -29,7 +29,7 @@ function ControleEstoque({ theme }) {
     Object.values(itensMapSelection).includes(item.id)
   );
 
-  const userData = useAuth()
+  const userData = useAuth().userData
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
 

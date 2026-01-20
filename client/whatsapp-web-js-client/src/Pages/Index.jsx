@@ -106,7 +106,8 @@ import { useAuth } from '../contexts/AuthContext';
     const navigate = useNavigate();
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
     const [shownToasts, setShownToasts] = useState([]);
-    const { userData, logout } = useAuth()
+    const logout = useAuth().logout;
+    const { userData} = useAuth()
     const schema = userData?.schema;
     const url = process.env.REACT_APP_URL;
     const [socketInstance] = useState(() => socket());

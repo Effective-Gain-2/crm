@@ -8,7 +8,7 @@ function LogsPage({ theme }) {
   const [loading, setLoading] = useState(true);
   const { showError } = useToast();
   
-  const userData = useAuth()
+  const userData = useAuth().userData
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
 

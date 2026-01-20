@@ -16,7 +16,7 @@ function FilaPage({ theme }) {
   const [showWebhookModal, setShowWebhookModal] = useState(false);
   const [showAssistantModal, setShowAssistantModal] = useState(false)
   const [selectedFila, setSelectedFila] = useState(null);
-  const userData = useAuth()
+  const userData = useAuth().userData
   const [socketInstance] = useState(socket)  
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;

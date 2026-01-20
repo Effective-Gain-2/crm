@@ -35,7 +35,7 @@ ChartJS.register(
 
 function NewDashboard({ theme }) {
   const url = process.env.REACT_APP_URL;
-  const userData = useAuth()
+  const userData = useAuth().userData
   const schema = userData?.schema;
   const { showError, showSuccess } = useToast();
   const xlsx = require('xlsx');
