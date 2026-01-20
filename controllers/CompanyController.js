@@ -48,8 +48,10 @@ const createCompanySelfServiceController = async (req, res) => {
 }
 
 const getAllCompaniesController = async(req, res)=>{
+    
     try{
         const result = await getAllCompanies();
+        console.log(result)
         res.status(201).json({
             empresas: result
         })

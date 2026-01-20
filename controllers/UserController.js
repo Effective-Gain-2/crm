@@ -25,6 +25,7 @@ function verifyToken(req, res, next) {
 const refreshTokenController = (req, res) => {
   const { refreshToken } = req.cookies;
   if (!refreshToken) {
+    console.log('Refresh token não encontrado nos cookies');
     return res.status(401).json({ error: 'Refresh token não fornecido' });
   }
   try {
