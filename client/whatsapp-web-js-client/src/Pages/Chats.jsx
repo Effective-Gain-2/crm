@@ -315,7 +315,7 @@ function ChatPage({ theme, chat_id }) {
   const [imageUrl, setImageUrl] = useState('')
   const selectedChatIdRef = useRef(null);
   const { preferences, updateChatsTab } = useUserPreferences();
-  const [selectedTab, setSelectedTab] = useState(preferences.chatsTab || 'conversas');
+  const [selectedTab, setSelectedTab] = useState(preferences.chatsTab); // checkpoint
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [connections, setConnections] = useState([]);
