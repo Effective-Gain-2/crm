@@ -185,7 +185,7 @@ module.exports = (broadcastMessage) => {
     if (!result?.data?.key?.remoteJid) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
-    const num = result.data.key.remoteJid.split('@')[0];
+    const num = result.data.key.remoteJidAlt.split('@')[0];
     const numberLimpo = num.length === 12
       ? num
       : num.slice(0, 4) + num.slice(5);
@@ -201,7 +201,7 @@ module.exports = (broadcastMessage) => {
 
       const chat = new Chat(
         uuidv4(),
-        result.data.key.remoteJid,
+        result.data.key.remoteJidAlt,
         result.data.instanceId,
         null,
         result.data.key.fromMe,
