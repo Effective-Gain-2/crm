@@ -805,7 +805,7 @@ function ChatPage({ theme, chat_id }) {
             const updatedMap = new Map(chatsArray.map(chat => [chat.id, chat]));
 
             // Atualizar chats existentes e adicionar novos
-            const merged = prevChats.map(chat => {
+            let merged = prevChats.map(chat => {
               const updatedChat = updatedMap.get(chat.id);
               if (updatedChat) {
                 // Chat foi atualizado, usar a versão atualizada
