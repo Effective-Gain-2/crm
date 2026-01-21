@@ -791,18 +791,18 @@ function ChatPage({ theme, chat_id }) {
         socketInstance.emit('join', `user_${userData.id}`);
       });
       socketInstance.on('chats_updated', (updatedChats) => {
-        let chats = [];
+        let chatsArray = [];
         if (Array.isArray(updatedChats)) {
-          chats = updatedChats;
+          chatsArray = updatedChats;
           // playNotificationSound()
         } else if (updatedChats && typeof updatedChats === 'object') {
-          chats = [updatedChats];
+          chatsArray = [updatedChats];
         }
 
-        if (chats.length > 0) {
+        if (chatsArray.length > 0) {
           setChats(prevChats => {
             // Criar um mapa dos chats atualizados para facilitar a busca
-            const updatedMap = new Map(chats.map(chat => [chat.id, chat]));
+            const updatedMap = new Map(chatsArray.map(chat => [chat.id, chat]));
 
             // Atualizar chats existentes e adicionar novos
             const merged = prevChats.map(chat => {
@@ -816,7 +816,7 @@ function ChatPage({ theme, chat_id }) {
             });
 
             // Adicionar novos chats que não existiam antes
-            chats.forEach(chat => {
+            chatsArray.forEach(chat => {
 
               if (!prevChats.some(c => c.id === chat.id)) {
                 merged.push(chat);
@@ -824,8 +824,8 @@ function ChatPage({ theme, chat_id }) {
             });
 
             // Se apenas um chat foi atualizado, reposiciona apenas ele sem reordenar toda a lista
-            if (chats.length === 1) {
-              const updatedChat = chats[0];
+            if (chatsArray.length === 1) {
+              const updatedChat = chatsArray[0];
               const existingChatIndex = merged.findIndex(c => c.id === updatedChat.id);
 
               if (existingChatIndex !== -1) {
