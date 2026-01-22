@@ -19,7 +19,7 @@ function convertCsvToXlsx(csvPath) {
 
 exports.uploadExcel = async (req, res) => {
   const { sector } = req.body;
-  const schema = req.schema;
+  const schema = req.body.schema;
   try {
     let filePath = req.file.path;
     if (filePath.endsWith('.csv')) {

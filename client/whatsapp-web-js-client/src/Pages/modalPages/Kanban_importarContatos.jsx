@@ -4,6 +4,7 @@ import Tooltip from 'react-bootstrap/Tooltip';
 import { Modal, Button, Form } from 'react-bootstrap';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 import { socket } from '../../socket';
 
 function ImportarContatosModal({ theme, show, onHide, funil }) {
@@ -14,7 +15,7 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
   const [etapasFunil, setEtapasFunil] = useState([]);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef(null);
-  const userData = JSON.parse(localStorage.getItem('user'));
+  const userData = useAuth().userData;
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL
 

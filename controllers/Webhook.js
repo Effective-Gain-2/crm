@@ -182,10 +182,11 @@ module.exports = (broadcastMessage) => {
 
   app.post('/chat', async (req, res) => {
     const result = req.body;
+    const correctRemoteJid= result.data.key.remoteJid.includes('@s.whatsapp.net')||result.data.key.remoteJid.includes('@c.us')?result.data.key.remoteJid:result.data.key.remoteJidAlt
     if (!result?.data?.key?.remoteJid) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
-    const num = result.data.key.remoteJidAlt.split('@')[0];
+    const num = correctRemoteJid.split('@')[0];
     const numberLimpo = num.length === 12
       ? num
       : num.slice(0, 4) + num.slice(5);
@@ -201,7 +202,7 @@ module.exports = (broadcastMessage) => {
 
       const chat = new Chat(
         uuidv4(),
-        result.data.key.remoteJidAlt,
+        correctRemoteJid,
         result.data.instanceId,
         null,
         result.data.key.fromMe,
