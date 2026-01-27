@@ -186,7 +186,7 @@ module.exports = (broadcastMessage) => {
     if (!result?.data?.key?.remoteJid) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
-    if(!remoteJid){
+    if(!correctRemoteJid){
       return null
     }
     const num = correctRemoteJid.split('@')[0];
