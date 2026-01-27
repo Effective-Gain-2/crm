@@ -30,6 +30,17 @@ const saveMessage = async (chatId, message, schema, user_id) => {
     );
     return result.rows[0];
 };
+const updateMessageChat = async (chat_id, message, schema) => {
+  const newMessagesArray = [message.getMessage()];
+
+  await pool.query(
+    `UPDATE ${schema}.chats
+     SET messages = $1::jsonb
+     WHERE id = $2`,
+    [JSON.stringify(newMessagesArray), chat_id]
+  );
+};
 module.exports ={
-    saveMessage
+    saveMessage,
+    updateMessageChat
 }

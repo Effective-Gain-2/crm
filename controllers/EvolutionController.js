@@ -2,7 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const { createInstance, fetchInstanceEvo, sendTextMessage, generateQrCode } = require('../requests/evolution');
 const Connections = require('../entities/Connection');
 const { createConnection, fetchInstance, searchConnById } = require('../services/ConnectionService');
-const { saveMessage } = require('../services/MessageService');
+const { saveMessage, updateMessageChat } = require('../services/MessageService');
 const { Message } = require('../entities/Message');
 const { getCurrentTimestamp } = require('../services/getCurrentTimestamp');
 const { updateCacheMessages } = require('../services/ChatService');
@@ -95,7 +95,9 @@ const sendTextMessageController = async (req, res) => {
         //     message.quote = body.replyTo;
         // }
 
+        await updateMessageChat(chatId, message, schema);
         await saveMessage(chatId, message, schema, user_id);
+        
 
         res.status(200).json({ result });
     } catch (error) {

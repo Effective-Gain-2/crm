@@ -302,6 +302,9 @@ function ChatPage({ theme, chat_id }) {
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [audioChunks, setAudioChunks] = useState([]);
 
+  //Ultima mensagem do chat
+  const [lastMessage, setLastMessage] = useState([])
+
   //Auth context
   const {userData} = useAuth();
   const schema = userData?.schema ;
@@ -767,6 +770,7 @@ function ChatPage({ theme, chat_id }) {
           const formatted = formatMessage(msg);
           setSelectedMessages(prev => {
             const newMessages = [...prev, formatted];
+            setLastMessage(formatted)
             return newMessages;
           });
           // Toca o som se a mensagem não for minha
@@ -1312,7 +1316,7 @@ function ChatPage({ theme, chat_id }) {
         {
           withCredentials: true
         });
-
+        setLastMessage(newMessage)
     } catch (error) {
       console.error('Erro ao enviar a mensagem:', error);
       showError(error.response.status);
@@ -2068,6 +2072,10 @@ function ChatPage({ theme, chat_id }) {
                         (chat.messages[chat.messages.length - 1].length > 50 ? '...' : '')
                         : 'Mensagem de mídia')
                       : 'Sem mensagens'}
+
+                      {/* 
+                      chat messages
+                      */}
                   </div>
                 </div>
               </div>
