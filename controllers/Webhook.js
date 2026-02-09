@@ -8,7 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const { Chat } = require('../entities/Chat');
 const { Message } = require('../entities/Message');
 const { createChat, getChatService, setChatQueue, setUserChat, saveMediaMessage, getChatByUser, setMessageIsUnread, getChatIfUserIsNull, getChatById, updateCacheMessages } = require('../services/ChatService');
-const { saveMessage } = require('../services/MessageService');
+const { saveMessage, updateMessageChat } = require('../services/MessageService');
 const pool = require('../db/queries');
 const { getCurrentTimestamp } = require('../services/getCurrentTimestamp');
 const { getBase64FromMediaMessage, sendTextMessage } = require('../requests/evolution');
@@ -16,11 +16,12 @@ const express = require('express');
 const createRedisConnection = require('../config/Redis');
 const { Queue, Worker } = require('bullmq');
 const { getQueueById } = require('../services/QueueService');
-const { createThread, messageAnAssistant, getAssistantReply } = require('../services/OpenAi');
+const { createThread, messageAnAssistant, getAssistantReply, speechToText } = require('../services/OpenAi');
 const { updateContactInKanban, getSpecificContactInKanban, insertContactInKanbanByStageId } = require('../services/KanbanService');
 const { createApiOfcChat, setApiChatQueue, getImageApiOfc } = require('../services/ChatApiOfc');
 const { getItemByName, updateItemInStock, alterItemQuantityInStock } = require('../services/StockService');
 const { getSchemaByPhoneId } = require('../services/ApiConnection');
+const { getBotById } = require('../services/BotService');
 require('dotenv').config({ path: '../.env' });
 
 
@@ -147,14 +148,48 @@ module.exports = (broadcastMessage) => {
         broadcastMessage({ type: 'message', payload: job.data });
       }
     } catch (error) {
+       if (job.attemptsMade > 1) {
+        console.error('Áudio falhou após múltiplas tentativas');
+        throw new Error('Max retries exceeded for audio processing');
+      }
       console.error(error)
     }
-  }, { connection: bullConn })
+  }, { connection: bullConn, maxRetries: 1})
   const gptQueue = new Queue('gpt', { connection: bullConn });
 
   new Worker('gpt', async (job) => {
     try {
-      const resposta = job.data.thread_id ? await getAssistantReply(job.data.thread_id, job.data.body, job.data.assistant_id, job.data.chat_id, job.data.schema) : await createThread(job.data.body, job.data.assistant_id, job.data.chat_id, job.data.schema)
+      const gptData = await getBotById(job.data.assistant_id, job.data.schema)
+      const init_time = parseInt(gptData.init_time.split(':')[0], 10)
+      const end_time = parseInt(gptData.end_time.split(':')[0], 10)
+      if (new Date().getHours() <= init_time && new Date().getHours() >= end_time) {
+        return
+      }
+      if (Number(getCurrentTimestamp() - Number(job.data.updated_at)) < 60000 * 2) {
+        return
+      }
+      const formData = new FormData();
+      let body = job.data.body;
+
+      if (job.data.type === 'audio' && job.data.base64) {
+        let base64 = job.data.base64;
+        if (base64.includes(',')) {
+          base64 = base64.split(',')[1];
+        }
+        const buffer = Buffer.from(base64, 'base64');
+
+        const file = new File(
+          [buffer],
+          'audio.ogg', // ajuste ao formato real
+          { type: 'audio/ogg' }
+        );
+
+        body = await speechToText(file);
+
+      }
+
+      const resposta = job.data.thread_id ? await getAssistantReply(job.data.thread_id, body, job.data.assistant_id, job.data.chat_id, job.data.schema) : await createThread(body, job.data.assistant_id, job.data.chat_id, job.data.schema)
+      console.log('resposta gpt', resposta)
       if (resposta) {
         if (typeof resposta === 'object' && resposta.functionName && resposta.executed) {
         } else if (typeof resposta === 'string') {
@@ -176,19 +211,24 @@ module.exports = (broadcastMessage) => {
         }
       }
     } catch (error) {
+      if (job.attemptsMade > 1) {
+        console.error('Áudio falhou após múltiplas tentativas');
+        throw new Error('Max retries exceeded for audio processing');
+      }
       console.error(error)
     }
   }, { connection: bullConn })
 
   app.post('/chat', async (req, res) => {
     const result = req.body;
-    const correctRemoteJid= result.data.key.remoteJid.includes('@s.whatsapp.net')||result.data.key.remoteJid.includes('@c.us')?result.data.key.remoteJid:result.data.key.remoteJidAlt
+    const correctRemoteJid = result.data.key.remoteJid.includes('@s.whatsapp.net') || result.data.key.remoteJid.includes('@c.us') ? result.data.key.remoteJid : result.data.key.remoteJidAlt
     if (!result?.data?.key?.remoteJid) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
-    if(!correctRemoteJid){
+    if (!correctRemoteJid) {
       return null
     }
+
     const num = correctRemoteJid.split('@')[0];
     const numberLimpo = num.length === 12
       ? num
@@ -351,11 +391,10 @@ module.exports = (broadcastMessage) => {
         status: baseChat.status,
         schema: schema
       };
-
       const queueById = await getQueueById(chatDb.queue_id, schema);
-      if(queueById[0].stage_id){
+      if (queueById[0].stage_id) {
         const stageKanban = await getSpecificContactInKanban(numberLimpo, schema);
-        stageKanban?null:await insertContactInKanbanByStageId(queueById[0].stage_id, numberLimpo, schema);
+        stageKanban ? null : await insertContactInKanbanByStageId(queueById[0].stage_id, numberLimpo, schema);
       }
 
       if (queueById[0].is_webhook_on === true && queueById[0].webhook_url !== null) {
@@ -365,8 +404,12 @@ module.exports = (broadcastMessage) => {
           console.error(error);
         }
       }
-      await chatQueue.add('new_message', data)
 
+      await chatQueue.add('new_message', data)
+      if (data.fromMe === true) {
+        await updateMessageChat(data.chatId, data, schema)
+        return
+      }
       queueById[0].assistant_id && baseChat.isboton ? await gptQueue.add('gpt', {
         chat_id: baseChat.id,
         thread_id: baseChat.thread_id || null,
@@ -374,7 +417,10 @@ module.exports = (broadcastMessage) => {
         assistant_id: queueById[0].assistant_id,
         instance: result.instance,
         number: numberLimpo,
-        schema: schema
+        schema: schema,
+        updated_at: baseChat.last_user_message,
+        base64: payload.midiaBase64 || null,
+        type: midiaType || null,
       }) : null
 
       if (!chat || !result.instance) {
@@ -492,17 +538,17 @@ module.exports = (broadcastMessage) => {
   app.post('/api-ofc', async (req, res) => {
     const changes = req.body.entry[0].changes;
     const phoneAndSchema = await getSchemaByPhoneId(changes[0].value.metadata.phone_number_id)
-    if(!changes[0].value.contacts){
+    if (!changes[0].value.contacts) {
       return
     }
-    if(!phoneAndSchema){
+    if (!phoneAndSchema) {
       return
     }
     const schema = phoneAndSchema.schema
     let midiaBase64 = null
-    const midia_id=changes[0].value.messages[0].image?.id || changes[0].value.messages[0].audio?.id || changes[0].value.messages[0].document?.id ||null
+    const midia_id = changes[0].value.messages[0].image?.id || changes[0].value.messages[0].audio?.id || changes[0].value.messages[0].document?.id || null
     const chat = await createApiOfcChat(changes[0].value.contacts[0].wa_id, phoneAndSchema.phone_id.id, changes[0].value.contacts[0].wa_id, changes[0].value.contacts[0].profile.name, /*connection.queue_id*/ null, null, 'open', getCurrentTimestamp(), getCurrentTimestamp(), false, null, schema)
-    if(changes[0].value.messages[0].type==='image' ||changes[0].value.messages[0].type==='audio' || changes[0].value.messages[0].type==='document'){
+    if (changes[0].value.messages[0].type === 'image' || changes[0].value.messages[0].type === 'audio' || changes[0].value.messages[0].type === 'document') {
       midiaBase64 = await getImageApiOfc(midia_id, phoneAndSchema.token)
     }
     if (!chat) {
@@ -510,57 +556,57 @@ module.exports = (broadcastMessage) => {
       return
     }
     let message = null;
-    midiaBase64?message = await saveMediaMessage(changes[0].value.messages[0].id, false, chat.id, getCurrentTimestamp(),changes[0].value.messages[0].type, midiaBase64, schema, changes[0].value.messages[0].document?.filename||null, changes[0].value.messages[0].document?.mime_type||null):message = await saveMessage(chat.id, new Message(uuidv4(), changes[0].value.messages[0].text?.body || null, false, chat.id, getCurrentTimestamp()), schema, null)
-    await updateCacheMessages(message?.id, chat.id, false, changes[0].value.messages[0].text?.body||null, getCurrentTimestamp(),null, midiaBase64||null,null, changes[0].value.messages[0].document?.filename||null,  changes[0].value.messages[0].document?.mime_type||null)
+    midiaBase64 ? message = await saveMediaMessage(changes[0].value.messages[0].id, false, chat.id, getCurrentTimestamp(), changes[0].value.messages[0].type, midiaBase64, schema, changes[0].value.messages[0].document?.filename || null, changes[0].value.messages[0].document?.mime_type || null) : message = await saveMessage(chat.id, new Message(uuidv4(), changes[0].value.messages[0].text?.body || null, false, chat.id, getCurrentTimestamp()), schema, null)
+    await updateCacheMessages(message?.id, chat.id, false, changes[0].value.messages[0].text?.body || null, getCurrentTimestamp(), null, midiaBase64 || null, null, changes[0].value.messages[0].document?.filename || null, changes[0].value.messages[0].document?.mime_type || null)
     if (!serverTest.io) {
       return
     }
     serverTest.io.to(`schema_${schema}`).emit('chats_updated', {
-      chat_id:chat.chat_id,
-      connection_id:chat.conntection_id,
-      created_at:chat.created_at,
-      id:chat.id,
-      is_bot_on:chat.is_bot_on,
-      name:chat.name,
-      number:chat.number,
-      queue_id:chat.queue_id,
-      status:chat.status,
-      thread_id:chat.thread_id,
-      updated_at:chat.updated_at,
-      user_id:chat.user_id,
-      isApi:true
+      chat_id: chat.chat_id,
+      connection_id: chat.conntection_id,
+      created_at: chat.created_at,
+      id: chat.id,
+      is_bot_on: chat.is_bot_on,
+      name: chat.name,
+      number: chat.number,
+      queue_id: chat.queue_id,
+      status: chat.status,
+      thread_id: chat.thread_id,
+      updated_at: chat.updated_at,
+      user_id: chat.user_id,
+      isApi: true
     })
     serverTest.io.to(`schema_${schema}`).emit('message', {
       chatId: chat.id,
-      body: changes[0].value.messages[0].text?.body||null,
-      midiaBase64:midiaBase64 || null,
+      body: changes[0].value.messages[0].text?.body || null,
+      midiaBase64: midiaBase64 || null,
       fromMe: false,
       timestamp: getCurrentTimestamp(),
       user_id: changes[0].value.contacts[0].wa_id,
-      filename:changes[0].value.messages[0].document?.filename || null,
-      mimetype:changes[0].value.messages[0].document?.mime_type || null
+      filename: changes[0].value.messages[0].document?.filename || null,
+      mimetype: changes[0].value.messages[0].document?.mime_type || null
     })
-    
+
     res.status(200).json({ success: true, chat })
   })
 
-  app.post('/file', async(req, res)=>{
-    const {itens} = req.body
+  app.post('/file', async (req, res) => {
+    const { itens } = req.body
     const itensNotFound = []
     try {
-      for(const item of itens.itens){
+      for (const item of itens.itens) {
         const result = await getItemByName(item, 'effective_gain')
-        if(!result?.found){
+        if (!result?.found) {
           itensNotFound.push(result.item)
-        }else{
-          result?await alterItemQuantityInStock(result.item[0].id, Number(item.quantidade || item.qCom), true, 'effective_gain'):null
+        } else {
+          result ? await alterItemQuantityInStock(result.item[0].id, Number(item.quantidade || item.qCom), true, 'effective_gain') : null
         }
       }
-      res.status(200).json({ success: true, itens_not_found:itensNotFound})
+      res.status(200).json({ success: true, itens_not_found: itensNotFound })
 
     } catch (error) {
       console.error(error)
-      res.status(500).json({ success:false, error: error.message })
+      res.status(500).json({ success: false, error: error.message })
     }
   })
 

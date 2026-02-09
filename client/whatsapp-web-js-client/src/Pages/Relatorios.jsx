@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 
 function RelatorioPage({ theme }) {
   const [loadingIfood, setLoadingIfood] = useState(false);
@@ -9,9 +9,8 @@ function RelatorioPage({ theme }) {
   const handleDownloadIfoodReport = async () => {
     try {
       setLoadingIfood(true);
-      const response = await axios.get(`${url}/ifood/pedidos-semana`, {
-        responseType: 'blob',
-        withCredentials: true
+      const response = await api.get(`/ifood/pedidos-semana`, {
+        responseType: 'blob'
       });
 
       const blob = new Blob([response.data], {
@@ -47,12 +46,9 @@ function RelatorioPage({ theme }) {
   const handleExportIfoodJson = async () => {
     try {
       setExportingIfoodJson(true);
-      const response = await axios.post(
-        `${url}/ifood/sales`,
-        {},
-        {
-          withCredentials: true,
-        }
+      const response = await api.post(
+        `/ifood/sales`,
+        {}
       );
 
       const blob = new Blob([JSON.stringify(response.data, null, 2)], {

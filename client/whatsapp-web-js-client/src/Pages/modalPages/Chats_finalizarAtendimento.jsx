@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Button, Form, InputGroup } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 const NovoMotivoModal = ({ show, onHide, onCreate, theme, loading }) => {
   const [nome, setNome] = useState('');
@@ -307,7 +307,7 @@ const FinalizarAtendimentoModal = ({ show, onHide, theme, selectedChat, onFinish
   const fetchStatus = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${url}/chat/get-status/${schema}`, { withCredentials: true });
+      const res = await api.get(`/chat/get-status/${schema}`);
       setStatusList(Array.isArray(res.data.result) ? res.data.result : []);
     } catch {
       setStatusList([]);
@@ -334,12 +334,12 @@ const FinalizarAtendimentoModal = ({ show, onHide, theme, selectedChat, onFinish
     setLoading(true);
     setError('');
     try {
-      await axios.post(`${url}/chat/close`, {
+      await api.post(`/chat/close`, {
         chat_id: selectedChat.id,
         schema,
         status,
         isApi:selectedChat.isApi || false
-      }, { withCredentials: true });
+      });
       if (onFinish) onFinish();
       onHide();
     } catch (err) {
@@ -351,11 +351,11 @@ const FinalizarAtendimentoModal = ({ show, onHide, theme, selectedChat, onFinish
   const handleCreateMotivo = async (nome, success, setErro) => {
     setLoadingNovo(true);
     try {
-      await axios.post(`${url}/chat/create-status`, {
+      await api.post(`/chat/create-status`, {
         text: nome,
         success,
         schema
-      }, { withCredentials: true });
+      });
       setShowNovoMotivo(false);
       await fetchStatus();
     } catch (err) {

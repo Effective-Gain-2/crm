@@ -5,7 +5,7 @@ import WhatsappDeleteModal from './Whatsapp_delete';
 import WhatsappFilasModal from './Whatsapp_filas';
 import { useToast } from '../../contexts/ToastContext';
 
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useAuth } from '../../contexts/AuthContext';
 
 function WhatsappModal({ theme, show, onHide }) {
@@ -27,10 +27,7 @@ function WhatsappModal({ theme, show, onHide }) {
   useEffect(() => {
     const handleConns = async()=>{
       try{
-        const response = await axios.get(`${url}/connection/get-all-connections-status/${schema}`,
-        {
-      withCredentials: true
-    })
+        const response = await api.get(`/connection/get-all-connections-status/${schema}`);
         setContatos(Array.isArray([response.data])?response.data:[response.data]);
       }catch(error){
         console.error(error)
@@ -81,7 +78,7 @@ function WhatsappModal({ theme, show, onHide }) {
       setSelectedContato(contato);
       setShowQRModal(true);
       
-      const response = await axios.get(`${url}/evo/generate-qrcode/${contato.connection.name}`, {}, { withCredentials: true });
+      const response = await api.get(`/evo/generate-qrcode/${contato.connection.name}`);
       if(response.data.data.error){
         showError('Erro ao gerar QRcode, favor entrar em contato com o suporte')
       }

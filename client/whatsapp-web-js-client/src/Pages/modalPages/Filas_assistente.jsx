@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
-import axios from "axios";
+import { api } from "../../utils/axiosConfig";
 // Exemplo de lista de assistentes (substitua pelo seu fetch real)
 
 
@@ -15,7 +15,7 @@ const FilasAssistenteModal = ({ show, onClose, onSave, fila, currentAssistantId 
 
     useEffect(()=>{
         const fetchAssistentes = async () => {
-            const response = await axios.get(`${url}/bot/get-bots/${schema}`, {withCredentials: true});
+            const response = await api.get(`/bot/get-bots/${schema}`);
             setAssistants(Array.isArray(response.data.data) ? response.data.data : [response.data.data]);
         }
         fetchAssistentes();
@@ -23,7 +23,7 @@ const FilasAssistenteModal = ({ show, onClose, onSave, fila, currentAssistantId 
 
   const handleSave = async () => {
     if (selectedAssistant) {
-        await axios.put(`${url}/queue/update-queue-assistant`,{
+        await api.put(`/queue/update-queue-assistant`,{
             queue_id:fila.id,
             assistant_id:selectedAssistant,
             schema:schema   

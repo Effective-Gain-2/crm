@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, InputGroup } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 // Força a largura do modal-xxl para 75vw
 const modalStyle = `
@@ -66,9 +66,9 @@ function QuickMsgManageModal({ theme, show, onHide, mensagens, setMensagens }) {
         shortcut: form.comando,
         schema: schema
       };
-      await axios.post(`${url}/qmessage/create-q-message`, payload, { withCredentials: true });
+      await api.post(`/qmessage/create-q-message`, payload);
       // Atualiza a lista após criar
-      const res = await axios.get(`${url}/qmessage/get-q-messages-by-user/${userData.id}/${schema}`, { withCredentials: true });
+      const res = await api.get(`/qmessage/get-q-messages-by-user/${userData.id}/${schema}`);
       const msgs = (res.data.result || []).map(msg => ({
         comando: msg.shortcut || `/msg${msg.id.slice(0, 4)}`,
         mensagem: msg.value,
@@ -92,9 +92,9 @@ function QuickMsgManageModal({ theme, show, onHide, mensagens, setMensagens }) {
     if (!window.confirm('Tem certeza que deseja excluir esta mensagem rápida? Esta ação é irreversível.')) return;
     try {
       const msg = mensagens[idx];
-      await axios.delete(`${url}/qmessage/delete-q-message/${msg.id}/${schema}`, { withCredentials: true });
+      await api.delete(`/qmessage/delete-q-message/${msg.id}/${schema}`);
       // Atualiza a lista após deletar
-      const res = await axios.get(`${url}/qmessage/get-q-messages-by-user/${userData.id}/${schema}`, { withCredentials: true });
+      const res = await api.get(`/qmessage/get-q-messages-by-user/${userData.id}/${schema}`);
       const msgs = (res.data.result || []).map(msg => ({
         comando: msg.shortcut || `/msg${msg.id.slice(0, 4)}`,
         mensagem: msg.value,
@@ -125,9 +125,9 @@ function QuickMsgManageModal({ theme, show, onHide, mensagens, setMensagens }) {
         shortcut: formEdit.comando,
         schema: schema
       };
-      await axios.put(`${url}/qmessage/update-q-message`, payload, { withCredentials: true });
+      await api.put(`/qmessage/update-q-message`, payload);
       // Atualiza a lista após editar
-      const res = await axios.get(`${url}/qmessage/get-q-messages-by-user/${userData.id}/${schema}`, { withCredentials: true });
+      const res = await api.get(`/qmessage/get-q-messages-by-user/${userData.id}/${schema}`);
       const msgs = (res.data.result || []).map(msg => ({
         comando: msg.shortcut || `/msg${msg.id.slice(0, 4)}`,
         mensagem: msg.value,
@@ -148,11 +148,11 @@ function QuickMsgManageModal({ theme, show, onHide, mensagens, setMensagens }) {
     async function fetchFilasEMensagens() {
       try {
         // Busca as filas
-        const filasRes = await axios.get(`${url}/queue/get-all-queues/${schema}`, { withCredentials: true });
+        const filasRes = await api.get(`/queue/get-all-queues/${schema}`);
         const filasData = filasRes.data.result || [];
         setFilas(filasData);
         // Busca as mensagens rápidas
-        const msgsRes = await axios.get(`${url}/qmessage/get-q-messages-by-user/${userData.id}/${schema}`, { withCredentials: true });
+        const msgsRes = await api.get(`/qmessage/get-q-messages-by-user/${userData.id}/${schema}`);
         const msgs = (msgsRes.data.result || []).map(msg => ({
           comando: msg.shortcut || `/msg${msg.id.slice(0, 4)}`,
           mensagem: msg.value,
@@ -175,7 +175,7 @@ function QuickMsgManageModal({ theme, show, onHide, mensagens, setMensagens }) {
   useEffect(() => {
     async function fetchFilas() {
       try {
-        const res = await axios.get(`${url}/queue/get-all-queues/${schema}`, { withCredentials: true });
+        const res = await api.get(`/queue/get-all-queues/${schema}`);
         setFilas(res.data.result || []);
       } catch (err) {
         console.error('Erro ao buscar filas:', err);

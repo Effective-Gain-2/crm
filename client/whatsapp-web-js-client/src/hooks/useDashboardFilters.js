@@ -156,6 +156,7 @@ const useDashboardFilters = (data, selectedPeriod, selectedSector, selectedChann
     const totalChats = conversionFilteredByChannel.length;
     const conversionRate = totalChats > 0 ? (ganhos.length / totalChats) * 100 : 0;
     
+    
     const resolutionTimes = conversionFilteredChats
       .filter(c => c.created_at && c.closed_at)
       .map(c => {

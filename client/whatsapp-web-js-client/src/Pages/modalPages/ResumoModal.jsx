@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Spinner } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 function ResumoModal({ theme, show, onHide, chatId }) {
   const [resumo, setResumo] = useState('');
@@ -22,9 +22,7 @@ function ResumoModal({ theme, show, onHide, chatId }) {
     try {
       setIsLoading(true);
      
-      const response = await axios.get(`${url}/report/resumo/${chatId}/${schema}`, {
-        withCredentials: true
-      });
+      const response = await api.get(`/report/resumo/${chatId}/${schema}`);
       
       if (response.data.success && response.data.data) {
         const resumoData = response.data.data;
@@ -49,11 +47,9 @@ function ResumoModal({ theme, show, onHide, chatId }) {
   const generateResumo = async () => {
     try {
       setIsGenerating(true);
-      const response = await axios.post(`${url}/report/generate-resumo`, {
+      const response = await api.post(`/report/generate-resumo`, {
         chat_id: chatId,
         schema: schema
-      }, {
-        withCredentials: true
       });
       
       if (response.data.success) {

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import React, { useState, useEffect } from 'react';
 
 function NewQueueModal({ theme, superUsers = [] }) {
@@ -16,9 +16,7 @@ function NewQueueModal({ theme, superUsers = [] }) {
   useEffect(() => {
     const fetchUsuarios = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_URL}/api/users/${schema}`, {
-  withCredentials: true
-});
+        const response = await api.get(`/api/users/${schema}`);
 
         setUser(response.data.users || []);
       } catch (error) {
@@ -33,9 +31,7 @@ function NewQueueModal({ theme, superUsers = [] }) {
   useEffect(() => {
     const fetchFunis = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_URL}/kanban/get-funis/${schema}`, {
-          withCredentials: true
-        });
+        const response = await api.get(`/kanban/get-funis/${schema}`);
         // Os funis vêm em response.data.name
         const funisData = response.data.name || [];
         setFunis(funisData);
@@ -57,9 +53,7 @@ function NewQueueModal({ theme, superUsers = [] }) {
 
     const fetchEtapas = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_URL}/kanban/get-stages/${funilSelecionado}/${schema}`, {
-          withCredentials: true
-        });
+        const response = await api.get(`/kanban/get-stages/${funilSelecionado}/${schema}`);
         setEtapas(response.data || []);
         setEtapaSelecionada(''); // Reset etapa selecionada
       } catch (error) {
@@ -77,16 +71,13 @@ function NewQueueModal({ theme, superUsers = [] }) {
       return;
     }
     try{
-      const response = await axios.post(`${process.env.REACT_APP_URL}/queue/create-queue`,{
+      const response = await api.post(`/queue/create-queue`,{
         name: title,
         super_user: superUser,
         schema: schema,
         distribution: autoDistribution,
         stage_id: etapaSelecionada || null,
-      },
-        {
-      withCredentials: true
-    })
+      });
     }catch(error){
       console.error('Erro ao salvar a fila:', error);
       return;

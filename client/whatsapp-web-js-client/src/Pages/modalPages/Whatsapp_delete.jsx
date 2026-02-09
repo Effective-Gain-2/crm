@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 function WhatsappDeleteModal({ theme, show, onHide, contato, onDelete }) {
   const userData = JSON.parse(localStorage.getItem('user')); 
@@ -9,10 +9,7 @@ function WhatsappDeleteModal({ theme, show, onHide, contato, onDelete }) {
 
   const handleDelete = async () => {
     try {
-      const response = await axios.delete(`${url}/connection/delete/${contato.connection.id}/${contato.connection.name}/${schema}`,
-        {
-      withCredentials: true
-    })
+      const response = await api.delete(`/connection/delete/${contato.connection.id}/${contato.connection.name}/${schema}`);
       onDelete(contato);
     } catch (error) {
       console.error(error)

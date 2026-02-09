@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useToast } from '../../contexts/ToastContext';
 
 const iconesPessoais = [
@@ -64,10 +64,7 @@ const [filasSelecionadas, setFilasSelecionadas] = useState(
     useEffect(() => {
   const fetchFilas = async () => {
     try {
-      const response = await axios.get(`${url}/queue/get-all-queues/${schema}`,
-        {
-      withCredentials: true
-    });
+      const response = await api.get(`/queue/get-all-queues/${schema}`);
       let filas = response.data.result;
       if (!Array.isArray(filas)) {
         filas = [filas];
@@ -186,7 +183,7 @@ const filasInvalidas = () => {
   
     if (lembreteEdit) {
       // Atualiza no backend
-      const response = await axios.put(`${url}/lembretes/update-lembretes`, {
+      const response = await api.put(`/lembretes/update-lembretes`, {
         id: lembreteEdit.id,
         tag: tipo,
         lembrete_name: titulo,
@@ -195,15 +192,12 @@ const filasInvalidas = () => {
         date: dataUnix,
         filas: filasSelecionadas,
         schema: schema
-      },
-        {
-      withCredentials: true
-    });
+      });
       lembreteCriado = response.data;
     } else if (addToGoogle) {
       // Cria evento no Google Calendar e lembrete do sistema juntos
       try {
-        const response = await axios.post('/calendar/events', {
+        const response = await api.post('/calendar/events', {
           summary: titulo,
           description: mensagem,
           start: new Date(data).toISOString(),
@@ -221,7 +215,7 @@ const filasInvalidas = () => {
         return;
       }
     } else {
-      const response = await axios.post(`${url}/lembretes/create-lembrete`, {
+      const response = await api.post(`/lembretes/create-lembrete`, {
         tag: tipo,
         lembrete_name: titulo,
         message: mensagem,
@@ -230,10 +224,7 @@ const filasInvalidas = () => {
         filas: filasSelecionadas,
         user_id: userData.id,
         schema: schema
-      },
-        {
-      withCredentials: true
-    });
+      });
       lembreteCriado = response.data;
     }
   

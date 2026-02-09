@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Row, Col, Card } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -29,9 +29,7 @@ function Clientes({ theme }) {
   const loadClientes = async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`${url}/api/clientes/get-all/${schema}`, {
-        withCredentials: true
-      });
+      const response = await api.get(`/api/clientes/get-all/${schema}`);
       
       if (response.data.success) {
         setClientes(response.data.data || []);
@@ -73,9 +71,7 @@ function Clientes({ theme }) {
         schema: schema
       };
 
-      await axios.post(`${url}/api/clientes`, payload, {
-        withCredentials: true
-      });
+      await api.post(`/api/clientes`, payload);
 
       loadClientes();
       handleCloseModal();
@@ -92,9 +88,7 @@ function Clientes({ theme }) {
     }
 
     try {
-      await axios.delete(`${url}/api/clientes/${id}/${schema}`, {
-        withCredentials: true
-      });
+      await api.delete(`/api/clientes/${id}/${schema}`);
 
       loadClientes();
     } catch (error) {

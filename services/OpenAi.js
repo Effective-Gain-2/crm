@@ -11,89 +11,89 @@ dotenv.config();
 let openai = null;
 
 const getOpenAIClient = () => {
-    if (!openai && process.env.OPENAI_KEY) {
-        openai = new OpenAI({
-            apiKey: process.env.OPENAI_KEY
-        });
-    }
-    return openai;
+  if (!openai && process.env.OPENAI_KEY) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_KEY
+    });
+  }
+  return openai;
 }
 
 const createChatCompletion = async (message) => {
-    const client = getOpenAIClient();
-    if (!client) {
-        console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
-        return null;
+  const client = getOpenAIClient();
+  if (!client) {
+    console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
+    return null;
+  }
+  const run = await client.beta.threads.createAndRun({
+    assistant_id: 'asst_Lt7WO4INpumjlucxpMUAb3BG',
+    thread: {
+      messages: [
+        { role: 'user', content: message }
+      ]
     }
-    const run = await client.beta.threads.createAndRun({
-        assistant_id: 'asst_Lt7WO4INpumjlucxpMUAb3BG',
-        thread: {
-            messages: [
-                { role: 'user', content: message }
-            ]
-        }
-    });
+  });
 
-    const thread_id = run.thread_id || (run.thread && run.thread.id);
-    const run_id = run.id;
+  const thread_id = run.thread_id || (run.thread && run.thread.id);
+  const run_id = run.id;
 
-    if (!thread_id || !run_id) {
-        console.error('thread_id ou run_id indefinido:', { thread_id, run_id, run });
-        return;
-    }
+  if (!thread_id || !run_id) {
+    console.error('thread_id ou run_id indefinido:', { thread_id, run_id, run });
+    return;
+  }
 
-    let status = run.status;
-    let runResult = run;
-    while (status !== 'completed' && status !== 'failed' && status !== 'cancelled') {
-        await new Promise(res => setTimeout(res, 1000));
-        runResult = await client.beta.threads.runs.retrieve(run.id, {thread_id:run.thread_id});
-        status = runResult.status;
-    }
+  let status = run.status;
+  let runResult = run;
+  while (status !== 'completed' && status !== 'failed' && status !== 'cancelled') {
+    await new Promise(res => setTimeout(res, 1000));
+    runResult = await client.beta.threads.runs.retrieve(run.id, { thread_id: run.thread_id });
+    status = runResult.status;
+  }
 
-    const threadMessages = await client.beta.threads.messages.list(thread_id);
-    const resposta = threadMessages.data.reverse().find(m => m.role === 'assistant');
-    if (resposta && resposta.content && resposta.content[0] && resposta.content[0].text) {
-        const jsonString = resposta.content[0].text.value;
-        const dados = JSON.parse(jsonString);
+  const threadMessages = await client.beta.threads.messages.list(thread_id);
+  const resposta = threadMessages.data.reverse().find(m => m.role === 'assistant');
+  if (resposta && resposta.content && resposta.content[0] && resposta.content[0].text) {
+    const jsonString = resposta.content[0].text.value;
+    const dados = JSON.parse(jsonString);
 
-        return dados.individual_analysis;
-    } else {
-        console.log('Nenhuma resposta encontrada.');
-        return null;
-    }
+    return dados.individual_analysis;
+  } else {
+    console.log('Nenhuma resposta encontrada.');
+    return null;
+  }
 
 }
 
 
-const getRun = async(thread)=>{
-    const client = getOpenAIClient();
-    if (!client) return null;
-    const threadMessages = await client.beta.threads.messages.list(
+const getRun = async (thread) => {
+  const client = getOpenAIClient();
+  if (!client) return null;
+  const threadMessages = await client.beta.threads.messages.list(
     thread
   );
-  for(message of threadMessages.data){
-  
-}
+  for (message of threadMessages.data) {
+
+  }
 }
 
 const createThread = async (message, assistant_id, chat_id, schema) => {
-    const client = getOpenAIClient();
-    if (!client) {
-        console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
-        return null;
+  const client = getOpenAIClient();
+  if (!client) {
+    console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
+    return null;
+  }
+  const response = await client.beta.threads.createAndRun({
+    assistant_id,
+    thread: {
+      messages: [
+        { role: 'user', content: message }
+      ]
     }
-    const response = await client.beta.threads.createAndRun({
-        assistant_id,
-        thread: {
-            messages: [
-                { role: 'user', content: message }
-            ]
-        }
-    });
-    if(chat_id){
-      await pool.query(`UPDATE ${schema}.chats SET thread_id=$1 WHERE id=$2`, [response.thread_id, chat_id]);
-    }
-    return response;
+  });
+  if (chat_id) {
+    await pool.query(`UPDATE ${schema}.chats SET thread_id=$1 WHERE id=$2`, [response.thread_id, chat_id]);
+  }
+  return response;
 }
 
 const getAssistantMessageWithoutThreadId = async (message, assistant_id) => {
@@ -127,55 +127,55 @@ const getAssistantMessageWithoutThreadId = async (message, assistant_id) => {
   return null;
 }
 const messageAnAssistant = async (message, thread_id) => {
-    const client = getOpenAIClient();
-    if (!client) {
-        console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
-        return null;
-    }
-    const response = await client.beta.threads.messages.create(thread_id,{
-        role: 'user',
-        content: message
-    })
+  const client = getOpenAIClient();
+  if (!client) {
+    console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
+    return null;
+  }
+  const response = await client.beta.threads.messages.create(thread_id, {
+    role: 'user',
+    content: message
+  })
 }
 
 const runOpenAi = async (thread_id) => {
-    const client = getOpenAIClient();
-    if (!client) {
-        console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
-        return null;
-    }
-    const run = await client.beta.threads.runs.create(thread_id,{assistant_id: 'asst_Lt7WO4INpumjlucxpMUAb3BG'});
+  const client = getOpenAIClient();
+  if (!client) {
+    console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
+    return null;
+  }
+  const run = await client.beta.threads.runs.create(thread_id, { assistant_id: 'asst_Lt7WO4INpumjlucxpMUAb3BG' });
 }
 
-const cancelRun = async(thread_id) => {
-    const client = getOpenAIClient();
-    if (!client) return null;
-    const runs = await client.beta.threads.runs.list(thread_id)
-    for(const run of runs.data){
-        if(run.status==='in_progress' || run.status==='requires_action'){
-            await client.beta.threads.runs.cancel(run.id, {thread_id: thread_id})
-        }
+const cancelRun = async (thread_id) => {
+  const client = getOpenAIClient();
+  if (!client) return null;
+  const runs = await client.beta.threads.runs.list(thread_id)
+  for (const run of runs.data) {
+    if (run.status === 'in_progress' || run.status === 'requires_action') {
+      await client.beta.threads.runs.cancel(run.id, { thread_id: thread_id })
     }
+  }
 }
 const listRuns = async (thread_id) => {
-    const client = getOpenAIClient();
-    if (!client) return null;
-    const runs = await client.beta.threads.runs.list(thread_id);
-    return runs.data;
+  const client = getOpenAIClient();
+  if (!client) return null;
+  const runs = await client.beta.threads.runs.list(thread_id);
+  return runs.data;
 }
 const getAssistantReply = async (thread_id, userMessage, assistant_id, chat_id, schema) => {
-    const client = getOpenAIClient();
-    if (!client) {
-        console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
-        return null;
-    }
-    if (!thread_id) {
-      console.error('thread_id é undefined ou null');
-      return null;
-    }
+  const client = getOpenAIClient();
+  if (!client) {
+    console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
+    return null;
+  }
+  if (!thread_id) {
+    console.error('thread_id é undefined ou null');
+    return null;
+  }
 
-    await cancelRun(thread_id)
-    
+  await cancelRun(thread_id)
+
   await client.beta.threads.messages.create(thread_id, {
     role: 'user',
     content: userMessage
@@ -185,44 +185,44 @@ const getAssistantReply = async (thread_id, userMessage, assistant_id, chat_id, 
 
   let status = run.status;
   let runResult = run;
-  
+
   while (status !== 'completed' && status !== 'failed' && status !== 'cancelled') {
     await new Promise(res => setTimeout(res, 1000));
     runResult = await client.beta.threads.runs.retrieve(run.id, { thread_id });
     status = runResult.status;
-    
+
     // Se o run requer ação (tool calls), processe-os
     if (status === 'requires_action' && runResult.required_action) {
       const toolCalls = runResult.required_action.submit_tool_outputs.tool_calls;
       const toolOutputs = [];
-      
+
       for (const toolCall of toolCalls) {
         if (toolCall.function) {
           const functionName = toolCall.function.name;
           const functionArgs = JSON.parse(toolCall.function.arguments);
-          
+
           // Processar as funções específicas
           let output = '';
 
           if (functionName === 'job_finished') {
-              output = 'Pedido finalizado com sucesso!';
-              const receita = await createReceita(`Pedido de ${functionArgs.cliente}`, null, null, functionArgs.valor, new Date().toISOString(), functionArgs.metodo_pagamento, 'pago', schema);
-              for(const item of functionArgs.pedido){
-                await insertExpenseItens(receita.id, item.item, 'descrição', item.quantidade, item.preco_unitario, false, schema);
-              }
-              return
+            output = 'Pedido finalizado com sucesso!';
+            const receita = await createReceita(`Pedido de ${functionArgs.cliente}`, null, null, functionArgs.valor, new Date().toISOString(), functionArgs.metodo_pagamento, 'pago', schema);
+            for (const item of functionArgs.pedido) {
+              await insertExpenseItens(receita.id, item.item, 'descrição', item.quantidade, item.preco_unitario, false, schema);
+            }
+            return
           } else if (functionName === 'passar_atendente') {
             await disableBott(chat_id, schema)
             output = 'Transferindo para atendente humano...';
           }
-          
+
           toolOutputs.push({
             tool_call_id: toolCall.id,
             output: output
           });
         }
       }
-      
+
       // Submeter os outputs das funções
       if (toolOutputs.length > 0) {
         await client.beta.threads.runs.submitToolOutputs(thread_id, runResult.id, {
@@ -235,7 +235,7 @@ const getAssistantReply = async (thread_id, userMessage, assistant_id, chat_id, 
   // Buscar a mensagem final do assistente
   const threadMessages = await client.beta.threads.messages.list(thread_id);
   const assistantMsg = threadMessages.data.find(m => m.role === 'assistant');
-  
+
   // Verificar se há tool calls na mensagem final (apenas para retornar os dados, sem executar novamente)
   if (assistantMsg && assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
     for (const toolCall of assistantMsg.tool_calls) {
@@ -255,31 +255,31 @@ const getAssistantReply = async (thread_id, userMessage, assistant_id, chat_id, 
       return textContent.text.value;
     }
   }
-  
+
   console.log('Nenhuma resposta válida encontrada');
   return null;
 };
 
 const createAssistant = async (name, instructions, model) => {
-    const client = getOpenAIClient();
-    if (!client) {
-        console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
-        return null;
-    }
-    const result = await client.beta.assistants.create({
-        instructions: instructions,
-        name: name,
-        tools:[{type:'code_interpreter'}],
-        model: model
-    })
-    return result;
+  const client = getOpenAIClient();
+  if (!client) {
+    console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
+    return null;
+  }
+  const result = await client.beta.assistants.create({
+    instructions: instructions,
+    name: name,
+    tools: [{ type: 'code_interpreter' }],
+    model: model
+  })
+  return result;
 }
 const updateAssistant = async (assistant_id, name, instructions, model, functions) => {
   const tools = [
   ];
 
   if (functions && functions.length > 0) {
-    for(const func of functions){
+    for (const func of functions) {
       tools.push({
         function: func
       });
@@ -294,72 +294,88 @@ const updateAssistant = async (assistant_id, name, instructions, model, function
   const response = await client.beta.assistants.update(assistant_id, {
     instructions: instructions,
     name: name,
-    tools: tools.map(tool=>tool.function),
+    tools: tools.map(tool => tool.function),
     model: model
-    })
-  }
+  })
+}
 const deleteAssistant = async (assistant_id) => {
-    const client = getOpenAIClient();
-    if (!client) {
-        console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
-        return null;
-    }
-    await client.beta.assistants.delete(assistant_id)
+  const client = getOpenAIClient();
+  if (!client) {
+    console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
+    return null;
+  }
+  await client.beta.assistants.delete(assistant_id)
 }
 
 const getSummary = async (message) => {
-   const client = getOpenAIClient();
-   if (!client) {
-       console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
-       return null;
-   }
-   const run = await client.beta.threads.createAndRun({
-        assistant_id: 'asst_nkgN6f8smJsBJxZyAAWu5bEe',
-        thread: {
-            messages: [
-                { role: 'user', content: message }
-            ]
-        }
-    });
-     const thread_id = run.thread_id || (run.thread && run.thread.id);
-    const run_id = run.id;
-
-    if (!thread_id || !run_id) {
-        console.error('thread_id ou run_id indefinido:', { thread_id, run_id, run });
-        return;
+  const client = getOpenAIClient();
+  if (!client) {
+    console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
+    return null;
+  }
+  const run = await client.beta.threads.createAndRun({
+    assistant_id: 'asst_nkgN6f8smJsBJxZyAAWu5bEe',
+    thread: {
+      messages: [
+        { role: 'user', content: message }
+      ]
     }
+  });
+  const thread_id = run.thread_id || (run.thread && run.thread.id);
+  const run_id = run.id;
 
-    let status = run.status;
-    let runResult = run;
-    while (status !== 'completed' && status !== 'failed' && status !== 'cancelled') {
-        await new Promise(res => setTimeout(res, 1000));
-        runResult = await client.beta.threads.runs.retrieve(run.id, {thread_id:run.thread_id});
-        status = runResult.status;
-    }
+  if (!thread_id || !run_id) {
+    console.error('thread_id ou run_id indefinido:', { thread_id, run_id, run });
+    return;
+  }
 
-    const threadMessages = await client.beta.threads.messages.list(thread_id);
-    const resposta = threadMessages.data.reverse().find(m => m.role === 'assistant');
-    if (resposta && resposta.content && resposta.content[0] && resposta.content[0].text) {
-        const dados = resposta.content[0].text.value;
-        return dados
-    } else {
-        console.log('Nenhuma resposta encontrada.');
-        return null;
-    }
+  let status = run.status;
+  let runResult = run;
+  while (status !== 'completed' && status !== 'failed' && status !== 'cancelled') {
+    await new Promise(res => setTimeout(res, 1000));
+    runResult = await client.beta.threads.runs.retrieve(run.id, { thread_id: run.thread_id });
+    status = runResult.status;
+  }
+
+  const threadMessages = await client.beta.threads.messages.list(thread_id);
+  const resposta = threadMessages.data.reverse().find(m => m.role === 'assistant');
+  if (resposta && resposta.content && resposta.content[0] && resposta.content[0].text) {
+    const dados = resposta.content[0].text.value;
+    return dados
+  } else {
+    console.log('Nenhuma resposta encontrada.');
+    return null;
+  }
 }
+const speechToText = async (file) => {
+  const client = getOpenAIClient();
+  if (!client) {
+    console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
+    return null;
+  }
+
+  const response = await client.audio.transcriptions.create({
+    file,
+    model: 'whisper-1',
+    language: 'pt'
+  });
+
+  return response.text;
+};
 module.exports = {
-    createChatCompletion,
-    getRun,
-    createThread,
-    messageAnAssistant,
-    getAssistantReply,
-    runOpenAi,
-    listRuns,
-    cancelRun,
-    createAssistant,
-    updateAssistant,
-    deleteAssistant,
-    getSummary,
-    getAssistantMessageWithoutThreadId
+  createChatCompletion,
+  getRun,
+  createThread,
+  messageAnAssistant,
+  getAssistantReply,
+  runOpenAi,
+  listRuns,
+  cancelRun,
+  createAssistant,
+  updateAssistant,
+  deleteAssistant,
+  getSummary,
+  getAssistantMessageWithoutThreadId,
+  speechToText
 
 }

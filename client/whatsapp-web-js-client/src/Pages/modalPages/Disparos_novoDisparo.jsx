@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import React, { useState, useEffect, useRef } from 'react';
 import * as bootstrap from 'bootstrap';
 import { useToast } from '../../contexts/ToastContext';
@@ -138,11 +138,7 @@ useEffect(() => {
     // Buscar conexões da campanha
     const fetchCampaingConns = async()=>{
       try {
-        const response = await axios.get(`${url}/campaing/get-campaing/${disparo.id}/${schema}`,
-          {
-            withCredentials: true
-          }
-        )
+        const response = await api.get(`/campaing/get-campaing/${disparo.id}/${schema}`)
         // Garantir que sempre seja um array
         let conexoesArray;
         if (Array.isArray(response.data.connections)) {
@@ -221,10 +217,7 @@ useEffect(() => {
     }
 
     try {
-      const response = await axios.get(`${url}/campaing/get-messages/${disparo.id}/${schema}`,
-        {
-      withCredentials: true
-    });
+      const response = await api.get(`/campaing/get-messages/${disparo.id}/${schema}`)
       const msgs = response.data.result || [];
 
       const mensagensFormatadas = msgs.map(msg => ({
@@ -329,10 +322,7 @@ useEffect(() => {
   useEffect(() => {
     const fetchConn = async () => {
       try {
-        const response = await axios.get(`${url}/connection/get-all-connections/${schema}`,
-        {
-      withCredentials: true
-    });
+        const response = await api.get(`/connection/get-all-connections/${schema}`)
         setConexao(Array.isArray(response.data) ? response.data : []);
       } catch (error) {
         console.error('Erro ao buscar conexões:', error);
@@ -343,10 +333,7 @@ useEffect(() => {
 
     const fetchFunis = async () => {
       try {
-        const response = await axios.get(`${url}/kanban/get-funis/${schema}`,
-        {
-      withCredentials: true
-    });
+        const response = await api.get(`/kanban/get-funis/${schema}`)
         setFunis(Array.isArray(response.data.name) ? response.data.name : []);
       } catch (error) {
         console.error('Erro ao buscar funis:', error);
@@ -358,7 +345,7 @@ useEffect(() => {
     const fetchFilas = async () => {
       try {
         // Tentativas de endpoints comuns; use o primeiro que responder
-        const tentativa1 = axios.get(`${url}/queue/get-all-queues/${schema}`, { withCredentials: true }).catch(() => null);
+        const tentativa1 = api.get(`/queue/get-all-queues/${schema}`).catch(() => null);
         const [r1] = await Promise.all([tentativa1]);
         const resp = r1 ;
         let lista = [];
@@ -393,10 +380,7 @@ useEffect(() => {
     }
     const fetchEtapas = async () => {
       try {
-        const response = await axios.get(`${url}/kanban/get-stages/${funilSelecionado.charAt(0).toLowerCase() + funilSelecionado.slice(1)}/${schema}`,
-        {
-      withCredentials: true
-    });
+        const response = await api.get(`/kanban/get-stages/${funilSelecionado.charAt(0).toLowerCase() + funilSelecionado.slice(1)}/${schema}`)
         setEtapas(Array.isArray(response.data) ? response.data : []);
         setEtapa('');
       } catch (error) {
@@ -414,10 +398,7 @@ useEffect(() => {
     setEtapa('');
   }
   const fetchCustomFields = async () => {
-  const response = await axios.get(`${url}/kanban/get-custom-fields/${schema}`,
-        {
-      withCredentials: true
-    })
+  const response = await api.get(`/kanban/get-custom-fields/${schema}`)
   setCustomFields(Array.isArray(response.data) ? response.data : [response.data])
   }
   fetchCustomFields()
@@ -656,14 +637,11 @@ useEffect(() => {
 };
 
     try {
-      const endpoint = `${url}/campaing/create`;
-      const response = await axios.post(endpoint, {
+      const endpoint = `/campaing/create`;
+      const response = await api.post(endpoint, {
         ...disparoData,
         ...(disparo ? { campaing_id: disparo.id } : {campaing_id: null})
-      },
-        {
-      withCredentials: true
-    });
+      });
     console.log(response.data)
       
       if (response.status === 201) {

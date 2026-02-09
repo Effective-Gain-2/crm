@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import * as bootstrap from 'bootstrap';
 
 function CustomValuesModal({ show, onHide, theme}) {
@@ -16,7 +16,7 @@ function CustomValuesModal({ show, onHide, theme}) {
   useEffect(() => {
     if (show && schema) {
       setLoading(true);
-      axios.get(`${url}/kanban/get-custom-fields/${schema}`, { withCredentials: true })
+      api.get(`/kanban/get-custom-fields/${schema}`)
         .then(res => {
           setFields(Array.isArray(res.data) ? res.data : [res.data]);
         })
@@ -33,14 +33,14 @@ function CustomValuesModal({ show, onHide, theme}) {
     if (!newField || !schema) return;
     setLoading(true);
     try {
-      await axios.post(`${url}/contact/create-field`, {
+      await api.post(`/contact/create-field`, {
         fieldName: newField,
         graph,
         schema
-      }, { withCredentials: true });
+      });
       setNewField('');
       setGraph(false);
-      const res = await axios.get(`${url}/kanban/get-custom-fields/${schema}`, { withCredentials: true });
+      const res = await api.get(`/kanban/get-custom-fields/${schema}`);
       setFields(Array.isArray(res.data) ? res.data : [res.data]);
     } catch (err) {
     }

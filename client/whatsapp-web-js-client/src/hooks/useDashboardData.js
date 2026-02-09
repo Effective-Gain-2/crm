@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 
-const useDashboardData = (schema, url) => {
+const useDashboardData = (schema) => {
   const [data, setData] = useState({
     users: [],
     closedChats: [],
@@ -13,6 +13,7 @@ const useDashboardData = (schema, url) => {
     userNames: {},
     queueMap: {}
   });
+
 
   const [loading, setLoading] = useState({
     users: false,
@@ -43,8 +44,7 @@ const useDashboardData = (schema, url) => {
 
     for (let i = 0; i < maxRetries; i++) {
       try {
-        const response = await axios.get(endpoint, {
-          withCredentials: true,
+        const response = await api.get(endpoint, {
           ...options
         });
         return response.data;
@@ -63,7 +63,7 @@ const useDashboardData = (schema, url) => {
     setError(prev => ({ ...prev, connections: null }));
     
     try {
-      const response = await fetchWithRetry(`${url}/connection/get-all-connections/${schema}`);
+      const response = await fetchWithRetry(`/connection/get-all-connections/${schema}`);
       const connections = Array.isArray(response) ? response : [response];
       setData(prev => ({ ...prev, connections }));
       return connections;
@@ -74,7 +74,7 @@ const useDashboardData = (schema, url) => {
     } finally {
       setLoading(prev => ({ ...prev, connections: false }));
     }
-  }, [schema, url, fetchWithRetry]);
+  }, [schema, fetchWithRetry]);
 
   // Função para buscar dados básicos
   const fetchBasicData = useCallback(async () => {
@@ -91,7 +91,7 @@ const useDashboardData = (schema, url) => {
 
     try {
       // Buscar usuários
-      const usersResponse = await fetchWithRetry(`${url}/api/users/${schema}`);
+      const usersResponse = await fetchWithRetry(`/api/users/${schema}`);
       const usersData = usersResponse || [];
       const usersArray = Array.isArray(usersData) ? usersData : [usersData];
       const users = usersArray[0]?.users || [];
@@ -103,15 +103,15 @@ const useDashboardData = (schema, url) => {
       });
 
       // Buscar conversas fechadas
-      const closedChatsResponse = await fetchWithRetry(`${url}/chat/get-closed-chats/${schema}`);
+      const closedChatsResponse = await fetchWithRetry(`/chat/get-closed-chats/${schema}`);
       const closedChats = closedChatsResponse?.result || [];
 
       // Buscar status
-      const statusResponse = await fetchWithRetry(`${url}/chat/get-status/${schema}`);
+      const statusResponse = await fetchWithRetry(`/chat/get-status/${schema}`);
       const statusList = statusResponse?.result || [];
 
       // Buscar filas
-      const queuesResponse = await fetchWithRetry(`${url}/queue/get-all-queues/${schema}`);
+      const queuesResponse = await fetchWithRetry(`/queue/get-all-queues/${schema}`);
       const queues = queuesResponse?.result || [];
 
       // Criar mapeamento de filas
@@ -121,7 +121,7 @@ const useDashboardData = (schema, url) => {
       });
 
       // Buscar relatórios
-      const reportsResponse = await fetchWithRetry(`${url}/report/get-reports/${schema}`);
+      const reportsResponse = await fetchWithRetry(`/report/get-reports/${schema}`);
       let reportData = reportsResponse?.result || [];
       if (typeof reportData === 'string') {
         try {
@@ -162,7 +162,7 @@ const useDashboardData = (schema, url) => {
         reportData: false
       }));
     }
-  }, [schema, url, fetchWithRetry]);
+  }, [schema, fetchWithRetry]);
 
   // Função para buscar chats ativos
   const fetchActiveChats = useCallback(async () => {
@@ -172,8 +172,10 @@ const useDashboardData = (schema, url) => {
     setError(prev => ({ ...prev, activeChats: null }));
 
     try {
-      const response = await fetchWithRetry(`${url}/chat/getChats/${schema}`);
-      const openChats = response.filter(c => c.status !== 'closed');
+      const response = await fetchWithRetry(`/chat/getChats/${schema}`);
+      const chatsData = response?.result || response || [];
+      const chatsArray = Array.isArray(chatsData) ? chatsData : [chatsData];
+      const openChats = chatsArray.filter(c => c.status !== 'closed');
       setData(prev => ({ ...prev, activeChats: openChats }));
     } catch (err) {
       console.error('Erro ao buscar chats ativos:', err);
@@ -181,28 +183,28 @@ const useDashboardData = (schema, url) => {
     } finally {
       setLoading(prev => ({ ...prev, activeChats: false }));
     }
-  }, [schema, url, fetchWithRetry]);
+  }, [schema, fetchWithRetry]);
 
   // Efeito para carregar dados básicos
   useEffect(() => {
-    if (schema && url) {
+    if (schema) {
       fetchBasicData();
     }
-  }, [schema, url, fetchBasicData]);
+  }, [schema, fetchBasicData]);
 
   // Efeito para carregar chats ativos
   useEffect(() => {
-    if (schema && url) {
+    if (schema) {
       fetchActiveChats();
     }
-  }, [schema, url, fetchActiveChats]);
+  }, [schema, fetchActiveChats]);
 
   // Efeito para carregar conexões
   useEffect(() => {
-    if (schema && url) {
+    if (schema) {
       fetchConnections();
     }
-  }, [schema, url, fetchConnections]);
+  }, [schema, fetchConnections]);
 
   // Memoizar dados calculados
   const calculatedData = useMemo(() => {

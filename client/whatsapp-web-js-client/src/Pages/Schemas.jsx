@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { useNavigate } from 'react-router-dom';
 import logo from './assets/effective-gain_logo.png';
 import { useTheme } from './assets/js/useTheme';
@@ -39,7 +39,7 @@ function SchemasPage({ theme: themeProp }) {
   useEffect(() => {
     async function fetchSchemas() {
       try {
-        const response = await axios.get(`${url}/company/tecnico`,
+        const response = await api.get(`/company/tecnico`,
         {
       withCredentials: true
     });
@@ -57,7 +57,7 @@ function SchemasPage({ theme: themeProp }) {
     userData.schema = schema.schema_name || schema;
     userData.empresa = schema.company_name || schema.empresa || '';
     localStorage.setItem('user', JSON.stringify(userData));
-    await axios.post(`${url}/company/set-schema`, { schema: schema.schema_name || schema },
+    await api.post(`/company/set-schema`, { schema: schema.schema_name || schema },
     {
       withCredentials: true
     });
@@ -83,11 +83,11 @@ function SchemasPage({ theme: themeProp }) {
 const handleCreateSchema = async (e) => {
   e.preventDefault();
   try {
-    await axios.post(`${url}/company/company`, newSchema,
+    await api.post(`/company/company`, newSchema,
         {
       withCredentials: true
     });
-    const response = await axios.get(`${url}/company/tecnico`,
+    const response = await api.get(`/company/tecnico`,
         {
       withCredentials: true
     });
@@ -104,7 +104,7 @@ const handleCreateSchema = async (e) => {
 
   const handleUpdateSchema = async (schemaName) => {
     try {
-      const response = await axios.post(`${url}/company/update-schema`, 
+      const response = await api.post(`/company/update-schema`, 
         { schema: schemaName },
         { withCredentials: true }
       );
@@ -132,7 +132,7 @@ const handleCreateSchema = async (e) => {
       setLoadingLimits(true);
       
       try {
-        const response = await axios.get(`${url}/limits/get-limits/${schemaName}`, {
+        const response = await api.get(`/limits/get-limits/${schemaName}`, {
           withCredentials: true
         });
         
@@ -190,7 +190,7 @@ const handleCreateSchema = async (e) => {
       for (const limit of limits) {
         if (limit.id) {
           // É um novo limitador (tem ID temporário)
-          await axios.post(`${url}/limits/insert-limit`, {
+          await api.post(`/limits/insert-limit`, {
             schema: schemaName,
             name: limit.name,
             is_on: limit.is_on,
@@ -200,13 +200,11 @@ const handleCreateSchema = async (e) => {
           });
         } else {
           // É um limitador existente
-          await axios.put(`${url}/limits/update-limit`, {
+          await api.put(`/limits/update-limit`, {
             schema: schemaName,
             name: limit.name,
             is_on: limit.is_on,
             quantity: limit.quantity || null
-          }, {
-            withCredentials: true
           });
         }
       }

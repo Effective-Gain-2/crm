@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { Card, Button } from 'react-bootstrap';
 import DisparoModal from './modalPages/Disparos_novoDisparo';
 import DeleteDisparoModal from './modalPages/Disparos_delete';
@@ -62,12 +62,9 @@ function DisparosPage({ theme }) {
 
   const handleStartDisparo = async (id) => {
   try {
-    await axios.post(`${url}/campaing/start`, { 
+    await api.post(`/campaing/start`, { 
         campaing_id: id,
         schema: schema
-    },
-        {
-      withCredentials: true
     });
     showSuccess('Campanha iniciada!');
   } catch (error) {
@@ -79,25 +76,19 @@ function DisparosPage({ theme }) {
   useEffect(() => {
     const fetchDisparos = async()=>{
       try{
-        const response = await axios.get(`${url}/campaing/get-campaing/${schema}`,
-        {
-      withCredentials: true
-    })
+        const response = await api.get(`/campaing/get-campaing/${schema}`)
         setDisparos(response.data);
       }catch(error){
         console.error('Erro ao buscar disparos:', error);
       }
     }
     fetchDisparos();
-  }, [url, schema])
+  }, [schema])
 
   useEffect(() => {
     const fetchConexoes = async()=>{
       try{
-        const response = await axios.get(`${url}/connection/get-all-connections/${schema}`,
-        {
-      withCredentials: true
-    })
+        const response = await api.get(`/connection/get-all-connections/${schema}`)
         setConexoes(Array.isArray(response.data) ? response.data : []);
       }catch(error){
         console.error('Erro ao buscar conexões:', error);
@@ -105,7 +96,7 @@ function DisparosPage({ theme }) {
       }
     }
     fetchConexoes();
-  }, [url, schema])
+  }, [schema])
   
   // Inicialização dos tooltips
   useEffect(() => {
@@ -168,10 +159,7 @@ function DisparosPage({ theme }) {
     // Recarregar lista após exclusão
     const fetchDisparos = async()=>{
       try{
-        const response = await axios.get(`${url}/campaing/get-campaing/${schema}`,
-        {
-      withCredentials: true
-    })
+        const response = await api.get(`/campaing/get-campaing/${schema}`)
         setDisparos(response.data);
       }catch(error){
         console.error('Erro ao buscar disparos:', error);
@@ -185,10 +173,7 @@ function DisparosPage({ theme }) {
     // Recarregar lista de disparos
     const fetchDisparos = async()=>{
       try{
-        const response = await axios.get(`${url}/campaing/get-campaing/${schema}`,
-        {
-      withCredentials: true
-    })
+        const response = await api.get(`/campaing/get-campaing/${schema}`)
         setDisparos(response.data);
       }catch(error){
         console.error('Erro ao buscar disparos:', error);

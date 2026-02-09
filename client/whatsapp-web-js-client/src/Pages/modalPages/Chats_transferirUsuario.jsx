@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { socket } from '../../socket';
 import './assets/style.css';
 
@@ -35,10 +35,7 @@ function TransferirUsuarioModal({ show, onHide, theme, selectedChat, schema, url
   const fetchUsersInQueue = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${url}/queue/get-users-in-queue/${selectedChat.queue_id}/${schema}`,
-        {
-      withCredentials: true
-    });
+      const response = await api.get(`/queue/get-users-in-queue/${selectedChat.queue_id}/${schema}`);
       setUsers(response.data.users || []);
     } catch (error) {
       console.error('Erro ao buscar usuários da fila:', error);
@@ -74,10 +71,7 @@ function TransferirUsuarioModal({ show, onHide, theme, selectedChat, schema, url
       };
       
       
-      const response = await axios.post(`${url}/chat/setUser`, requestData,
-        {
-      withCredentials: true
-    });
+      const response = await api.post(`/chat/setUser`, requestData);
       
               if (response.data.success) {
           onHide();

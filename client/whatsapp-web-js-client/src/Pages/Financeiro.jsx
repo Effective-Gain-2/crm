@@ -4,7 +4,7 @@ import DespesaModal from './modalPages/DespesaModal';
 import ReceitasModal from './modalPages/ReceitasModal';
 import { ExpensesService, CategoriesService, VendorsService } from '../services/FinanceiroService';
 import { useToast } from '../contexts/ToastContext';
-import axios from '../utils/axiosConfig';
+import { api } from '../utils/axiosConfig';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -30,8 +30,8 @@ ChartJS.register(
 );
 
 function Financeiro({ theme }) {
-  const { showError, showSuccess } = useToast();
   const [activeTab, setActiveTab] = useState('resumo');
+  const [showError, showSuccess] = useToast()
   const [despesas, setDespesas] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [fornecedores, setFornecedores] = useState([]);
@@ -234,9 +234,7 @@ useEffect(()=>{
   const generateMonthlyPerspectiveData = async () => {
     try {
       // Buscar dados reais dos últimos 6 meses
-      const response = await axios.get(`${process.env.REACT_APP_URL}/receita/last-months-gain/6/${schema}`, { 
-        withCredentials: true 
-      });
+      const response = await api.get(`/receita/last-months-gain/6/${schema}`);
       
       if (response.data && response.data.success && response.data.data && response.data.data.length > 0) {
         const historicalData = response.data.data;
@@ -1003,7 +1001,7 @@ useEffect(()=>{
   const carregarReceitas = async () => {
     try {
       const url = `${process.env.REACT_APP_URL}/receita/get-receitas/${schema}`;
-      const response = await axios.get(url, { withCredentials: true });
+      const response = await api.get(url);
       
       if (response.data && response.data.success) {
         const result = response.data;
@@ -1013,9 +1011,7 @@ useEffect(()=>{
           const receitasCompletas = [];
           for (const receita of result.data) {
             try {
-              const receitaCompleta = await axios.get(`${process.env.REACT_APP_URL}/receita/get-receita/${receita.id}/${schema}`, {
-                withCredentials: true
-              });
+              const receitaCompleta = await api.get(`/receita/get-receita/${receita.id}/${schema}`);
               if (receitaCompleta.data && receitaCompleta.data.success && receitaCompleta.data.data) {
                 const receitaData = receitaCompleta.data.data;
                 receitasCompletas.push({
@@ -1105,13 +1101,12 @@ useEffect(()=>{
       }
       
       
-      const response = await axios.post(`${process.env.REACT_APP_URL}/receita/create-receita`,
+      const response = await api.post(`/receita/create-receita`,
         {
           nome: novaReceita.descricao, 
           valor_receita: novaReceita.valorTotal, 
           schema: schema
-        }, 
-        { withCredentials: true }
+        }
       );
       
       
@@ -1191,15 +1186,13 @@ useEffect(()=>{
       // Verificar se é edição ou criação
       if (receitaData.id) {
         // Atualizar receita existente
-        response = await axios.put(`${process.env.REACT_APP_URL}/receita/update-receita/${receitaData.id}/${schema}`,
-          dadosReceita,
-          { withCredentials: true }
+        response = await api.put(`/receita/update-receita/${receitaData.id}/${schema}`,
+          dadosReceita
         );
       } else {
         // Criar nova receita
-        response = await axios.post(`${process.env.REACT_APP_URL}/receita/create-receita`,
-          dadosReceita,
-          { withCredentials: true }
+        response = await api.post(`/receita/create-receita`,
+          dadosReceita
         );
       }
       
@@ -1256,9 +1249,7 @@ useEffect(()=>{
   const handleEditarReceita = async (receita) => {
     try {
       // Buscar dados completos da receita incluindo itens e impostos
-      const response = await axios.get(`${process.env.REACT_APP_URL}/receita/get-receita/${receita.id}/${schema}`, {
-        withCredentials: true
-      });
+      const response = await api.get(`/receita/get-receita/${receita.id}/${schema}`);
       if (response.data && response.data.success && response.data.data) {
         const receitaCompleta = response.data.data;
         
@@ -1285,9 +1276,7 @@ useEffect(()=>{
         if (receitaCompleta.items && receitaCompleta.items.length > 0) {
           // Buscar todos os impostos disponíveis para mapear corretamente
           try {
-            const taxRatesResponse = await axios.get(`${process.env.REACT_APP_URL}/expenses/get-tax-rates/${schema}`, {
-              withCredentials: true
-            });
+            const taxRatesResponse = await api.get(`/expenses/get-tax-rates/${schema}`);
             
             const taxRates = taxRatesResponse.data?.success ? taxRatesResponse.data.data : [];
             
@@ -1383,12 +1372,11 @@ useEffect(()=>{
         
         
         // Chamar API para excluir receita
-        const response = await axios.delete(`${process.env.REACT_APP_URL}/receita/delete-receita`, {
+        const response = await api.delete(`/receita/delete-receita`, {
           data: {
             receita_id: receitaId,
             schema: schema
-          },
-          withCredentials: true
+          }
         });
         
         

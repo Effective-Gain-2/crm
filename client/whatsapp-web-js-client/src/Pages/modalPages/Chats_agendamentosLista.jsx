@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 function ListaAgendamentosModal({ show, onHide, theme, selectedChat, onAgendarNovaMensagem }) {
   const [agendamentos, setAgendamentos] = useState([]);
@@ -21,14 +21,12 @@ function ListaAgendamentosModal({ show, onHide, theme, selectedChat, onAgendarNo
     setLoading(true);
     setError('');
     try {
-      const response = await axios.get(`${url}/chat/scheduled-messages/${selectedChat.id}/${schema}`, {
+      const response = await api.get(`/chat/scheduled-messages/${selectedChat.id}/${schema}`, {
         params: {
           chat_id: selectedChat.id,
           schema: schema
-        },
-      withCredentials: true
-      },
-      );
+        }
+      });
       setAgendamentos(response.data.result || []);
     } catch (err) {
       setError('Erro ao buscar agendamentos.');
@@ -47,13 +45,11 @@ function ListaAgendamentosModal({ show, onHide, theme, selectedChat, onAgendarNo
     if (!agendamentoParaExcluir) return;
     setLoading(true);
     try {
-      await axios.delete(`${url}/chat/scheduled-message/${agendamentoParaExcluir.id}/${schema}`, {
+      await api.delete(`/chat/scheduled-message/${agendamentoParaExcluir.id}/${schema}`, {
         data: {
           id: agendamentoParaExcluir.id,
           schema: schema
-        },
-      withCredentials: true
-
+        }
       });
       setShowDeleteModal(false);
       setAgendamentoParaExcluir(null);

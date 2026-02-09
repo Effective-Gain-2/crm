@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -20,9 +20,7 @@ function LogsPage({ theme }) {
     try {
       setLoading(true);
       // Ajuste a URL da API conforme necessário
-      const response = await axios.get(`${url}/api/logs/${schema}`, {
-        withCredentials: true
-      });
+      const response = await api.get(`/api/logs/${schema}`);
       
       // Ajuste conforme a estrutura da resposta da API
       const logsData = Array.isArray(response.data.data) ? response.data.data : (response.data?.data || []);

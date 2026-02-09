@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from 'react-bootstrap';
 import { useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useToast } from '../../contexts/ToastContext';
 
 function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
@@ -25,15 +25,15 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
         if (!contato.connection?.queue_id) {
           if (!cancelled) setFilaAtual(null);
           // Ainda busca todas as filas para o dropdown (opcional — remova se não quiser)
-          const respTodas = await axios.get(`${url}/queue/get-all-queues/${schema}`, { withCredentials: true });
+          const respTodas = await api.get(`/queue/get-all-queues/${schema}`);
           if (!cancelled) setTodasFilas(respTodas.data.result || []);
           return;
         }
 
         // Buscar fila atual e todas as filas em paralelo
         const [responseFilaAtual, responseTodasFilas] = await Promise.all([
-          axios.get(`${url}/queue/get-conn-queues/${contato.connection.queue_id}/${schema}`, { withCredentials: true }),
-          axios.get(`${url}/queue/get-all-queues/${schema}`, { withCredentials: true })
+          api.get(`/queue/get-conn-queues/${contato.connection.queue_id}/${schema}`),
+          api.get(`/queue/get-all-queues/${schema}`)
         ]);
 
         if (cancelled) return;
@@ -64,14 +64,11 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
     
     setLoading(true);
     try {
-      const response = await axios.post(`${url}/connection/setConnQueue`, {
+      const response = await api.post(`/connection/setConnQueue`, {
         connection_id: contato.connection.id,
         queue_id: novaFilaId,
         schema: schema
-      },
-        {
-      withCredentials: true
-    });
+      });
 
       if (response.data.success) {
         const novaFila = todasFilas.find(f => f.id === novaFilaId);
@@ -95,14 +92,11 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
     
     setLoading(true);
     try {
-      const response = await axios.post(`${url}/connection/setConnQueue`, {
+      const response = await api.post(`/connection/setConnQueue`, {
         connection_id: contato.connection.id,
         queue_id: null,
         schema: schema
-      },
-        {
-      withCredentials: true
-    });
+      });
 
       if (response.data.success) {
         setFilaAtual(null);

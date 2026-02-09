@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 function TransferirEmMassaModal({ theme, show, onHide, etapaOrigem, etapas, funil, onTransferComplete }) {
   const [etapaDestino, setEtapaDestino] = useState('');
@@ -17,22 +17,17 @@ function TransferirEmMassaModal({ theme, show, onHide, etapaOrigem, etapas, funi
     setLoading(true);
     try {
       // Buscar todos os contatos da etapa de origem
-      const response = await axios.get(`${url}/kanban/get-contacts-in-stage/${etapaOrigem.id}/${schema}`, {
-        withCredentials: true
-      });
+      const response = await api.get(`/kanban/get-contacts-in-stage/${etapaOrigem.id}/${schema}`);
       const contatos = Array.isArray(response.data) ? response.data : [response.data];
       const numbers = contatos.map(c => c.number);
       // Enviar para o backend para transferir todos os contatos
-      await axios.put(`${url}/kanban/transfer-all-contacts`, {
+      await api.put(`/kanban/transfer-all-contacts`, {
         numbers,
         stage_id: etapaOrigem.id,
         new_stage: etapaDestino,
         sector: funil,
         schema: schema
-      },
-        {
-          withCredentials: true
-        });
+      });
 
       if (onTransferComplete) {
         onTransferComplete(etapaOrigem.id, etapaDestino);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import './assets/style.css';
 
 function ChangeQueueModal({ show, onHide, theme, selectedChat, schema, url, onTransfer }) {
@@ -10,10 +10,7 @@ function ChangeQueueModal({ show, onHide, theme, selectedChat, schema, url, onTr
 
   useEffect(() => {
     if (show && schema && url) {
-      axios.get(`${url}/queue/get-all-queues/${schema}`,
-        {
-      withCredentials: true
-    })
+      api.get(`/queue/get-all-queues/${schema}`)
         .then(res => setQueues(res.data.result || []))
         .catch(() => setQueues([]));
     }

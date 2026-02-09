@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useToast } from '../../contexts/ToastContext';
 
 function FilasWebhookModal({ theme, show, onHide, fila, onSave }) {
@@ -21,24 +21,18 @@ function FilasWebhookModal({ theme, show, onHide, fila, onSave }) {
     setIsLoading(true);
     try {
       // Primeira chamada: atualizar URL do webhook
-      const urlResponse = await axios.put(`${url}/queue/update-webhook-url`, {
+      const urlResponse = await api.put(`/queue/update-webhook-url`, {
         queue_id: fila.id,
         webhook_url: webhookUrl,
         schema: schema
-      },
-        {
-      withCredentials: true
-    });
+      });
 
       // Segunda chamada: atualizar status do webhook
-      const statusResponse = await axios.put(`${url}/queue/toggle-webhook-status`, {
+      const statusResponse = await api.put(`/queue/toggle-webhook-status`, {
         queue_id: fila.id,
         status: webhookEnabled,
         schema: schema
-      },
-        {
-      withCredentials: true
-    });
+      });
 
       if (urlResponse.status === 200 && statusResponse.status === 200) {
         onSave(fila.id, webhookUrl, webhookEnabled);

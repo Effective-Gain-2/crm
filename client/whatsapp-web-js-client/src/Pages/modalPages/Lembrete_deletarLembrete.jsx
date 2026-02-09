@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import React from 'react';
 
 function LembreteDeletarLembrete({ theme, lembrete, onDelete }) {
@@ -20,14 +20,11 @@ function LembreteDeletarLembrete({ theme, lembrete, onDelete }) {
 
   const handleDelete = async () => {
   try {
-    await axios.delete(`${url}/lembretes/delete-lembrete`, {
+    await api.delete(`/lembretes/delete-lembrete`, {
       data: {
         id: lembrete.id,
         schema: schema,
       },
-    },
-        {
-      withCredentials: true
     });
     onDelete(lembrete.id); 
   } catch (error) {

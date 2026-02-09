@@ -4,7 +4,7 @@ import EditUserModal from './modalPages/User_edit';
 import UserFilasModal from './modalPages/Usuarios_gerirFilas';
 import { useEffect, useState } from 'react';
 import * as bootstrap from 'bootstrap';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { useNavigate } from 'react-router-dom';
 import { socket } from '../socket'
 import { useToast } from '../contexts/ToastContext';
@@ -78,7 +78,7 @@ function UsuariosPage({ theme }) {
 
   const handleSaveUserFilas = async (selectedFilas, userId) => {
     try {
-      await axios.post(`${url}/queue/update-user-queues`, {
+      await api.post(`/queue/update-user-queues`, {
         userId: userId,
         queueIds: selectedFilas,
         schema: schema
@@ -86,30 +86,24 @@ function UsuariosPage({ theme }) {
         user_id: userData.id,
         user_role: userData.role,
         schema: schema
-      },
-        withCredentials: true
-      });
+      }});
 
       // Recarregar a lista de usuários para atualizar as filas
-      const response = await axios.get(`${url}/api/users/${schema}`, {headers:{
+      const response = await api.get(`/api/users/${schema}`, {headers:{
         user_id: userData.id,
         user_role: userData.role,
         schema: schema
-      },
-        withCredentials: true
-      });
+      }});
       const usuariosBase = response.data.users || [];
 
       const usuariosComFilas = await Promise.all(
         usuariosBase.map(async (usuario) => {
           try {
-            const queue = await axios.get(`${url}/queue/get-user-queue/${usuario.id}/${schema}`, {headers:{
+            const queue = await api.get(`/queue/get-user-queue/${usuario.id}/${schema}`, {headers:{
         user_id: userData.id,
         user_role: userData.role,
         schema: schema
-      },
-              withCredentials: true
-            });
+      }});
             let queueNames = '-';
             if (queue.data?.result) {
               if (Array.isArray(queue.data.result)) {
@@ -176,13 +170,11 @@ function UsuariosPage({ theme }) {
   useEffect(() => {
     const fetchUsuarios = async () => {
       try {
-        const response = await axios.get(`${url}/api/users/${schema}`, {headers:{
+        const response = await api.get(`/api/users/${schema}`, {headers:{
         user_id: userData.id,
         user_role: userData.role,
         schema: schema
-      },
-          withCredentials: true
-        });
+      }})
         setUsuarios(response.data.users || []);
       } catch (error) {
         console.error('Erro ao buscar usuários:', error);
@@ -206,26 +198,23 @@ function UsuariosPage({ theme }) {
   useEffect(() => {
     const fetchUsuarios = async () => {
       try {
-        const response = await axios.get(`${url}/api/users/${schema}`, {headers:{
+        const response = await api.get(`/api/users/${schema}`, {headers:{
         user_id: userData.id,
         user_role: userData.role,
         schema: schema
-      },
-          withCredentials: true
-        });
+      }});
         const usuariosBase = response.data.users || [];
 
         // Busca as filas de todos os usuários em paralelo
         const usuariosComFilas = await Promise.all(
           usuariosBase.map(async (usuario) => {
             try {
-              const queue = await axios.get(`${url}/queue/get-user-queue/${usuario.id}/${schema}`, {
+              const queue = await api.get(`/queue/get-user-queue/${usuario.id}/${schema}`, {
                 headers:{
                   user_id: userData.id,
                   user_role: userData.role,
                   schema: schema
-                },
-                withCredentials: true
+                }
               });
               let queueNames = '-';
               if (queue.data?.result) {

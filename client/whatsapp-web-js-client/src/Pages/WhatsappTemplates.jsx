@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -50,7 +50,7 @@ function WhatsappTemplates({ theme }) {
       setConnectionsLoading(true);
       setConnectionsError(null);
       try {
-        const res = await axios.get(`${url}/connection/get-all-api-ofc-connections/${schema}`, { withCredentials: true });
+        const res = await api.get(`/connection/get-all-api-ofc-connections/${schema}`);
         const raw = Array.isArray(res.data) ? res.data : [res.data];
         // api_connections: id, phone_id, name, number, token
         const normalized = raw.filter(Boolean).filter((conn) => conn && conn.phone_id);
@@ -82,7 +82,7 @@ function WhatsappTemplates({ theme }) {
     setError(null);
     const templatesComp = [];
     try {
-      const response = await axios.get(`${url}/ofc-campaing/get-templates/${phoneId}/${schema}`, { withCredentials: true });
+      const response = await api.get(`/ofc-campaing/get-templates/${phoneId}/${schema}`);
 
       response.data.data.map((datas) => {
         let header = null;
@@ -115,22 +115,22 @@ function WhatsappTemplates({ theme }) {
   useEffect(() => {
     const fetchFunisEtapas = async () => {
       //pegando os funis
-      const funis = await axios.get(`${url}/kanban/get-funis/${schema}`, { withCredentials: true })
+      const funis = await api.get(`/kanban/get-funis/${schema}`)
       setFunnels(Array.isArray(funis.data.name) ? funis.data.name : [funis.data.name])
     }
     fetchFunisEtapas()
 
-  }, [url, schema])
+  }, [schema])
 
   useEffect(() => {
     const fetchEtapas = async () => {
       if (!selectedFunnel) return;
       //pegando as etapas
-      const etapas = await axios.get(`${url}/kanban/get-stages/${selectedFunnel}/${schema}`, { withCredentials: true })
+      const etapas = await api.get(`/kanban/get-stages/${selectedFunnel}/${schema}`)
       setStages(Array.isArray(etapas.data) ? etapas.data : [etapas.data])
     }
     fetchEtapas()
-  }, [selectedFunnel || url])
+  }, [selectedFunnel || schema])
 
   const handleEditTemplate = (template) => {
     setSelectedTemplate(template);
@@ -190,7 +190,7 @@ function WhatsappTemplates({ theme }) {
     // Buscar campos personalizados
     (async () => {
       try {
-        const resp = await axios.get(`${url}/kanban/get-custom-fields/${schema}`, { withCredentials: true });
+        const resp = await api.get(`/kanban/get-custom-fields/${schema}`);
         const data = resp?.data;
         const normalized = Array.isArray(data)
           ? data.map(item => {
@@ -235,14 +235,14 @@ function WhatsappTemplates({ theme }) {
         }
         return { label, value: chosen };
       }).filter(Boolean);
-      await axios.post(`${url}/ofc-campaing/send-template-message`, {
+      await api.post(`/ofc-campaing/send-template-message`, {
         phone_id: selectedPhoneId,
         language: 'pt_BR',
         template_name: template.template.name,
         etapa_id: stage_id,
         schema: schema,
         variables
-      }, { withCredentials: true })
+      })
 
       setShowSendModal(false);
       showSuccess('Template enviado com sucesso!');
@@ -265,9 +265,7 @@ function WhatsappTemplates({ theme }) {
           return;
         }
 
-        await axios.delete(`${url}/ofc-campaing/delete-template/${selectedPhoneId}/${template_name}`, {
-          withCredentials: true
-        });
+        await api.delete(`/ofc-campaing/delete-template/${selectedPhoneId}/${template_name}`);
         fetchTemplates(selectedPhoneId);
         showSuccess('Template excluído com sucesso!');
       } catch (err) {
@@ -315,7 +313,7 @@ function WhatsappTemplates({ theme }) {
       payload: btn.sub_type === 'quick_reply' ? btn.value : undefined
     }));
 
-    const response = await axios.post(`${url}/ofc-campaing/create-template`, {
+    const response = await api.post(`/ofc-campaing/create-template`, {
       wa_id: selectedPhoneId,
       name: newTemplate.name,
       language: newTemplate.language,
@@ -380,7 +378,7 @@ function WhatsappTemplates({ theme }) {
       payload: btn.sub_type === 'quick_reply' ? btn.value : undefined
     }));
 
-    await axios.put(`${url}/ofc-campaing/edit-template`, {
+    await api.put(`/ofc-campaing/edit-template`, {
       template_id: selectedTemplate.template.id,
       wa_id: selectedPhoneId,
       name: newTemplate.name,

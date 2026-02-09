@@ -3,7 +3,7 @@ import * as bootstrap from 'bootstrap';
 import LembreteNovoLembrete from './modalPages/Lembrete_novoLembrete';
 import LembreteDeletarLembrete from './modalPages/Lembrete_deletarLembrete';
 import anime from 'animejs';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { useToast } from '../contexts/ToastContext';
 import { socket } from '../socket';
 import { useAuth } from '../contexts/AuthContext';
@@ -90,7 +90,7 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
     useEffect(() => {
         const checkGoogleStatus = async () => {
             try {
-                await axios.get('/calendar/events', {
+                await api.get('/calendar/events', {
                     params: {
                         user_id: userData.id,
                         schema: schema
@@ -106,7 +106,7 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
 
     const handleDisconnectGoogleCalendar = async () => {
         try {
-            await axios.post('/calendar/disconnect', {
+            await api.post('/calendar/disconnect', {
                 user_id: userData.id,
                 schema: schema
             });
@@ -120,12 +120,12 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
         setLoadingGoogle(true);
         try {
             // Salva user_id e schema na sessão antes do OAuth
-            await axios.post('/calendar/set-session', {
+            await api.post('/calendar/set-session', {
                 user_id: userData.id,
                 schema: schema,
                 userRole: userData.role
             });
-            const response = await axios.get('/calendar/auth-url');
+            const response = await api.get('/calendar/auth-url');
             if (response.data.url) {
                 window.location.href = response.data.url;
             }
@@ -217,7 +217,7 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
     // Função para buscar eventos do Google Calendar
     const fetchGoogleEvents = React.useCallback(async () => {
         try {
-            const response = await axios.get('/calendar/events', {
+            const response = await api.get('/calendar/events', {
                 params: {
                     user_id: userData.id,
                     schema: schema

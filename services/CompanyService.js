@@ -352,6 +352,86 @@ const createCompany = async (company, schema) => {
             create table IF NOT EXISTS ${schema}.campaing_chats(chat_id uuid, campaing_id uuid, created_at bigint)
             `)
 
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.user_activity_log (
+            id integer NOT NULL,
+            user_id character varying NOT NULL,
+            action character varying NOT NULL,
+            ip_address inet,
+            user_agent text,
+            created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+        );
+    `)
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.clientes (
+            id uuid DEFAULT gen_random_uuid() NOT NULL,
+            nome character varying(100),
+            numero character varying(30),
+            email character varying(100),
+            idade integer,
+            criado_em timestamp without time zone DEFAULT now()
+        );
+    `)
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.bot_functions (
+            assistant_id text,
+            func_id uuid
+        );
+    `)
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.functions (
+            id uuid NOT NULL,
+            name text NOT NULL,
+            label text NOT NULL
+        );
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.api_connections ADD COLUMN IF NOT EXISTS waba_id text NOT NULL;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.chat_contact ADD COLUMN IF NOT EXISTS created_at bigint;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.chats ADD COLUMN IF NOT EXISTS botchating boolean DEFAULT false;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.connections ADD COLUMN IF NOT EXISTS label text;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.login_data ADD COLUMN IF NOT EXISTS blocked boolean DEFAULT false;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.login_data ADD COLUMN IF NOT EXISTS user_email text;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.login_data ADD COLUMN IF NOT EXISTS block_reason text;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.login_data ADD COLUMN IF NOT EXISTS blocked_at bigint;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.queues ADD COLUMN IF NOT EXISTS is_webhook_on boolean;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.queues ADD COLUMN IF NOT EXISTS webhook_url text;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.scheduled_message ADD COLUMN IF NOT EXISTS bull_job_id text;
+    `)
 
     const superAdmin = new Users(
         superAdminId,
@@ -449,6 +529,7 @@ const updateSchema = async (schema) => {
             quote_id text
         );
         `);
+        
 
         // Adicionar colunas filename e mimetype se não existirem
         try {
@@ -740,6 +821,87 @@ const updateSchema = async (schema) => {
         await pool.query(`ALTER TABLE ${schema}.custom_fields add column if not exists graph boolean default false`)
         await pool.query(`ALTER TABLE ${schema}.campaing add column if not exists init_time text`)
         await pool.query(`ALTER TABLE ${schema}.campaing add column if not exists end_time text`)
+
+        await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.user_activity_log (
+            id integer NOT NULL,
+            user_id character varying NOT NULL,
+            action character varying NOT NULL,
+            ip_address inet,
+            user_agent text,
+            created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+        );
+    `)
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.clientes (
+            id uuid DEFAULT gen_random_uuid() NOT NULL,
+            nome character varying(100),
+            numero character varying(30),
+            email character varying(100),
+            idade integer,
+            criado_em timestamp without time zone DEFAULT now()
+        );
+    `)
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.bot_functions (
+            assistant_id text,
+            func_id uuid
+        );
+    `)
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.functions (
+            id uuid NOT NULL,
+            name text NOT NULL,
+            label text NOT NULL
+        );
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.api_connections ADD COLUMN IF NOT EXISTS waba_id text NOT NULL;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.chat_contact ADD COLUMN IF NOT EXISTS created_at bigint;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.chats ADD COLUMN IF NOT EXISTS botchating boolean DEFAULT false;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.connections ADD COLUMN IF NOT EXISTS label text;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.login_data ADD COLUMN IF NOT EXISTS blocked boolean DEFAULT false;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.login_data ADD COLUMN IF NOT EXISTS user_email text;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.login_data ADD COLUMN IF NOT EXISTS block_reason text;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.login_data ADD COLUMN IF NOT EXISTS blocked_at bigint;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.queues ADD COLUMN IF NOT EXISTS is_webhook_on boolean;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.queues ADD COLUMN IF NOT EXISTS webhook_url text;
+    `)
+
+    await pool.query(`
+        ALTER TABLE IF EXISTS ${schema}.scheduled_message ADD COLUMN IF NOT EXISTS bull_job_id text;
+    `)
 
         return { message: "Schema atualizado com sucesso! Todas as tabelas foram criadas/verificadas." };
     } catch (error) {

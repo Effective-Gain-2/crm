@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 function UserFilasModal({ theme, userId, userName, onChange }) {
   const [selectedFilas, setSelectedFilas] = useState([]);
@@ -13,10 +13,7 @@ function UserFilasModal({ theme, userId, userName, onChange }) {
   
   const fetchAllFilas = async () => {
     try {
-      const response = await axios.get(`${url}/queue/get-all-queues/${schema}`,
-        {
-      withCredentials: true
-    });
+      const response = await api.get(`/queue/get-all-queues/${schema}`);
       
       setAllFilas(response.data.result || []);
     } catch (error) {
@@ -29,10 +26,7 @@ function UserFilasModal({ theme, userId, userName, onChange }) {
       if (!userId) return;
       
       try {
-        const response = await axios.get(`${url}/queue/get-user-queue/${userId}/${schema}`,
-        {
-      withCredentials: true
-    });
+        const response = await api.get(`/queue/get-user-queue/${userId}/${schema}`);
         
         let userQueueIds = [];
         if (response.data.result) {
@@ -76,7 +70,7 @@ function UserFilasModal({ theme, userId, userName, onChange }) {
 
   const handleSaveChanges = async () => {
     try {
-      const response = await axios.post(`${url}/queue/update-user-queues`, {
+      const response = await api.post(`/queue/update-user-queues`, {
         userId: userId,
         queueIds: selectedFilas,
         schema: schema

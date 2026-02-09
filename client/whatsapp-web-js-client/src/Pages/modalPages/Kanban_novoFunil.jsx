@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useToast } from '../../contexts/ToastContext';
 
 function NovoFunilModal({ theme, show, onHide, onSave }) {
@@ -34,13 +34,10 @@ function NovoFunilModal({ theme, show, onHide, onSave }) {
     }
 
     try {
-      const response = await axios.post(`${url}/kanban/create-funil`, {
+      const response = await api.post(`/kanban/create-funil`, {
         sector: titulo,
         schema: schema
-      },
-        {
-      withCredentials: true
-    });
+      });
       
       if (response.data) {
         showSuccess('Funil criado com sucesso!');

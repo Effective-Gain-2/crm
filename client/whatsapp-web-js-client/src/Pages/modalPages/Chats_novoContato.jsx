@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import InputMask from 'react-input-mask';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useNavigate } from 'react-router-dom';
 import { Modal, Button } from 'react-bootstrap';
 
@@ -23,10 +23,7 @@ function NewContactModal({ theme, show, onHide }) {
   useEffect(() => {
     const fetchConnections = async () => {
       try {
-        const response = await axios.get(`${url}/connection/get-all-connections/${schema}`,
-        {
-      withCredentials: true
-    });
+        const response = await api.get(`/connection/get-all-connections/${schema}`);
         setConnections(response.data);
       } catch (error) {
         console.error('Erro ao buscar conexões:', error);
@@ -47,16 +44,13 @@ function NewContactModal({ theme, show, onHide }) {
     const numeroLimpo = contactNumber.replace(/\D/g, '');
   
     try {
-      const newContact = await axios.post(`${url}/contact/create-contact`, {
+      const newContact = await api.post(`/contact/create-contact`, {
         name: contactName,
         number: numeroLimpo,
         connection: attendant, 
         user_id: userData.id,
         schema: userData.schema,
-      },
-        {
-      withCredentials: true
-    });
+      });
   
   
       setContactName('');

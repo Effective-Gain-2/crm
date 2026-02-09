@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useToast } from '../../contexts/ToastContext';
 
 function KanbanDeletarFunilModal({ show, onHide, funil, theme }) {
@@ -50,7 +50,7 @@ function KanbanDeletarFunilModal({ show, onHide, funil, theme }) {
 
     setLoading(true);
     try {
-      const response = await axios.delete(`${url}/kanban/delete-funil/${funil}/${schema}`, {
+      const response = await api.delete(`/kanban/delete-funil/${funil}/${schema}`, {
         data: {
           password: isAdmin ? password : null,
           userRole: userData?.role,
@@ -61,10 +61,7 @@ function KanbanDeletarFunilModal({ show, onHide, funil, theme }) {
             userData:userData
           })
         }
-      },
-        {
-      withCredentials: true
-    });
+      });
       
       if (response.data.success) {
         window.location.reload();

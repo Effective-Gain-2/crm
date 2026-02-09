@@ -5,7 +5,7 @@ import logo from './assets/effective-gain_logo.png';
 import { useTheme } from './assets/js/useTheme';
 import { useEffect } from 'react';
 import React, { useState } from 'react';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { useNavigate } from 'react-router-dom';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { useToast } from '../contexts/ToastContext';
@@ -63,11 +63,11 @@ const handleLogin = async (e) => {
 
   try {
     const url = process.env.REACT_APP_URL;
-    const response = await axios.post(`${url}/api/login`, {
+    const response = await api.post(`/api/login`, {
       email: username,  
       password,
       recaptcha: recaptchaValue,
-    }, { withCredentials: true });
+    });
 
 
     if (response.data.success) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import * as bootstrap from 'bootstrap';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -51,18 +51,14 @@ function Dashboard({ theme }) {
   useEffect(() => {
     const fetchUsuarios = async () => {
       try {
-        const response = await axios.get(`${url}/api/users/${schema}`, {
-          withCredentials: true
-        });
+        const response = await api.get(`/api/users/${schema}`);
         setUser(response.data.users || []);
       } catch (error) {
         console.error('Erro ao buscar usuários:', error);
       }
     };
     const fetchAllQueues = async () => {
-      const response = await axios.get(`${url}/queue/get-all-queues/${schema}`, {
-        withCredentials: true
-      });
+      const response = await api.get(`/queue/get-all-queues/${schema}`);
       setFilas(response.data.result || []);
     };
     fetchUsuarios();
@@ -73,9 +69,7 @@ function Dashboard({ theme }) {
 
       const fetchClosedChats = async () => {
         try {
-          const response = await axios.get(`${url}/chat/get-closed-chats/${schema}`, {
-            withCredentials: true
-          });
+          const response = await api.get(`/chat/get-closed-chats/${schema}`);
           setClosedChats(response.data.result || []);
         } catch (error) {
           setClosedChats([]);
@@ -83,9 +77,7 @@ function Dashboard({ theme }) {
       };
       const fetchStatusList = async () => {
         try {
-          const response = await axios.get(`${url}/chat/get-status/${schema}`, {
-            withCredentials: true
-          });
+          const response = await api.get(`/chat/get-status/${schema}`);
           setStatusList(response.data.result || []);
         } catch (error) {
           setStatusList([]);
@@ -105,7 +97,7 @@ function Dashboard({ theme }) {
       const namesMap = {};
       for (const id of ids) {
         try {
-          const res = await axios.get(`${url}/api/users/${schema}`);
+          const res = await api.get(`/api/users/${schema}`);
           const user = (res.data.users || []).find(u => u.id === id);
           if (user) namesMap[id] = user.nome || user.username || user.name;
         } catch (e) {}
@@ -242,7 +234,7 @@ function Dashboard({ theme }) {
     if (activeTab === 'graficos') {
       const fetchCustomFields = async () => {
         try {
-          const res = await axios.get(`${url}/kanban/get-custom-fields/${schema}`, { withCredentials: true });
+          const res = await api.get(`/kanban/get-custom-fields/${schema}`);
           const fields = (Array.isArray(res.data) ? res.data : [res.data]).filter(f => f.graph);
           setCustomFieldsGraph(fields);
         } catch {
@@ -263,7 +255,7 @@ function Dashboard({ theme }) {
           const valueArr = [];
           for (const contato of contatosUnicos) {
             try {
-              const resp = await axios.get(`${url}/contact/get-custom-values/${contato}/${schema}`);
+              const resp = await api.get(`/contact/get-custom-values/${contato}/${schema}`);
               const arr = resp.data.result && Array.isArray(resp.data.result) ? resp.data.result : [];
               const found = arr.find(f => String(f.field_id) === String(fieldId));
               if (found && found.value) {
@@ -284,9 +276,8 @@ function Dashboard({ theme }) {
     if (activeTab === 'relatorio') {
       const fetchReport = async () => {
         try {
-          const response = await axios.get(`${url}/report/get-reports/${schema}`, {
-            params: { user_id: userData?.id, user_role: userData?.role },
-            withCredentials: true
+          const response = await api.get(`/report/get-reports/${schema}`, {
+            params: { user_id: userData?.id, user_role: userData?.role }
           });
           let data = response.data.result;
           if (typeof data === 'string') {
@@ -302,7 +293,7 @@ function Dashboard({ theme }) {
 
           // Usuários
           if (userIds.length > 0) {
-            const res = await axios.get(`${url}/api/users/${schema}`, { withCredentials: true });
+            const res = await api.get(`/api/users/${schema}`);
             const users = res.data.users || [];
             const map = {};
             userIds.forEach(id => {
@@ -316,7 +307,7 @@ function Dashboard({ theme }) {
 
           // Filas
           if (queueIds.length > 0) {
-            const res = await axios.get(`${url}/queue/get-all-queues/${schema}`, { withCredentials: true });
+            const res = await api.get(`/queue/get-all-queues/${schema}`);
             const queues = res.data.result || [];
             const map = {};
             queueIds.forEach(id => {
@@ -331,7 +322,7 @@ function Dashboard({ theme }) {
           // Conexões (via chats)
           if (chatIds.length > 0) {
             // Buscar todos os chats de uma vez
-            const res = await axios.get(`${url}/connection/get-all-connections/${schema}`, { withCredentials: true });
+            const res = await api.get(`/connection/get-all-connections/${schema}`);
             const connections = res.data || [];
             setConnectionMap({});
           } else {

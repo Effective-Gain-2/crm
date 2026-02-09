@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -30,9 +30,7 @@ function IntegracoesPage({ theme, onOpenWhatsappModal }) {
     const fetchApiOfcConnections = async () => {
       if (showDeleteApiOfcModal && schema) {
         try {
-          const res = await axios.get(`${url}/connection/get-all-connections/${schema}`, {
-            withCredentials: true
-          });
+          const res = await api.get(`/connection/get-all-connections/${schema}`);
           // Filtrar conexões API OFC - assumindo que todas as conexões podem ser API OFC
           // ou você pode adicionar um filtro específico se houver um campo que identifique
           setApiOfcConnections(Array.isArray(res.data) ? res.data : [res.data]);
@@ -63,9 +61,7 @@ function IntegracoesPage({ theme, onOpenWhatsappModal }) {
       // Usar phone_id que é o campo phone da conexão
       const phoneId = connection.name || connection.id;
       
-      await axios.delete(`${url}/connection/delete-api-ofc-data/${phoneId}/${schema}`, {
-        withCredentials: true
-      });
+      await api.delete(`/connection/delete-api-ofc-data/${phoneId}/${schema}`);
 
       showSuccess('Dados da API OFC apagados com sucesso!');
       setShowDeleteApiOfcModal(false);

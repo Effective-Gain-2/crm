@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useToast } from '../../contexts/ToastContext';
 import { getFileIcon } from '../../utils/fileUtils';
 
@@ -91,8 +91,7 @@ const DocumentUploadModal = ({ show, onHide, theme, selectedChat, schema, url })
     formData.append('category', category.trim());
 
     try {
-      const response = await axios.post(`${url}/documents/upload`, formData, {
-        withCredentials: true,
+      const response = await api.post(`/documents/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

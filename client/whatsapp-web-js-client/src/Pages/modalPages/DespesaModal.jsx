@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useToast } from '../../contexts/ToastContext';
 import { ExpensesService } from '../../services/FinanceiroService';
 
@@ -52,7 +52,7 @@ function DespesaModal({ show, onHide, theme, despesa = null, onSave, categorias 
 
   useEffect(()=>{
     const fetchCategories = async()=>{
-      const response = await axios.get(`${process.env.REACT_APP_URL}/category/get-categories/${JSON.parse(localStorage.getItem('user')).schema}`, { withCredentials: true });
+      const response = await api.get(`/category/get-categories/${JSON.parse(localStorage.getItem('user')).schema}`);
       if (response.data.success === true) {
         const result = response.data;
         setCategoriasDisponiveis(Array.isArray(result.data) ? result.data : [result.data]);
@@ -66,7 +66,7 @@ function DespesaModal({ show, onHide, theme, despesa = null, onSave, categorias 
 
   useEffect(()=>{
     const fetchVendors = async()=>{
-      const response = await axios.get(`${process.env.REACT_APP_URL}/vendor/get-vendors/${schema}`, { withCredentials: true });
+      const response = await api.get(`/vendor/get-vendors/${schema}`);
       if (response.data.success === true) {
         const result = response.data;
         setFornecedores(Array.isArray(result.data) ? result.data : [result.data]);
@@ -193,11 +193,10 @@ function DespesaModal({ show, onHide, theme, despesa = null, onSave, categorias 
       const user = JSON.parse(localStorage.getItem('user'));
       const schema = user?.schema;
 
-      const response = await axios.post(`${process.env.REACT_APP_URL}/category/create-category`, {
+      const response = await api.post(`/category/create-category`, {
         name: newCategoryName.trim(),
         schema: schema
-      },
-    { withCredentials: true });
+      });
 
       if (response.data.success === true) {
         const result = response.data;
@@ -231,11 +230,10 @@ function DespesaModal({ show, onHide, theme, despesa = null, onSave, categorias 
       const user = JSON.parse(localStorage.getItem('user'));
       const schema = user?.schema;
 
-      const response = await axios.post(`${process.env.REACT_APP_URL}/vendor/create-vendor`, {
+      const response = await api.post(`/vendor/create-vendor`, {
         vendor_name: newVendorName.trim(),
         schema: schema
-      },
-    { withCredentials: true });
+      });
 
       if (response.data.success === true) {
         const result = response.data;
@@ -1539,7 +1537,7 @@ function ImpostoModal({ show, onHide, onSave, theme, tiposImposto, itens = [], c
   useEffect(()=>{
     const fetchImpostos = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_URL}/expenses/get-tax-rates/${schema}`, {withCredentials: true})
+        const response = await api.get(`/expenses/get-tax-rates/${schema}`)
         if(response.data.success === true){
           const result = response.data
           setImpostosDisponiveis(Array.isArray(result.data)?result.data:[result.data])

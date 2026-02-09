@@ -1,5 +1,5 @@
 import React from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import * as bootstrap from 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
@@ -13,10 +13,7 @@ function DeleteDisparoModal({ theme, disparo, onDelete }) {
 
   const handleDelete = async () => {
     try {
-      const response = await axios.delete(`${url}/campaing/delete/${disparo.id}/${schema}`,
-        {
-      withCredentials: true
-    });
+      const response = await api.delete(`/campaing/delete/${disparo.id}/${schema}`);
       
       if (response.data.success) {
         onDelete(); 

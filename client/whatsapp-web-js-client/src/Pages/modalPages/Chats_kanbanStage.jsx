@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import './assets/style.css';
 
 function ChatKanbanStageModal({ show, onHide, theme, selectedChat, schema, url, onTransfer }) {
@@ -15,9 +15,7 @@ function ChatKanbanStageModal({ show, onHide, theme, selectedChat, schema, url, 
     if (show && schema && url) {
       const fetchFunis = async () => {
         try {
-          const response = await axios.get(`${url}/kanban/get-funis/${schema}`, {
-            withCredentials: true
-          });
+          const response = await api.get(`/kanban/get-funis/${schema}`);
           console.log('Resposta da API:', response.data);
           // A API retorna { name: ['funil1', 'funil2', ...] }
           const funisData = response.data?.name || [];
@@ -36,9 +34,7 @@ function ChatKanbanStageModal({ show, onHide, theme, selectedChat, schema, url, 
     if (show && selectedFunil && schema && url) {
       const fetchEtapas = async () => {
         try {
-          const response = await axios.get(`${url}/kanban/get-stages/${selectedFunil.charAt(0).toLowerCase() + selectedFunil.slice(1)}/${schema}`, {
-            withCredentials: true
-          });
+          const response = await api.get(`/kanban/get-stages/${selectedFunil.charAt(0).toLowerCase() + selectedFunil.slice(1)}/${schema}`);
           setEtapas(Array.isArray(response.data) ? response.data : []);
         } catch (error) {
           console.error('Erro ao buscar etapas:', error);
@@ -64,13 +60,11 @@ function ChatKanbanStageModal({ show, onHide, theme, selectedChat, schema, url, 
     console.log('Transferindo contato para etapa:', selectedEtapa);
     setIsLoading(true);
     try {
-      await axios.put(`${url}/kanban/change-stage`,{
+      await api.put(`/kanban/change-stage`,{
         chat_id: selectedChat.id,
         number: selectedChat.contact_phone || selectedChat.number,
         stage_id: selectedEtapa,
         schema: schema
-      },{
-        withCredentials: true
       })
       setSelectedFunil('');
       setSelectedEtapa('');

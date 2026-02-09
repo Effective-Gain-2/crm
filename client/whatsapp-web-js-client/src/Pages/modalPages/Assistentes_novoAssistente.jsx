@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import * as bootstrap from 'bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 function NewAssistantModal({ theme }) {
   const [name, setName] = useState('');
@@ -27,12 +27,12 @@ function NewAssistantModal({ theme }) {
     }
 
     try {
-      const response = await axios.post(`${url}/bot/create`,{
+      const response = await api.post(`/bot/create`,{
         name:name,
         instructions:instructions,
         model:model,
         schema:schema
-      }, { withCredentials:true });
+      });
 
       setName('');
       setInstructions('');

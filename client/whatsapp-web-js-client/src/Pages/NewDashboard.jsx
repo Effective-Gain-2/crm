@@ -18,7 +18,7 @@ import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Tooltip from 'react-bootstrap/Tooltip';
 import useDashboardData from '../hooks/useDashboardData';
 import useDashboardFilters from '../hooks/useDashboardFilters';
-import axios from '../utils/axiosConfig';
+import { api } from '../utils/axiosConfig';
 import { useAuth } from '../contexts/AuthContext';
 
 ChartJS.register(
@@ -63,7 +63,7 @@ function NewDashboard({ theme }) {
   useEffect(() => {
     const fetchDisparos = async () => {
       try {
-        const response = await axios.get(`${url}/campaing/get-campaing/${schema}`);
+        const response = await api.get(`/campaing/get-campaing/${schema}`);
         setDisparos(response.data);
       } catch (error) {
         console.error('Erro ao buscar disparos:', error);
@@ -73,7 +73,7 @@ function NewDashboard({ theme }) {
     
     const fetchCampaingData = async () => {
       try {
-        const response = await axios.get(`${url}/campaing/get-campaings-data/${schema}`);
+        const response = await api.get(`/campaing/get-campaings-data/${schema}`);
         setCampanhas(Array.isArray(response.data.result) ? response.data.result : [response.data.result]);
       } catch (error) {
         console.error('Erro ao buscar campanhas:', error);
@@ -85,7 +85,7 @@ function NewDashboard({ theme }) {
   try {
     const chats = [];
     for (const campanha of campanhas) {
-      const response = await axios.get(`${url}/campaing/get-campaing-chats/${campanha.campaing_id}/${schema}`);
+      const response = await api.get(`/campaing/get-campaing-chats/${campanha.campaing_id}/${schema}`);
       chats.push(...response.data.result);
     }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import favicon from '../assets/favicon_25.png';
 
 const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
@@ -51,10 +51,7 @@ const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
         // Fetch da fila
         if (selectedChat.queue_id) {
           try {
-            const queueRes = await axios.get(`${url}/queue/get-conn-queues/${selectedChat.queue_id}/${schema}`,
-        {
-      withCredentials: true
-    });
+            const queueRes = await api.get(`/queue/get-conn-queues/${selectedChat.queue_id}/${schema}`);
             if (queueRes.data.result && queueRes.data.result.length > 0) {
               setQueueData(queueRes.data.result[0]);
             }
@@ -66,9 +63,7 @@ const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
         // Fetch do usuário
         if (selectedChat.assigned_user) {
           try {
-            const userRes = await axios.get(`${url}/api/search-user/${schema}/${selectedChat.assigned_user}`, {
-  withCredentials: true
-});
+            const userRes = await api.get(`/api/search-user/${schema}/${selectedChat.assigned_user}`);
             if (userRes.data.success && userRes.data.user) {
               setUserData(userRes.data.user);
             }
@@ -80,10 +75,7 @@ const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
         // Fetch da conexão
         if (selectedChat.connection_id) {
           try {
-            const connectionRes = await axios.get(`${url}/connection/search-conn-by-id/${selectedChat.connection_id}/${schema}`,
-        {
-      withCredentials: true
-    });
+            const connectionRes = await api.get(`/connection/search-conn-by-id/${selectedChat.connection_id}/${schema}`);
             if (connectionRes.data.data) {
               const connection = connectionRes.data.data;
               if (connection) {

@@ -3,7 +3,7 @@ import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Tooltip from 'react-bootstrap/Tooltip';
 import { Modal, Button, Form } from 'react-bootstrap';
 import * as XLSX from 'xlsx';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useAuth } from '../../contexts/AuthContext';
 import { socket } from '../../socket';
 
@@ -24,9 +24,7 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
     if (show && funil) {
       const fetchEtapas = async () => {
         try {
-          const response = await axios.get(`${url}/kanban/get-stages/${funil}/${schema}`, {
-            withCredentials: true
-          });
+          const response = await api.get(`/kanban/get-stages/${funil}/${schema}`);
           const etapas = Array.isArray(response.data) ? response.data : [];
           setEtapasFunil(etapas.map(etapa => etapa.etapa || etapa.nome));
         } catch (error) {
@@ -123,7 +121,7 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
       formData.append('sector', funil);
       formData.append('schema', schema);
 
-      const res = await axios.post(`${url}/excel/upload`, formData, {
+      const res = await api.post(`/excel/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 

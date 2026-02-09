@@ -1,6 +1,6 @@
 import React from 'react';
 import * as bootstrap from 'bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 function DeleteAssistantModal({ theme, assistente, onAssistantDeleted }) {
   const userData = JSON.parse(localStorage.getItem('user'));
@@ -15,7 +15,7 @@ function DeleteAssistantModal({ theme, assistente, onAssistantDeleted }) {
 
     try {
       
-      await axios.delete(`${url}/bot/delete/${schema}/${assistente.id}`, {withCredentials:true})
+      await api.delete(`/bot/delete/${schema}/${assistente.id}`)
       
       // Fechar modal
       const modal = bootstrap.Modal.getInstance(document.getElementById('DeleteAssistantModal'));

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import React, { useState } from 'react';
 import * as bootstrap from 'bootstrap';
 
@@ -10,10 +10,8 @@ function DeleteUserModal({ theme, usuario, onUserDeleted }) {
 
   const handleDelete=async()=>{
     try{
-      const deletion = await axios.delete(`${url}/api/delete-user`, {
+      const deletion = await api.delete(`/api/delete-user`, {
         data: { user_id: usuario.id, schema:userData.schema },
-      }, {
-        withCredentials: true
       });
       
       if (onUserDeleted) {

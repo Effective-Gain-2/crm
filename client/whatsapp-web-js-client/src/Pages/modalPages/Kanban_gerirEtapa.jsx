@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { v4 as uuidv4 } from 'uuid';
 import { Modal } from 'react-bootstrap';
 import { useToast } from '../../contexts/ToastContext';
@@ -167,10 +167,7 @@ function GerirEtapaModal({ theme, show, onHide, onSave, funil, etapas: etapasPro
   useEffect(() => {
     const fetchEtapas = async () => {
       try {
-        const response = await axios.get(`${url}/kanban/get-stages/${funil}/${schema}`,
-        {
-      withCredentials: true
-    });
+        const response = await api.get(`/kanban/get-stages/${funil}/${schema}`);
         const etapasConvertidas = (Array.isArray(response.data) ? response.data : [response.data]).map((e, i) => ({
           ...e,
           cor: e.cor ?? e.color ?? '#2ecc71',
@@ -278,37 +275,28 @@ function GerirEtapaModal({ theme, show, onHide, onSave, funil, etapas: etapasPro
     try {
       for (const etapa of etapas) {
         if (!etapa.id) {
-          await axios.post(`${url}/kanban/create-kanban`, {
+          await api.post(`/kanban/create-kanban`, {
             name: etapa.nome,
             color: etapa.cor,
             sector: funil,
             schema: schema,
             pos: etapa.index
-          },
-        {
-      withCredentials: true
-    });
+          });
         } else {
-          await axios.put(`${url}/kanban/update-stage-name`, {
+          await api.put(`/kanban/update-stage-name`, {
             etapa_id: etapa.id,
             etapa_nome: etapa.nome ?? etapa.etapa,
             sector: funil,
             color: etapa.cor,
             schema: schema,
             index: etapa.index
-          },
-        {
-      withCredentials: true
-    });
+          });
         }
       }
       
       // Busca as etapas atualizadas do backend para garantir que os IDs estejam corretos
       try {
-        const response = await axios.get(`${url}/kanban/get-stages/${funil}/${schema}`,
-        {
-      withCredentials: true
-    });
+        const response = await api.get(`/kanban/get-stages/${funil}/${schema}`);
         const etapasAtualizadas = (Array.isArray(response.data) ? response.data : [response.data]).map((e, i) => ({
           ...e,
           cor: e.cor ?? e.color ?? '#2ecc71',

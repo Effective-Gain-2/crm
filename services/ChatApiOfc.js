@@ -77,7 +77,6 @@ const sendMessageApiOfc = async (connection, contact_number, body, schema) => {
         return result.data;
     } catch (error) {
         console.error('Erro ao enviar mensagem API OFC:', error);
-        console.log(error.response?.data.messages)
     }
 }
 

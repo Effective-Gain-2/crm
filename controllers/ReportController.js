@@ -2,7 +2,7 @@ const { getReports, summary, getSummaryByChatId } = require("../services/ReportS
 const XLSX = require("xlsx");
 
 const getReportsController = async (req, res) => {
-    const {schema} = req.schema
+    const schema = req.schema
     const { user_id, user_role } = req.query;
     try {
         const result = await getReports(schema, user_id, user_role)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useToast } from '../../contexts/ToastContext';
 
 function AgendarMensagemModal({ show, onHide, theme, selectedChat }) {
@@ -46,7 +46,7 @@ function AgendarMensagemModal({ show, onHide, theme, selectedChat }) {
     setError('');
 
     try {
-      const response = await axios.post(`${url}/chat/schedule-message`, {
+      const response = await api.post(`/chat/schedule-message`, {
         chat_id: selectedChat.id,
         instance: selectedChat.connection_id,
         message: mensagem,
@@ -54,10 +54,7 @@ function AgendarMensagemModal({ show, onHide, theme, selectedChat }) {
         timestamp: Math.floor(dataSelecionada.getTime() / 1000),
         user:userData.id,
         schema: schema,
-      },
-        {
-      withCredentials: true
-    });
+      });
 
       if (response.data.success) {
         onHide();

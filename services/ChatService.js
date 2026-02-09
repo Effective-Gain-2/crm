@@ -145,7 +145,6 @@ const createChat = async (chat, instance, message, etapa, io) => {
     }
 
     if (io) {
-      console.log('entrou IO')
       io.to(schema).emit("chat:new-message", {
         chatId: chat.getChatId(),
         message,

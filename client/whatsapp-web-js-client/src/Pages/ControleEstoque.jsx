@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Row, Col, Card } from 'react-bootstrap';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { useAuth } from '../contexts/AuthContext';
 
 function ControleEstoque({ theme }) {
@@ -44,9 +44,7 @@ function ControleEstoque({ theme }) {
   const loadItens = async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`${url}/stock/get-all-itens/${schema}`, {
-        withCredentials: true
-      });
+      const response = await api.get(`/stock/get-all-itens/${schema}`);
       
       if (response.data.success) {
         setItens(response.data.data || []);
@@ -73,7 +71,7 @@ function ControleEstoque({ theme }) {
       form.append('type', nfType);
       form.append('schema', schema);
 
-      const response = await axios.post(`https://cf343672f491.ngrok-free.app/file/`, form, {
+      const response = await api.post(`https://cf343672f491.ngrok-free.app/file/`, form, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const itensNotFound = Array.isArray(response.data.itens_not_found) ? response.data.itens_not_found : [response.data.itens_not_found];
@@ -117,7 +115,7 @@ function ControleEstoque({ theme }) {
         const estoqueItem = itens.find(i => String(i.id) === String(estoqueId));
         const quantidade = parseFloat(String(quantidadeStr).replace(',', '.'));
 
-        await axios.put(`${url}/stock/alter-item-quantity`, {
+        await api.put(`/stock/alter-item-quantity`, {
           item_id: estoqueItem.id,
           quantity: parseInt(nfItem.qCom),
           isSum: true,
@@ -142,9 +140,7 @@ function ControleEstoque({ theme }) {
 
   const loadCategorias = async () => {
     try {
-      const response = await axios.get(`${url}/stock/get-categories/${schema}`, {
-        withCredentials: true
-      });
+      const response = await api.get(`/stock/get-categories/${schema}`);
       
       
       if (response.data.success) {
@@ -163,11 +159,9 @@ function ControleEstoque({ theme }) {
     setCreatingCategory(true);
     try {
       
-      const response = await axios.post(`${url}/stock/create-category`, {
+      const response = await api.post(`/stock/create-category`, {
         category_name: newCategoryName.trim(),
         schema: schema
-      }, {
-        withCredentials: true
       });
 
 
@@ -215,7 +209,7 @@ function ControleEstoque({ theme }) {
 
       let response;
       if (editingItem) {
-        response = await axios.put(`${url}/stock/update-item`,{
+        response = await api.put(`/stock/update-item`,{
         item_id:editingItem.id,
         item_name:formData.nome,
         category:formData.categoria_id,
@@ -223,20 +217,16 @@ function ControleEstoque({ theme }) {
         atention_quantity:formData.quantidade_atencao,
         urgent_quantity:formData.quantidade_urgencia,
         schema: schema
-      }, {
-          withCredentials: true
-        });
+      });
       } else {
         // Criar novo item
-        response = await axios.post(`${url}/stock/insert-stock-item`, {
+        response = await api.post(`/stock/insert-stock-item`, {
           nome:formData.nome,
           quantidade:formData.quantidade,
           categoria:formData.categoria_id,
           atention_quantity:formData.quantidade_atencao,
           urgent_quantity:formData.quantidade_urgencia,
           schema:schema
-        }, {
-          withCredentials: true
         });
       }
 
@@ -280,9 +270,7 @@ function ControleEstoque({ theme }) {
         schema: schema
       };
 
-      const response = await axios.put(`${url}/stock/alter-item-quantity`, payload, {
-        withCredentials: true
-      });
+      const response = await api.put(`/stock/alter-item-quantity`, payload);
 
       if (response.data.success) {
         loadItens();

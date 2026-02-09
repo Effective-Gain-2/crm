@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useToast } from '../../contexts/ToastContext';
 import { ExpensesService } from '../../services/FinanceiroService';
 
@@ -752,7 +752,7 @@ function ImpostoModal({ show, onHide, onSave, theme, itens = [], calcularTotalIt
   useEffect(() => {
     const fetchImpostos = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_URL}/expenses/get-tax-rates/${schema}`, { withCredentials: true });
+        const response = await api.get(`/expenses/get-tax-rates/${schema}`);
         if (response.data.success === true) {
           const result = response.data;
           setImpostosDisponiveis(Array.isArray(result.data) ? result.data : [result.data]);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import NewQueueModal from './modalPages/Filas_novaFila';
 import DeleteQueueModal from './modalPages/Filas_delete';
 import FilasWebhookModal from './modalPages/Filas_webhook';
@@ -42,17 +42,14 @@ function FilaPage({ theme }) {
   useEffect(() => {
   const fetchFilas = async () => {
     try {
-      const response = await axios.get(`${url}/queue/get-all-queues/${schema}`,
-        {
-      withCredentials: true
-    });
+      const response = await api.get(`/queue/get-all-queues/${schema}`);
       setFilas(response.data.result || []);
     } catch (error) {
       console.error('Erro ao buscar filas:', error);
     }
   };
   fetchFilas();
-}, [url, schema]);
+}, [schema]);
 
 useEffect(() => {
   if (socketInstance) {
@@ -154,7 +151,7 @@ useEffect(() => {
                   </button>
 
                   <button
-                   className={`btn btn-sm d-none btn-2-${theme}`}
+                   className={`btn btn-sm btn-2-${theme}`}
                    title='Assistente GPT'
                    onClick={()=>{
                     setSelectedFila(fila)

@@ -1,5 +1,5 @@
 import React from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 function KanbanExcluirEtapaModal({ show, onHide, onConfirm, etapa, funil, theme }) {
   const userData = JSON.parse(localStorage.getItem('user'));
@@ -8,16 +8,13 @@ function KanbanExcluirEtapaModal({ show, onHide, onConfirm, etapa, funil, theme 
 
   const handleDeleteEtapa = async () => {
     try {
-      await axios.delete(`${url}/kanban/delete-stage`,
+      await api.delete(`/kanban/delete-stage`,
         {
       data: {
         etapa_id: etapa.id,
         sector: funil,
         schema: schema
       }
-    },
-        {
-      withCredentials: true
     })
     } catch (error) {
       console.error(error)

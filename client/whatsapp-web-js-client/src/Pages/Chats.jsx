@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useLayoutEffect } from 'react
 import { createPortal } from 'react-dom';
 import { useMemo } from 'react';
 
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import EmojiPicker from 'emoji-picker-react';
 import NewContactModal from './modalPages/Chats_novoContato';
 import ChangeQueueModal from './modalPages/Chats_alterarFila';
@@ -113,11 +113,9 @@ function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, set
 
   const handleCloseChat = async () => {
     try {
-      const res = await axios.post(`${url}/chat/close`, {
+      const res = await api.post(`/chat/close`, {
         chat_id: selectedChat.id,
         schema: userData.schema
-      }, {
-        withCredentials: true
       });
       setChats(prevChats => prevChats.filter(c => c.id !== selectedChat.id));
       setSelectedChat(null)
@@ -128,14 +126,11 @@ function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, set
   };
   const handleEditContactName = async (newName) => {
     try {
-      await axios.put(`${url}/contact/update-name`, {
+      await api.put(`/contact/update-name`, {
         number: selectedChat.contact_phone,
         name: newName,
         schema: schema
-      },
-        {
-          withCredentials: true
-        });
+      });
     } catch (error) {
       console.error(error)
     }
@@ -143,17 +138,14 @@ function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, set
   useEffect(() => {
     async function fetchQueues() {
       try {
-        const res = await axios.get(`${url}/queue/get-all-queues/${schema}`,
-          {
-            withCredentials: true
-          });
+        const res = await api.get(`/queue/get-all-queues/${schema}`);
         setQueues(res.data.result || []);
       } catch (err) {
         setQueues([]);
       }
     }
     if (isDropdownOpen) fetchQueues();
-  }, [isDropdownOpen, url, schema]);
+  }, [isDropdownOpen, schema]);
 
 
 
@@ -161,14 +153,11 @@ function DropdownComponent({ theme, selectedChat, handleChatClick, setChats, set
     if (!selectedChat) return;
     setTransferLoading(true);
     try {
-      await axios.post(`${url}/queue/transfer-queue`, {
+      await api.post(`/queue/transfer-queue`, {
         chatId: selectedChat.id,
         newQueueId: queueId,
         schema
-      },
-        {
-          withCredentials: true
-        });
+      });
 
       setChats(prev => prev.filter(chat => chat.id !== selectedChat.id));
 
@@ -428,11 +417,11 @@ function ChatPage({ theme, chat_id }) {
 
   useEffect(() => {
     const fetchUserQueues = async () => {
-      const response = await axios.get(`${url}/queue/get-user-queue/${userData.id}/${schema}`)
+      const response = await api.get(`/queue/get-user-queue/${userData.id}/${schema}`)
       setUserQueues(Array.isArray(response.data.result) ? response.data.result : [response.data.result])
     }
     fetchUserQueues()
-  }, schema)
+  }, [schema])
 
   useEffect(() => {
     if (preferences.chatsTab && preferences.chatsTab !== selectedTab) {
@@ -522,13 +511,10 @@ function ChatPage({ theme, chat_id }) {
   const setAsRead = async () => {
     if (!selectedChat) return;
     try {
-      const res = await axios.post(`${url}/chat/setAsRead`, {
+      const res = await api.post(`/chat/setAsRead`, {
         chat_id: selectedChat.id,
         schema: schema
-      },
-        {
-          withCredentials: true
-        })
+      })
     } catch (error) {
       console.error(error)
     }
@@ -565,10 +551,7 @@ function ChatPage({ theme, chat_id }) {
   useEffect(() => {
     const fetchConnections = async () => {
       try {
-        const res = await axios.get(`${url}/connection/get-all-connections/${schema}`,
-          {
-            withCredentials: true
-          });
+        const res = await api.get(`/connection/get-all-connections/${schema}`);
         setConnections(res.data || []);
       } catch (err) {
         setConnections([]);
@@ -577,10 +560,7 @@ function ChatPage({ theme, chat_id }) {
 
     const fetchQueues = async () => {
       try {
-        const res = await axios.get(`${url}/queue/get-all-queues/${schema}`,
-          {
-            withCredentials: true
-          });
+        const res = await api.get(`/queue/get-all-queues/${schema}`);
         setQueues(res.data.result || []);
       } catch (err) {
         setQueues([]);
@@ -589,9 +569,7 @@ function ChatPage({ theme, chat_id }) {
 
     const fetchUsers = async () => {
       try {
-        const res = await axios.get(`${url}/api/users/${schema}`, {
-          withCredentials: true
-        });
+        const res = await api.get(`/api/users/${schema}`);
         setUsers(res.data.users || []);
       } catch (err) {
         setUsers([]);
@@ -601,7 +579,7 @@ function ChatPage({ theme, chat_id }) {
     fetchConnections();
     fetchQueues();
     fetchUsers();
-  }, [url, schema]);
+  }, [schema]);
 
   const getConnectionName = (connectionId) => {
     const conn = connections.find(c => c.id === connectionId);
@@ -615,15 +593,12 @@ function ChatPage({ theme, chat_id }) {
 
   const handleEditContactName = async (contactId, newName) => {
     try {
-      await axios.put(`${url}/contact/update-name`, {
+      await api.put(`/contact/update-name`, {
         number: selectedChat.contact_phone,
         name: newName,
         user_id: userData.id,
         schema: userData.schema
-      },
-        {
-          withCredentials: true
-        });
+      });
       // Atualize o nome no chat selecionado (opcional)
       setSelectedChat(prev => ({ ...prev, contact_name: newName }));
       // Atualize na lista de chats (opcional)
@@ -641,14 +616,11 @@ function ChatPage({ theme, chat_id }) {
 
   const handleAcceptChat = async () => {
     try {
-      const res = await axios.post(`${url}/chat/setUser`, {
+      const res = await api.post(`/chat/setUser`, {
         user_id: userData.id,
         chat_id: selectedChat.id,
         schema: userData.schema
-      },
-        {
-          withCredentials: true
-        })
+      })
       setChats(prevChats =>
         sortChatsByTimestamp(prevChats.map(c =>
           c.id === selectedChat.id
@@ -671,14 +643,11 @@ function ChatPage({ theme, chat_id }) {
       // Mapear a role para o valor correto
       const roleValue = userData.role === 'admin' ? 'admin' : 'user';
 
-      await axios.post(`${url}/chat/disable-bot`, {
+      await api.post(`/chat/disable-bot`, {
         chat_id: selectedChat.id,
         schema: schema,
         role: roleValue
-      },
-        {
-          withCredentials: true
-        });
+      });
       setIsBotActive(false);
       showSuccess('Bot desativado com sucesso!');
     } catch (error) {
@@ -690,11 +659,9 @@ function ChatPage({ theme, chat_id }) {
   const activeBot = async () => {
     if (!selectedChat) return
     try {
-      await axios.put(`${url}/chat/active-bot`, {
+      await api.put(`/chat/active-bot`, {
         chat_id: selectedChat.id,
         schema: schema
-      }, {
-        withCredentials: true
       })
       setIsBotActive(true);
       showSuccess('Bot ativado')
@@ -717,12 +684,10 @@ function ChatPage({ theme, chat_id }) {
       }
 
       // Enviar para o backend para redistribuição
-      await axios.post(`${url}/chat/redistribute-waiting`, {
+      await api.post(`/chat/redistribute-waiting`, {
         chats: waitingChats,
         schema: schema,
         user_id: userData.id
-      }, {
-        withCredentials: true
       });
 
       // Recarregar a lista de chats após redistribuição
@@ -978,8 +943,7 @@ function ChatPage({ theme, chat_id }) {
   const loadChats = async () => {
     try {
       let arrayChats = [];
-      const res = await axios.get(`${url}/chat/getChat/${userData.id}/${schema}/${userData.role}`,
-        { withCredentials: true });
+      const res = await api.get(`/chat/getChat/${userData.id}/${schema}/${userData.role}`);
       const chats = Array.isArray(res.data.messages) ? res.data.messages : [];
       arrayChats.push(...res.data.api_ofc)
       arrayChats.push(...chats)
@@ -994,7 +958,7 @@ function ChatPage({ theme, chat_id }) {
   }));
   useEffect(() => {
     loadChats();
-  }, [schema, userData.id, url]);
+  }, [schema, userData.id]);
 
   const formatMessage = (msg) => {
     // Normaliza campos vindos de diferentes fontes (ex.: API OFC)
@@ -1058,14 +1022,11 @@ function ChatPage({ theme, chat_id }) {
 
   const loadMessages = async (chatId) => {
     try {
-      const res = await axios.post(`${url}/chat/getMessages`, {
+      const res = await api.post(`/chat/getMessages`, {
         chat_id: chatId.id,
         isApi: chatId.isApi || false,
         schema,
-      },
-        {
-          withCredentials: true
-        });
+      });
 
 
       const formattedMessages = res.data.messages.map(formatMessage);
@@ -1303,7 +1264,7 @@ function ChatPage({ theme, chat_id }) {
 
     try {
       setNewMessage('');
-      await axios.post(`${url}/evo/sendText`, {
+      await api.post(`/evo/sendText`, {
         instanceId: selectedChat.connection_id,
         number: selectedChat.contact_phone,
         text: newMessage,
@@ -1312,10 +1273,7 @@ function ChatPage({ theme, chat_id }) {
         schema: schema,
         user_id: userData.id,
         isApi: selectedChat.isApi || false
-      },
-        {
-          withCredentials: true
-        });
+      });
         setLastMessage(newMessage)
     } catch (error) {
       console.error('Erro ao enviar a mensagem:', error);
@@ -1350,14 +1308,11 @@ function ChatPage({ theme, chat_id }) {
       const newImageUrl = URL.createObjectURL(file);
       setImageUrl(newImageUrl);
 
-      await axios.post(`${url}/chat/sendImage`, formData, {
+      await api.post(`/chat/sendImage`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-      },
-        {
-          withCredentials: true
-        });
+      });
 
 
       const message = {
@@ -1419,14 +1374,11 @@ function ChatPage({ theme, chat_id }) {
           formData.append('schema', schema);
 
           try {
-            await axios.post(`${url}/chat/sendAudio`, formData, {
+            await api.post(`/chat/sendAudio`, formData, {
               headers: {
                 'Content-Type': 'multipart/form-data',
               },
-            },
-              {
-                withCredentials: true
-              });
+            });
             const message = {
               id: audioBlob,
               text: null,
@@ -1514,7 +1466,7 @@ function ChatPage({ theme, chat_id }) {
   useEffect(() => {
     async function fetchQuickMessages() {
       try {
-        const res = await axios.get(`${url}/qmessage/get-q-messages-by-user/${userData.id}/${schema}`, { withCredentials: true });
+        const res = await api.get(`/qmessage/get-q-messages-by-user/${userData.id}/${schema}`);
         const msgs = (res.data.result || []).map(msg => ({
           comando: msg.shortcut || `/msg${msg.id.slice(0, 4)}`,
           mensagem: msg.value,
@@ -1529,7 +1481,7 @@ function ChatPage({ theme, chat_id }) {
       }
     }
     fetchQuickMessages();
-  }, [schema, url, queues]);
+  }, [schema, queues]);
 
 
   // Estado das mensagens rápidas para gerenciamento
@@ -2204,9 +2156,26 @@ function ChatPage({ theme, chat_id }) {
                   // Carregar dados atualizados do banco quando abrir o menu
                   if (selectedChat) {
                     try {
-                      const res = await axios.get(`${url}/chat/getChatById/${selectedChat.id}/${schema}`, {
-                        withCredentials: true
-                      });
+                      const res = await api.get(`/chat/getChatById/${selectedChat.id}/${schema}`);
+                      const updatedChat = res.data.chat || selectedChat;
+
+                      // Atualizar o chat selecionado com dados mais recentes
+                      setSelectedChat(updatedChat);
+
+                      // Atualize o chat na lista com os dados mais recentes
+                      setChats(prevChats =>
+                        prevChats.map(c =>
+                          c.id === updatedChat.id ? { ...c, ...updatedChat } : c
+                        )
+                      );
+                    } catch (error) {
+                      console.error('Erro ao buscar dados atualizados do chat:', error);
+                    }
+                  }
+
+                  if (selectedChat) {
+                    try {
+                      const res = await api.get(`/chat/getChatById/${selectedChat.id}/${schema}`);
                       const updatedChat = res.data.chat || selectedChat;
 
                       // Atualizar o chat selecionado com dados mais recentes

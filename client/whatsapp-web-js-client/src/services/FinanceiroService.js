@@ -1,16 +1,11 @@
-import axios from 'axios';
-
-const API_BASE_URL = process.env.REACT_APP_URL;
-
-// Configurar axios para sempre enviar cookies
-axios.defaults.withCredentials = true;
+import { api } from '../utils/axiosConfig';
 
 // Serviço para Expenses
 export const ExpensesService = {
   // Buscar todas as despesas
   getExpenses: async (schema) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/expenses/get-expenses/${schema}`);
+      const response = await api.get(`/expenses/get-expenses/${schema}`);
       return response.data;
     } catch (error) {
       console.error('Erro ao buscar despesas:', error);
@@ -21,7 +16,7 @@ export const ExpensesService = {
   // Criar nova despesa
   createExpense: async (expenseData) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/expenses/create-expense`, expenseData);
+      const response = await api.post(`/expenses/create-expense`, expenseData);
       return response.data;
     } catch (error) {
       console.error('Erro ao criar despesa:', error);
@@ -32,7 +27,7 @@ export const ExpensesService = {
   // Buscar despesa por ID
   getExpenseById: async (expenseId, schema) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/expenses/get-expense/${expenseId}/${schema}`);
+      const response = await api.get(`/expenses/get-expense/${expenseId}/${schema}`);
       return response.data;
     } catch (error) {
       console.error('Erro ao buscar despesa por ID:', error);
@@ -43,7 +38,7 @@ export const ExpensesService = {
   // Excluir despesa
   deleteExpense: async (expenseId, schema) => {
     try {
-      const response = await axios.delete(`${API_BASE_URL}/expenses/delete-expense`, {
+      const response = await api.delete(`/expenses/delete-expense`, {
         data: { expense_id: expenseId, schema }
       });
       return response.data;
@@ -56,7 +51,7 @@ export const ExpensesService = {
   // Buscar item de despesa por ID
   getExpenseItemById: async (itemId, schema) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/expenses/get-expense-item/${itemId}/${schema}`);
+      const response = await api.get(`/expenses/get-expense-item/${itemId}/${schema}`);
       return response.data;
     } catch (error) {
       console.error('Erro ao buscar item de despesa por ID:', error);
@@ -67,7 +62,7 @@ export const ExpensesService = {
   // Atualizar despesa existente
   updateExpense: async (expenseId, expenseData) => {
     try {
-      const response = await axios.put(`${API_BASE_URL}/expenses/update-expense/${expenseId}`, expenseData);
+      const response = await api.put(`/expenses/update-expense/${expenseId}`, expenseData);
       return response.data;
     } catch (error) {
       console.error('Erro ao atualizar despesa:', error);
@@ -81,7 +76,7 @@ export const CategoriesService = {
   // Buscar todas as categorias
   getCategories: async (schema) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/category/get-categories/${schema}`);
+      const response = await api.get(`/category/get-categories/${schema}`);
       return response.data;
     } catch (error) {
       console.error('Erro ao buscar categorias:', error);
@@ -92,7 +87,7 @@ export const CategoriesService = {
   // Criar nova categoria
   createCategory: async (categoryData) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/category/create-category`, categoryData);
+      const response = await api.post(`/category/create-category`, categoryData);
       return response.data;
     } catch (error) {
       console.error('Erro ao criar categoria:', error);
@@ -106,7 +101,7 @@ export const VendorsService = {
   // Buscar todos os fornecedores
   getVendors: async (schema) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/vendor/get-vendors/${schema}`);
+      const response = await api.get(`/vendor/get-vendors/${schema}`);
       return response.data;
     } catch (error) {
       console.error('Erro ao buscar fornecedores:', error);
@@ -117,7 +112,7 @@ export const VendorsService = {
   // Criar novo fornecedor
   createVendor: async (vendorData) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/vendor/create-vendor`, vendorData);
+      const response = await api.post(`/vendor/create-vendor`, vendorData);
       return response.data;
     } catch (error) {
       console.error('Erro ao criar fornecedor:', error);
@@ -131,7 +126,7 @@ export const TaxRatesService = {
   // Buscar todos os impostos
   getTaxRates: async (schema) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/expenses/get-tax-rates/${schema}`);
+      const response = await api.get(`/expenses/get-tax-rates/${schema}`);
       return response.data;
     } catch (error) {
       console.error('Erro ao buscar impostos:', error);
@@ -142,7 +137,7 @@ export const TaxRatesService = {
   // Criar novo imposto
   createTaxRate: async (taxRateData) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/expenses/create-tax-rate`, taxRateData, {withCredentials:true});
+      const response = await api.post(`/expenses/create-tax-rate`, taxRateData);
       return response.data;
     } catch (error) {
       console.error('Erro ao criar imposto:', error);

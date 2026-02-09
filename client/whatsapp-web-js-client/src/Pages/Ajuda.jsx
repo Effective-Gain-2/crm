@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from './assets/js/useTheme';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 
 
 function AjudaPage({ theme }) {

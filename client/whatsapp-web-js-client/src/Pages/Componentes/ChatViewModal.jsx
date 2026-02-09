@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 function ChatViewModal({ show, onClose, theme, chatId, schema, url }) {
   const [chatInfo, setChatInfo] = useState(null);
@@ -12,12 +12,12 @@ function ChatViewModal({ show, onClose, theme, chatId, schema, url }) {
       // Buscar mensagens e info do chat
       const fetchData = async () => {
         try {
-          const res = await axios.post(`${url}/chat/getMessages`, {
+          const res = await api.post(`/chat/getMessages`, {
             chat_id:chatId,
             schema
-          }, { withCredentials: true });
+          });
           setChatMessages(res.data.messages || []);
-          const infoRes = await axios.get(`${url}/chat/getChatById/${chatId}/${schema}`, { withCredentials: true });
+          const infoRes = await api.get(`/chat/getChatById/${chatId}/${schema}`);
           setChatInfo(infoRes.data.chat || null);
         } catch (e) {
           setChatMessages([]);

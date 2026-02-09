@@ -1,7 +1,15 @@
 import axios from 'axios';
 
-// Configurar axios para sempre enviar cookies
-axios.defaults.withCredentials = true;
+// Definir baseURL dinâmico para funcionar com nginx
+const baseURL = process.env.NODE_ENV === 'development'
+  ? process.env.REACT_APP_URL
+  : '/';
+
+// Criar instância de axios centralizada
+export const api = axios.create({
+  baseURL,
+  withCredentials: true
+});
 
 // Função para exibir toast de erro (será definida globalmente)
 let showErrorToast = (message) => {
@@ -31,7 +39,7 @@ const processQueue = (error, token = null) => {
 };
 
 // Interceptor de resposta para tratar erros 401
-axios.interceptors.response.use(
+api.interceptors.response.use(
   (response) => {
     return response;
   },
@@ -44,7 +52,7 @@ axios.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then(token => {
-          return axios(originalRequest);
+          return api(originalRequest);
         }).catch(err => {
           return Promise.reject(err);
         });
@@ -54,13 +62,11 @@ axios.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const response = await axios.post(`${process.env.REACT_APP_URL}/api/refresh-token`, {}, {
-          withCredentials: true
-        });
+        const response = await api.post('/api/refresh-token', {});
 
         if (response.data.success) {
           processQueue(null, response.data.token);
-          return axios(originalRequest);
+          return api(originalRequest);
         } else {
           processQueue(error, null);
           // Redirecionar para login se refresh falhou
@@ -90,4 +96,4 @@ axios.interceptors.response.use(
   }
 );
 
-export default axios; 
+export default api; 

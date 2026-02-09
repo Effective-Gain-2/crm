@@ -3,7 +3,7 @@ import * as bootstrap from 'bootstrap';
 import NewAssistantModal from './modalPages/Assistentes_novoAssistente';
 import DeleteAssistantModal from './modalPages/Assistentes_delete';
 import EditAssistantModal from './modalPages/Assistentes_editarAssistente';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { useAuth } from '../contexts/AuthContext';
 
 function AssistentesPage({ theme }) {
@@ -17,11 +17,11 @@ function AssistentesPage({ theme }) {
   // Mock data para demonstração - será substituído pela API real
   useEffect(() => {
     const fetchAssistentes = async () => {
-      const response = await axios.get(`${url}/bot/get-bots/${schema}`, {withCredentials:true})
+      const response = await api.get(`/bot/get-bots/${schema}`)
       setAssistentes(Array.isArray(response.data.data)?response.data.data:[response.data.data])
     }
       fetchAssistentes()
-  }, [url, schema]);
+  }, [schema]);
 
   useEffect(() => {
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');

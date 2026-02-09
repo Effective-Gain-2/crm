@@ -33,6 +33,10 @@ const insertBotFunctions = async (assistant_id, function_id, schema) => {
 const deleteAllBotFunctions = async (assistant_id, schema) => {
     await pool.query(`DELETE FROM ${schema}.bot_functions WHERE assistant_id = $1`, [assistant_id])
 }
+const getBotById = async (assistant_id, schema) => {
+    const result = await pool.query(`SELECT * FROM ${schema}.bots WHERE id = $1`, [assistant_id])
+    return result.rows[0]
+}
 module.exports={
     insertBotInTable,
     updateBotInTable,
@@ -40,6 +44,7 @@ module.exports={
     getBots,
     getFunctions,
     insertBotFunctions,
-    deleteAllBotFunctions
+    deleteAllBotFunctions,
+    getBotById
     
 }

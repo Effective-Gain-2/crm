@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 function EditAssistantModal({ theme, assistente }) {
   const [name, setName] = useState('');
@@ -73,7 +73,7 @@ const removerFuncao = (idx) => {
   useEffect(()=>{
     const fetchFuncoes = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_URL}/bot/get-functions/${schema}`, {withCredentials:true})
+        const response = await api.get(`/bot/get-functions/${schema}`)
         setFuncoesDisponiveis(response.data.data || [])
       } catch (error) {
         console.error('Erro ao carregar funções:', error);
@@ -90,13 +90,13 @@ const removerFuncao = (idx) => {
     }
 
     try {
-      const response = await axios.put(`${process.env.REACT_APP_URL}/bot/update-assistant/${assistente.id}`, {
+      const response = await api.put(`/bot/update-assistant/${assistente.id}`, {
         name,
         instructions,
         model,
         functions: funcoesSelecionadas,
         schema:schema
-      }, { withCredentials: true });
+      });
 
       // Fechar modal
       const modal = bootstrap.Modal.getInstance(document.getElementById('EditAssistantModal'));

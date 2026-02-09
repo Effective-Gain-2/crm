@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from 'react-bootstrap';
 import InputMask from 'react-input-mask';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 function WhatsappNovoContatoModal({ theme, show, onHide, onSave }) {
   const [nome, setNome] = useState('');
@@ -44,14 +44,11 @@ function WhatsappNovoContatoModal({ theme, show, onHide, onSave }) {
     setQrCode(null);
 
     try {
-      const response = await axios.post(`${url}/evo/instance`, {
+      const response = await api.post(`/evo/instance`, {
         instanceName: nome,
         number: numeroLimpo,
         schema: schema
-      },
-        {
-      withCredentials: true
-    });
+      });
       // Supondo que o QR Code vem em response.data.result.qrcode.base64
       if (response.data?.result?.qrcode?.base64) {
         setQrCode(response.data.result.qrcode.base64);

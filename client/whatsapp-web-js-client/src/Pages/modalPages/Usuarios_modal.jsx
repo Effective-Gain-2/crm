@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import { useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
 
@@ -32,17 +32,13 @@ function NewUserModal({ theme, type }) {
     }
 
     try {
-      const response = await axios.post(`${url}/api/users`, {
+      const response = await api.post(`/api/users`, {
         name: userName,
         email: userEmail,
         role: userRole,
         password: password,
         schema: schema
-      },
-        {
-      withCredentials: true
-    });
-
+      });
 
       setUserName('');
       setUserEmail('');

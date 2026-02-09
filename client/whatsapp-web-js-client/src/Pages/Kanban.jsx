@@ -8,7 +8,7 @@ import { Dropdown } from 'react-bootstrap';
 import KanbanExcluirEtapaModal from './modalPages/Kanban_excluirEtapa';
 import KanbanDeletarFunilModal from './modalPages/Kanban_deletarFunil';
 import TransferirEmMassaModal from './modalPages/Kanban_transferirEmMassa';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { socket } from '../socket';
 import ChatPage from './Chats';
 import ImportarContatosModal from './modalPages/Kanban_importarContatos';
@@ -221,10 +221,7 @@ function KanbanPage({ theme }) {
   useEffect(()=>{
     const fetchFunis = async () => {
     try {
-      const response = await axios.get(`${url}/kanban/get-funis/${schema}`,
-        {
-      withCredentials: true
-    });
+      const response = await api.get(`/kanban/get-funis/${schema}`);
         setFunis(Array.isArray(response.data.name) ? response.data.name : []);
       } catch (error) {
         console.error('Erro ao buscar funis:', error);
@@ -267,10 +264,7 @@ function KanbanPage({ theme }) {
     }
     const fetchEtapas = async () => {
       try {
-        const response = await axios.get(`${url}/kanban/get-stages/${funilSelecionado.charAt(0).toLowerCase() + funilSelecionado.slice(1)}/${schema}`,
-        {
-      withCredentials: true
-    });
+        const response = await api.get(`/kanban/get-stages/${funilSelecionado.charAt(0).toLowerCase() + funilSelecionado.slice(1)}/${schema}`);
         setEtapas(Array.isArray(response.data) ? response.data : []);
       } catch (error) {
         console.error(error);
@@ -294,9 +288,7 @@ function KanbanPage({ theme }) {
       try {
         let allContacts = [];
         for (const etapa of etapas) {
-          const response = await axios.get(`${url}/kanban/get-contacts-in-stage/${etapa.id}/${schema}`, {
-            withCredentials: true
-          });
+          const response = await api.get(`/kanban/get-contacts-in-stage/${etapa.id}/${schema}`);
           const contatos = Array.isArray(response.data) ? response.data : [response.data];
           // Adiciona o campo etapa_id para facilitar o filtro na renderização
           allContacts = allContacts.concat(contatos.map(c => ({ ...c, etapa_id: etapa.id })));
@@ -306,7 +298,7 @@ function KanbanPage({ theme }) {
           allContacts.map(async contato => {
             let customValue = '';
             try {
-              const resp = await axios.get(`${url}/contact/get-custom-values/${contato.number}/${schema}`);
+              const resp = await api.get(`/contact/get-custom-values/${contato.number}/${schema}`);
               const resultArr = resp.data.result && Array.isArray(resp.data.result) ? resp.data.result : [];
               if (selectedCustomField) {
                 const found = resultArr.find(f => String(f.field_id) === String(selectedCustomField));
@@ -346,15 +338,11 @@ function KanbanPage({ theme }) {
     if (!funilSelecionado) return;
     try {
       // Buscar etapas atualizadas antes de buscar os contatos
-      const etapasResp = await axios.get(`${url}/kanban/get-stages/${funilSelecionado.charAt(0).toLowerCase() + funilSelecionado.slice(1)}/${schema}`, {
-        withCredentials: true
-      });
+      const etapasResp = await api.get(`/kanban/get-stages/${funilSelecionado.charAt(0).toLowerCase() + funilSelecionado.slice(1)}/${schema}`);
       const etapasAtualizadas = Array.isArray(etapasResp.data) ? etapasResp.data : [];
       let allContacts = [];
       for (const etapa of etapasAtualizadas) {
-        const response = await axios.get(`${url}/kanban/get-contacts-in-stage/${etapa.id}/${schema}`, {
-          withCredentials: true
-        });
+        const response = await api.get(`/kanban/get-contacts-in-stage/${etapa.id}/${schema}`);
         const contatos = Array.isArray(response.data) ? response.data : [response.data];
         allContacts = allContacts.concat(contatos.map(c => ({ ...c, etapa_id: etapa.id })));
       }
@@ -419,15 +407,12 @@ function KanbanPage({ theme }) {
           ) }
         : f
     ));
-    const response = await axios.put(`${url}/kanban/update-stage-name`,{
+    const response = await api.put(`/kanban/update-stage-name`,{
       etapa_id:editingEtapaId,
       etapa_nome:editingEtapaNome,
       sector: funilSelecionado,
       schema: schema
-    },
-        {
-      withCredentials: true
-    })
+    });
 
      setEtapas(etapas =>
     etapas.map(e =>
@@ -491,25 +476,21 @@ function KanbanPage({ theme }) {
     );
     setDraggedLead(null);
     try {
-      await axios.put(`${url}/kanban/change-stage`,{
+      await api.put(`/kanban/change-stage`,{
         number: draggedLead.number,
         stage_id: etapaId,
         schema: schema
-      },
-        {
-      withCredentials: true
-    })
+      });
+    } catch (error) {
+      console.error('Erro ao mover card:', error);
+    }
       
       socketInstance.emit('leadMoved',{
         number: draggedLead.number,
         stage_id: etapaId,
         schema: schema
       })
-      
-    } catch (error) {
-      console.error(error)
-    }
-  }
+   }
   };
   useEffect(() => {
 function handleLeadMoved({ chat_id, etapa_id, stage_id, number }) {
@@ -551,10 +532,7 @@ function handleTransferirEmMassa({ etapaOrigemId, etapaDestinoId }) {
   const handleSalvarNovoFunil = async (data) => {
     try {
       // Recarrega a lista de funis do backend para garantir que o novo funil apareça
-      const response = await axios.get(`${url}/kanban/get-funis/${schema}`,
-        {
-      withCredentials: true
-    });
+      const response = await api.get(`/kanban/get-funis/${schema}`);
       const novosFunis = Array.isArray(response.data.name) ? response.data.name : [];
       setFunis(novosFunis);
       
@@ -607,10 +585,7 @@ useEffect(() => {
   useEffect(() => {
     const fetchTags = async () => {
       try {
-        const allTagsResp = await axios.get(`${url}/tag/${schema}`,
-        {
-      withCredentials: true
-    });
+        const allTagsResp = await api.get(`/tag/${schema}`);
         setAllTags(Array.isArray(allTagsResp.data) ? allTagsResp.data : [allTagsResp.data]);
       } catch (error) {
         console.error('Erro ao buscar tags:', error);
@@ -622,7 +597,7 @@ useEffect(() => {
   // Buscar campos customizados ao abrir modal
   const fetchCustomFields = async () => {
     try {
-      const response = await axios.get(`${url}/kanban/get-custom-fields/${schema}`, { withCredentials: true });
+      const response = await api.get(`/kanban/get-custom-fields/${schema}`);
       setCustomFields(Array.isArray(response.data) ? response.data : [response.data]);
     } catch {
       setCustomFields([]);
@@ -693,7 +668,7 @@ useEffect(() => {
     if (!funilSelecionado) return;
     const fetchPreference = async () => {
       try {
-        const resp = await axios.get(`${url}/kanban/get-preference/${funilSelecionado}/${schema}`);
+        const resp = await api.get(`/kanban/get-preference/${funilSelecionado}/${schema}`);
         if (resp.data && resp.data.label) setSelectedCustomField(resp.data.label);
         if (resp.data && resp.data.color) setCustomFieldColor(resp.data.color);
       } catch {}
@@ -1006,25 +981,19 @@ useEffect(() => {
                                         onChange={async (e) => {
                                           try {
                                             if (e.target.checked) {
-                                              await axios.post(`${url}/tag/add-tag`, {
+                                              await api.post(`/tag/add-tag`, {
                                                 chat_id: lead.id,
                                                 tag_id: tag.id,
                                                 schema
-                                              },
-                                                {
-                                              withCredentials: true
-                                            });
+                                              });
                                             } else {
-                                              await axios.delete(`${url}/tag/remove-tag`, {
+                                              await api.delete(`/tag/remove-tag`, {
                                                 data: {
                                                   chat_id: lead.id,
                                                   tag_id: tag.id,
                                                   schema
                                                 }
-                                              },
-                                                {
-                                              withCredentials: true
-                                            });
+                                              });
                                             }
                                             setCards(cards => cards.map(c =>
                                               c.id === lead.id
@@ -1076,14 +1045,11 @@ useEffect(() => {
                                           className={`dropdown-item dp-${theme} header-text-${theme} ${active ? 'active' : ''}`}
                                           onClick={async () => {
                                             try {
-                                              await axios.put(`${url}/kanban/change-funil`, {
+                                              await api.put(`/kanban/change-funil`, {
                                                 chat_id: lead.id,
                                                 funil: funil,
                                                 schema
-                                              },
-                                                {
-                                              withCredentials: true
-                                            });
+                                              });
                                               setCards(cards => cards.filter(c => c.id !== lead.id));
                                               socketInstance.emit('leadMoved', {
                                                 chat_id: lead.id,
@@ -1327,12 +1293,12 @@ useEffect(() => {
                   setShowCustomFieldModal(false);
                   setSelectedCustomField(selectedCustomField);
                   try {
-                    await axios.put(`${url}/kanban/change-preference`, {
+                    await api.put(`/kanban/change-preference`, {
                       sector: funilSelecionado,
                       label: selectedCustomField,
                       color: customFieldColor,
                       schema
-                    }, { withCredentials: true });
+                    });
                   } catch {}
                 }}>
                   Salvar

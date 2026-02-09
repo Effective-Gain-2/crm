@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 
 function DeleteQueueModal({ theme, fila, onDelete, onQueueDeleted }) {
   const userData = JSON.parse(localStorage.getItem('user'));
@@ -8,10 +8,7 @@ function DeleteQueueModal({ theme, fila, onDelete, onQueueDeleted }) {
   
   const handleDelete = async()=>{
     try {
-      await axios.delete(`${process.env.REACT_APP_URL}/queue/delete-queue/${fila.id}/${schema}`,
-        {
-      withCredentials: true
-    });
+      await api.delete(`/queue/delete-queue/${fila.id}/${schema}`);
       if (onDelete) {
         onDelete(); 
       }
@@ -26,9 +23,7 @@ function DeleteQueueModal({ theme, fila, onDelete, onQueueDeleted }) {
     const modal = document.getElementById('DeleteQueueModal');
     const handleShow = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_URL}/api/search-user/${schema}/${fila.superuser}`, {
-  withCredentials: true
-});
+        const response = await api.get(`/api/search-user/${schema}/${fila.superuser}`);
         setSuperUser(response.data.user); 
       } catch (error) {
         console.error(error);

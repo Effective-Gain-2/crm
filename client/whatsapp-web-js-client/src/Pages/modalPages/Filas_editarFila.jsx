@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
 
@@ -26,9 +26,7 @@ function EditQueueModal({ theme, fila }) {
   useEffect(() => {
     const fetchUsuarios = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_URL}/api/users/${schema}`, {
-          withCredentials: true
-        });
+        const response = await api.get(`/api/users/${schema}`);
         setUser(response.data.users || []);
       } catch (error) {
         console.error('Erro ao buscar usuários:', error);
@@ -42,9 +40,7 @@ function EditQueueModal({ theme, fila }) {
   useEffect(() => {
     const fetchFunis = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_URL}/kanban/get-funis/${schema}`, {
-          withCredentials: true
-        });
+        const response = await api.get(`/kanban/get-funis/${schema}`);
         const funisData = response.data.name || [];
         setFunis(funisData);
       } catch (error) {
@@ -64,9 +60,7 @@ function EditQueueModal({ theme, fila }) {
 
     const fetchEtapas = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_URL}/kanban/get-stages/${funilSelecionado}/${schema}`, {
-          withCredentials: true
-        });
+        const response = await api.get(`/kanban/get-stages/${funilSelecionado}/${schema}`);
         setEtapas(response.data || []);
       } catch (error) {
         console.error('Erro ao buscar etapas:', error);
@@ -83,15 +77,13 @@ function EditQueueModal({ theme, fila }) {
     }
 
     try {
-      const response = await axios.put(`${process.env.REACT_APP_URL}/queue/update-queue`, {
+      const response = await api.put(`/queue/update-queue`, {
         queueId: fila.id,
         name: title,
         super_user: superUser,
         distribution: autoDistribution,
         stage_id: etapaSelecionada || null,
         schema: schema,
-      }, {
-        withCredentials: true
       });
 
       if (response.data.success) {

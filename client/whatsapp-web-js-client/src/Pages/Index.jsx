@@ -24,7 +24,7 @@
   import LembretesPage from './Lembretes';
   import FinanceiroPage from './Financeiro';
   import ControleEstoque from './ControleEstoque';
-  import axios from 'axios';
+  import { api } from '../utils/axiosConfig';
   import useUserPreferences from '../hooks/useUserPreferences';
   import CustomValuesModal from './modalPages/CustomValuesModal';
   import { useToast } from '../contexts/ToastContext';
@@ -72,9 +72,7 @@ import { useAuth } from '../contexts/AuthContext';
     const schema = userData?.schema;
     
     try {
-      const response = await axios.get(`${process.env.REACT_APP_URL}/queue/get-all-queues/${schema}`, {
-        withCredentials: true
-      });
+      const response = await api.get(`/queue/get-all-queues/${schema}`);
       const todasFilas = response.data?.result || [];
       
       const nomesFilas = filas.map(filaId => {
@@ -249,10 +247,7 @@ import { useAuth } from '../contexts/AuthContext';
     
     try {
       // Buscar as filas do usuário
-      const response = await axios.get(`${url}/queue/get-user-queue/${userData.id}/${schema}`, 
-        {
-        withCredentials: true
-      });
+      const response = await api.get(`/queue/get-user-queue/${userData.id}/${schema}`);
       const userQueues = response.data?.result || [];
       
       // Fazer join na sala pessoal do usuário
@@ -400,9 +395,7 @@ import { useAuth } from '../contexts/AuthContext';
 
   const fetchLembretes = async () => {
     try {
-      const response = await axios.get(`${url}/lembretes/get-lembretes/${schema}`, {
-        withCredentials: true
-      });
+      const response = await api.get(`/lembretes/get-lembretes/${schema}`);
       setLembretes(Array.isArray(response.data) ? response.data : [response.data]);
     } catch (error) {
       setLembretes([]); // ou mockLembretes se quiser
@@ -488,7 +481,7 @@ import { useAuth } from '../contexts/AuthContext';
 
     const handleLogout = async () => {
       try {
-        await axios.post(`${url}/api/logout`, {},);
+        await api.post(`/api/logout`, {});
       } catch (error) {
         console.error('Erro no logout:', error);
       } finally {
@@ -573,10 +566,10 @@ import { useAuth } from '../contexts/AuthContext';
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
                 data-bs-title="Assistentes IA"
-                className={`btn ${page === 'assistentes' ? `btn-1-${theme}` : `btn-2-${theme}`} d-none d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+                className={`btn ${page === 'assistentes' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
                 <i className="bi bi-robot"></i>
-                <span className="sidebar-label d-none">Assistentes IA</span>
+                <span className="sidebar-label ">Assistentes IA</span>
               </button>
               <button
                 id="filas"
@@ -693,7 +686,7 @@ import { useAuth } from '../contexts/AuthContext';
                 <span className="sidebar-label d-none">Insights</span>
               </button>
               <hr className={`hr-${theme} mx-auto my-0 d-none`} style={{ width: '50%' }} />
-              {/* <button
+               <button
                 id="ajuda"
                 onClick={() => handlePageChange('ajuda')}
                 data-bs-toggle="tooltip"
@@ -703,7 +696,7 @@ import { useAuth } from '../contexts/AuthContext';
               >
                 <i className="bi bi-question-circle"></i>
                 <span className="sidebar-label d-none">Ajuda</span>
-              </button> */}
+              </button>
   <button
     id="chatinterno"
     onClick={() => handlePageChange('ChatInterno')}

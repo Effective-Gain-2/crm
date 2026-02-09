@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import io from 'socket.io-client';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 import { useAuth } from '../contexts/AuthContext';
 
 const socket = io(process.env.REACT_APP_SOCKET_URL || window.location.origin, {
@@ -23,12 +23,10 @@ function ChatInterno() {
   const schema = userData.schema || null;
 
 
-useEffect(() => {
+  useEffect(() => {
   if (userId && schema) {
     socket.emit('join', userId);
-    axios.get(`/internal-chat/users/${userId}?schema=${schema}`, {
-      withCredentials: true
-    })
+    api.get(`/internal-chat/users/${userId}?schema=${schema}`)
       .then(res => {
         setUsers(res.data);
       })
@@ -59,11 +57,7 @@ useEffect(() => {
 
 useEffect(() => {
   if (selectedUser) {
-    axios.get(`/internal-chat/messages/${userId}/${selectedUser.id}?schema=${schema}`,
-      {
-      withCredentials: true
-    }
-    )
+    api.get(`/internal-chat/messages/${userId}/${selectedUser.id}?schema=${schema}`)
       .then(res => setMessages(res.data));
   }
 }, [selectedUser, userId, schema]);

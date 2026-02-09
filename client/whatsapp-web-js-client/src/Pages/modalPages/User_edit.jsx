@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../../utils/axiosConfig';
 import * as bootstrap from 'bootstrap';
 
 function EditUserModal({ theme, user }) {
@@ -30,18 +30,15 @@ function EditUserModal({ theme, user }) {
     }
 
     try {
-      const response = await axios.put(
-        `${url}/api/update-user`,
+      const response = await api.put(
+        `/api/update-user`,
         {
           userId: user.id,
           userName: userName,
           userEmail: userEmail,
           userRole: userRole,
           schema: schema
-        },
-        {
-      withCredentials: true
-    }
+        }
       );
       // Aqui você pode fechar o modal ou atualizar a lista de usuários, se necessário
     } catch (error) {

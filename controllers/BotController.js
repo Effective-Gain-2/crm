@@ -3,7 +3,7 @@ const { createAssistant, deleteAssistant, updateAssistant } = require("../servic
 
 const createAssistantController = async (req, res) => {
     const {name, instructions, model} = req.body
-    const {schema} = req.schema
+    const schema = req.schema
     try {
         const result = await createAssistant(name, instructions, model)
         await insertBotInTable(result.id, name, instructions, model, false, schema)
@@ -47,7 +47,7 @@ const deleteAssistantController = async (req, res) => {
 }
 }
 const getBotsController = async (req, res) => {
-    const {schema} = req.schema
+    const schema = req.schema
     try {
         if(!schema){
             return res.status(400).json({
@@ -70,7 +70,7 @@ const getBotsController = async (req, res) => {
     }
 }
 const getFunctionsController = async (req, res) => {
-    const {schema} = req.schema
+    const schema = req.schema
     try {
         const result = await getFunctions(schema)
         res.status(200).json({

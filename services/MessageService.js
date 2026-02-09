@@ -31,13 +31,13 @@ const saveMessage = async (chatId, message, schema, user_id) => {
     return result.rows[0];
 };
 const updateMessageChat = async (chat_id, message, schema) => {
-  const newMessagesArray = [message.getMessage()];
+  const newMessagesArray = [message.body];
 
   await pool.query(
     `UPDATE ${schema}.chats
-     SET messages = $1::jsonb
+     SET messages = $1::jsonb, last_user_message = $3
      WHERE id = $2`,
-    [JSON.stringify(newMessagesArray), chat_id]
+    [JSON.stringify(newMessagesArray), chat_id, new Date().getTime()]
   );
 };
 module.exports ={

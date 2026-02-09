@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../utils/axiosConfig';
 
 const useUserPreferences = () => {
   const [preferences, setPreferences] = useState(() => {
@@ -20,18 +20,12 @@ const useUserPreferences = () => {
     }
   });
 
-  const url = process.env.REACT_APP_URL;
-
   // Carregar preferências do banco de dados
   const loadPreferencesFromDB = async () => {
     if (!userData?.id) return;
     
     try {
-      const response = await axios.get(`${url}/preferences/get-user-preference/${userData.id}/${userData.schema}`,
-        {
-          withCredentials:true
-        }
-      );
+      const response = await api.get(`/preferences/get-user-preference/${userData.id}/${userData.schema}`);
       const dbPreferences = response.data || {};
       
       // Mesclar preferências do banco com localStorage
@@ -52,7 +46,7 @@ const useUserPreferences = () => {
     if (!userData?.id) return;
     
     try {
-      await axios.post(`${url}/preferences/set-preference`, {
+      await api.post(`/preferences/set-preference`, {
         user_id: userData.id,
         key: key,
         value: typeof value === 'object' ? JSON.stringify(value) : value,
