@@ -1,9 +1,6 @@
-version: "3.9"
-
 services:
   backend:
     build: ./
-    container_name: backend_stage
     restart: always
     expose:
       - "3002"
@@ -16,9 +13,8 @@ services:
         REACT_APP_URL: /
         REACT_APP_RECAPTCHA_SITE_KEY: 6LfPUUgsAAAAAF1UNb5tVs6bDjbcMwQMEYR-eUHw
         REACT_APP_SOCKET_URL: /
-    container_name: frontend_stage
     restart: always
-    ports:
-      - "8081:80"
+    expose:
+      - "80"
     depends_on:
       - backend
