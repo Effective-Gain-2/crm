@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
 import { api } from '../../utils/axiosConfig';
 
-function EditAssistantModal({ theme, assistente }) {
+function EditAssistantModal({ theme, assistente, onAssistantUpdated }) {
   const [name, setName] = useState('');
   const [instructions, setInstructions] = useState('');
   const [model, setModel] = useState('');
@@ -97,6 +97,17 @@ const removerFuncao = (idx) => {
         functions: funcoesSelecionadas,
         schema:schema
       });
+
+      // Chamar callback com dados atualizados
+      if (onAssistantUpdated) {
+        onAssistantUpdated({
+          ...assistente,
+          name,
+          instructions,
+          model,
+          functions: funcoesSelecionadas
+        });
+      }
 
       // Fechar modal
       const modal = bootstrap.Modal.getInstance(document.getElementById('EditAssistantModal'));

@@ -903,6 +903,18 @@ const updateSchema = async (schema) => {
         ALTER TABLE IF EXISTS ${schema}.scheduled_message ADD COLUMN IF NOT EXISTS bull_job_id text;
     `)
 
+    await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.bots (
+    id text PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    instructions TEXT,
+    model TEXT,
+    has_func BOOLEAN DEFAULT false,
+    created_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000),
+    updated_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000),
+    init_time TEXT,
+    end_time TEXT
+);`)
+
     await pool.query(`ALTER TABLE IF EXISTS ${schema}.chats ADD COLUMN IF NOT EXISTS thread_id text;`)
     await pool.query(`ALTER TABLE IF EXISTS ${schema}.chats ADD COLUMN IF NOT EXISTS isboton boolean;`)
     await pool.query(`ALTER TABLE IF EXISTS ${schema}.chats ADD COLUMN IF NOT EXISTS last_user_message bigint;`)

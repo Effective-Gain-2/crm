@@ -50,6 +50,14 @@ function AssistentesPage({ theme }) {
     setAssistentes(prevAssistentes => prevAssistentes.filter(assistente => assistente.id !== assistantId));
   };
 
+  const handleAssistantUpdated = (updatedAssistant) => {
+    setAssistentes(prevAssistentes =>
+      prevAssistentes.map(assistente =>
+        assistente.id === updatedAssistant.id ? updatedAssistant : assistente
+      )
+    );
+  };
+
   return (
     <div className="h-100 w-100 mx-2 pt-3">
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -134,7 +142,7 @@ function AssistentesPage({ theme }) {
       <div>
         <NewAssistantModal theme={theme}/>
         <DeleteAssistantModal theme={theme} assistente={assistente} onAssistantDeleted={handleAssistantDeleted}/>
-        <EditAssistantModal theme={theme} assistente={selectedAssistant}/>
+        <EditAssistantModal theme={theme} assistente={selectedAssistant} onAssistantUpdated={handleAssistantUpdated}/>
       </div>
     </div>
   );

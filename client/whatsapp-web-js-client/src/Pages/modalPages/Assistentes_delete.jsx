@@ -17,6 +17,11 @@ function DeleteAssistantModal({ theme, assistente, onAssistantDeleted }) {
       
       await api.delete(`/bot/delete/${schema}/${assistente.id}`)
       
+      // Chamar callback para remover da lista
+      if (onAssistantDeleted) {
+        onAssistantDeleted(assistente.id);
+      }
+      
       // Fechar modal
       const modal = bootstrap.Modal.getInstance(document.getElementById('DeleteAssistantModal'));
       if (modal) {

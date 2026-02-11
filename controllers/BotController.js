@@ -22,7 +22,7 @@ const createAssistantController = async (req, res) => {
 
 const deleteAssistantController = async (req, res) => {
     const {assistant_id} = req.params
-    const {schema} = req.schema
+    const schema = req.schema
     try {
         await deleteAssistant(assistant_id)
     } catch (error) {
@@ -87,7 +87,7 @@ const getFunctionsController = async (req, res) => {
 }
 const insertBotFunctionsController = async (req, res) => {
     const {assistant_id, function_id} = req.body
-    const {schema} = req.schema
+    const schema = req.schema
     try {
         await deleteAllBotFunctions(assistant_id, schema)
         const result = await insertBotFunctions(assistant_id, function_id, schema)
@@ -106,7 +106,7 @@ const insertBotFunctionsController = async (req, res) => {
 const updateBotController = async (req, res) => {
     const {assistant_id} = req.params
     const {name, instructions, model, functions} = req.body
-    const {schema} = req.schema
+    const schema = req.schema
     try {
         let tools = []
         if(functions && functions.length>0){
