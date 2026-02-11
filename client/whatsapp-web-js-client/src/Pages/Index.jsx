@@ -635,7 +635,7 @@ import { useAuth } from '../contexts/AuthContext';
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
                 data-bs-title="Templates WhatsApp"
-                className={`btn ${page === 'whatsapp-templates' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+                className={`btn ${page === 'whatsapp-templates' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center d-none gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
                 <i className="bi bi-file-text"></i>
                 <span className="sidebar-label d-none">Templates WhatsApp</span>

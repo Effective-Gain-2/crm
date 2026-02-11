@@ -903,6 +903,13 @@ const updateSchema = async (schema) => {
         ALTER TABLE IF EXISTS ${schema}.scheduled_message ADD COLUMN IF NOT EXISTS bull_job_id text;
     `)
 
+    await pool.query(`ALTER TABLE IF EXISTS ${schema}.chats ADD COLUMN IF NOT EXISTS thread_id text;`)
+    await pool.query(`ALTER TABLE IF EXISTS ${schema}.chats ADD COLUMN IF NOT EXISTS isboton boolean;`)
+    await pool.query(`ALTER TABLE IF EXISTS ${schema}.chats ADD COLUMN IF NOT EXISTS last_user_message bigint;`)
+    await pool.query(`ALTER TABLE IF EXISTS ${schema}.expenses ADD COLUMN IF NOT EXISTS is_expense boolean;`)
+    await pool.query(`ALTER TABLE IF EXISTS ${schema}.queues ADD COLUMN IF NOT EXISTS assistant_id text;`)
+
+    
         return { message: "Schema atualizado com sucesso! Todas as tabelas foram criadas/verificadas." };
     } catch (error) {
         console.error('Erro ao atualizar schema:', error);

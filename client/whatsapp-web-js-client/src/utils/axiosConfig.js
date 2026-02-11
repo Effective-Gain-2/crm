@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Definir baseURL dinâmico para funcionar com nginx
 const baseURL = process.env.NODE_ENV === 'development'
-  ? process.env.REACT_APP_URL
+  ? `${process.env.REACT_APP_URL}/api`
   : '/api';
 
 // Criar instância de axios centralizada

@@ -90,20 +90,20 @@ function IntegracoesPage({ theme, onOpenWhatsappModal }) {
         </div>
       )
     },
-    {
-      id: 'whatsapp-cloud-api',
-      name: 'WhatsApp Cloud API',
-      installed: false,
-      actionLabel: 'Configurar',
-      onAction: () => {},
-      headerStyle: { background: 'linear-gradient(45deg,black,gray)' },
-      renderHeader: () => (
-        <div className="h-100 w-100 d-flex align-items-center justify-content-start px-3 gap-2">
-          <i className="bi bi-whatsapp" style={{ color: '#25D366', fontSize: 22 }}></i>
-          <div className="fw-semibold" style={{ color: '#e7e7ff', fontSize: 14 }}>WhatsApp<br/>Cloud API</div>
-        </div>
-      )
-    },
+    // {
+    //   id: 'whatsapp-cloud-api',
+    //   name: 'WhatsApp Cloud API',
+    //   installed: false,
+    //   actionLabel: 'Configurar',
+    //   onAction: () => {},
+    //   headerStyle: { background: 'linear-gradient(45deg,black,gray)' },
+    //   renderHeader: () => (
+    //     <div className="h-100 w-100 d-flex align-items-center justify-content-start px-3 gap-2">
+    //       <i className="bi bi-whatsapp" style={{ color: '#25D366', fontSize: 22 }}></i>
+    //       <div className="fw-semibold" style={{ color: '#e7e7ff', fontSize: 14 }}>WhatsApp<br/>Cloud API</div>
+    //     </div>
+    //   )
+    // },
     {
       id: 'request-dev',
       name: 'Solicitar desenvolvimento de integração',
