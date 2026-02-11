@@ -160,10 +160,12 @@ module.exports = (broadcastMessage) => {
   new Worker('gpt', async (job) => {
     try {
       const gptData = await getBotById(job.data.assistant_id, job.data.schema)
-      const init_time = parseInt(gptData.init_time.split(':')[0], 10)
-      const end_time = parseInt(gptData.end_time.split(':')[0], 10)
-      if (new Date().getHours() <= init_time && new Date().getHours() >= end_time) {
-        return
+      if(init_time){
+        const init_time = parseInt(gptData.init_time.split(':')[0], 10)
+        const end_time = parseInt(gptData.end_time.split(':')[0], 10)
+        if (new Date().getHours() <= init_time && new Date().getHours() >= end_time) {
+          return
+        }
       }
       if (Number(getCurrentTimestamp() - Number(job.data.updated_at)) < 60000 * 2) {
         return
@@ -189,7 +191,6 @@ module.exports = (broadcastMessage) => {
       }
 
       const resposta = job.data.thread_id ? await getAssistantReply(job.data.thread_id, body, job.data.assistant_id, job.data.chat_id, job.data.schema) : await createThread(body, job.data.assistant_id, job.data.chat_id, job.data.schema)
-      console.log('resposta gpt', resposta)
       if (resposta) {
         if (typeof resposta === 'object' && resposta.functionName && resposta.executed) {
         } else if (typeof resposta === 'string') {
