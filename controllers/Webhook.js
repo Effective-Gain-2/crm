@@ -160,7 +160,7 @@ module.exports = (broadcastMessage) => {
   new Worker('gpt', async (job) => {
     try {
       const gptData = await getBotById(job.data.assistant_id, job.data.schema)
-      if(init_time){
+      if(gptData.init_time){
         const init_time = parseInt(gptData.init_time.split(':')[0], 10)
         const end_time = parseInt(gptData.end_time.split(':')[0], 10)
         if (new Date().getHours() <= init_time && new Date().getHours() >= end_time) {
