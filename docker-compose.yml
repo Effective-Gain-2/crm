@@ -1,18 +1,20 @@
 services:
-  backend_service:
+  backend:
     build: ./
     restart: always
     expose:
       - "3002"
       - "3333"
 
-  frontend_service:
+  frontend:
     build:
       context: ./client/whatsapp-web-js-client
       args:
-        REACT_APP_URL: https://backend-stage.effectivegain.com
+        REACT_APP_URL: /
         REACT_APP_RECAPTCHA_SITE_KEY: 6LfPUUgsAAAAAF1UNb5tVs6bDjbcMwQMEYR-eUHw
-        REACT_APP_SOCKET_URL: http://backend-stage-socket.effectivegain.com
+        REACT_APP_SOCKET_URL: /
     restart: always
     expose:
       - "80"
+    depends_on:
+      - backend
