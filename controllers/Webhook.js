@@ -167,7 +167,7 @@ module.exports = (broadcastMessage) => {
           return
         }
       }
-      if (Number(getCurrentTimestamp() - Number(job.data.updated_at)) < 60000 * 2) {
+      if (Number(getCurrentTimestamp() - Number(job.data.updated_at)) < 60000 * 30) {
         return
       }
       const formData = new FormData();
