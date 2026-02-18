@@ -222,7 +222,7 @@ module.exports = (broadcastMessage) => {
   }, { connection: bullConn })
 
   app.post('/chat', async (req, res) => {
-    console.log(result)
+    const result = req.body;
     const correctRemoteJid = result.data.key.remoteJid.includes('@s.whatsapp.net') || result.data.key.remoteJid.includes('@c.us') ? result.data.key.remoteJid : result.data.key.remoteJidAlt
     if (!result?.data?.key?.remoteJid) {
       return res.status(400).json({ error: 'Dados incompletos' });
