@@ -221,8 +221,7 @@ module.exports = (broadcastMessage) => {
     }
   }, { connection: bullConn })
 
-  app.post('/api/chat', async (req, res) => {
-    const result = req.body;
+  app.post('/chat', async (req, res) => {
     console.log(result)
     const correctRemoteJid = result.data.key.remoteJid.includes('@s.whatsapp.net') || result.data.key.remoteJid.includes('@c.us') ? result.data.key.remoteJid : result.data.key.remoteJidAlt
     if (!result?.data?.key?.remoteJid) {
