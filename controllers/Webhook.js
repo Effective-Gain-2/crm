@@ -222,6 +222,7 @@ module.exports = (broadcastMessage) => {
   }, { connection: bullConn })
 
   app.post('/chat', async (req, res) => {
+    res.sendStatus(200)
     const result = req.body;
     console.log(result)
     const correctRemoteJid = result.data.key.remoteJid.includes('@s.whatsapp.net') || result.data.key.remoteJid.includes('@c.us') ? result.data.key.remoteJid : result.data.key.remoteJidAlt
@@ -429,7 +430,6 @@ module.exports = (broadcastMessage) => {
       if (!chat || !result.instance) {
         throw new Error('Dados obrigatórios ausentes para createChat');
       }
-      res.status(200).json({ result });
 
     } catch (error) {
       console.error('Erro ao enviar para o próximo webhook:', error);
