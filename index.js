@@ -285,7 +285,7 @@ app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-app.use('api/webhook', webhook((msg) => io.emit('message', msg)));
+app.use('/api/webhook', webhook((msg) => io.emit('message', msg)));
 app.get('/api/test', (_req, res) => {
   res.status(200).json({ success: true });
 });
