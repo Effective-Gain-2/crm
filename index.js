@@ -139,8 +139,7 @@ const io = socketIo(server, {
   allowEIO3: true,
 });
 
-const socketServer = http.createServer();
-const socketIoServer = socketIo(socketServer, {
+const socketIoServer = socketIo(server, {
   cors: {
     origin: [
       "http://localhost:3001",
@@ -381,10 +380,6 @@ console.log(`Servidor rodando na porta ${PORT} 🚀`);
 
 // Configurar o socket global para o LembreteService
 setGlobalSocket(socketIoServer);
-
-socketServer.listen(3333, () => {
-  console.log(`Socket rodando na porta 3333`);
-});
 
 // setInterval(async () => {
 //   const now = Date.now();
