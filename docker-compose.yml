@@ -18,7 +18,7 @@ services:
       args:
         REACT_APP_URL: /
         REACT_APP_RECAPTCHA_SITE_KEY: 6LfPUUgsAAAAAF1UNb5tVs6bDjbcMwQMEYR-eUHw
-        REACT_APP_SOCKET_URL: /
+        REACT_APP_SOCKET_URL: eg-crm.effectivegain.com
     restart: always
     expose:
       - "80"

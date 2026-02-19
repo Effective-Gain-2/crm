@@ -114,31 +114,6 @@ const allowedOrigins = [
 };
 
 const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: ['http://localhost:3001',
-      'http://localhost:3000',
-      'http://localhost:3002',
-      'https://landing-page-front.8rxpnw.easypanel.host',
-      'https://eg-crm.effectivegain.com',
-      'https://landing-page-teste.8rxpnw.easypanel.host/',
-      'https://ilhadogovernador.effectivegain.com/',
-      'https://ilhadogovernador.effectivegain.com',
-      'https://barreiras.effectivegain.com',
-      'https://barreiras.effectivegain.com/',
-      'https://campo-grande.effectivegain.com/',
-      'https://campo-grande.effectivegain.com',
-      'https://porto-alegre.effectivegain.com',
-      'https://porto-alegre.effectivegain.com/',
-      'https://ilha-backend.9znbc3.easypanel.host'
-
-    ], 
-    methods: ['GET', 'POST', 'DELETE', 'PUT'],
-  },
-  transports: ['websocket', 'polling'],
-  allowEIO3: true,
-});
-
 const socketIoServer = socketIo(server, {
   cors: {
     origin: [
@@ -165,19 +140,6 @@ const socketIoServer = socketIo(server, {
 });
 
 global.socketIoServer = socketIoServer;
-
-io.on('connection', async (socket) => {
-  socket.on('join', (userId) => {
-    socket.join(`user_${userId}`);
-  });
-
-  socket.on('disconnect', async () => {
-  });
-
-  socket.on('contatosImportados', (data) => {
-    socket.broadcast.emit('contatosImportados', data);
-  });
-});
 
 socketIoServer.on('connection', async(socket) => {
   socket.on('user_login', async (data) => {
@@ -284,7 +246,7 @@ app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-app.use('/api/webhook', webhook((msg) => io.emit('message', msg)));
+app.use('/api/webhook', webhook((msg) => socketIoServer.emit('message', msg)));
 app.get('/api/test', (_req, res) => {
   res.status(200).json({ success: true });
 });
