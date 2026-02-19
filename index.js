@@ -148,19 +148,17 @@ const socketIoServer = socketIo(server, {
 global.socketIoServer = socketIoServer;
 
 socketIoServer.on('connection', async(socket) => {
+
   socket.on('user_login', async (data) => {
     try {
       const { userId, schema } = data;
-      // const { changeOnline } = require('./services/UserService');
-      // await changeOnline(userId, schema);
+      
       socket.userId = userId;
       socket.schema = schema;
       await changeOnline(userId, schema);
-
-      // userHeartbeats.set(`${userId}_${schema}`, Date.now());
       
     } catch (error) {
-      console.error('Erro ao conectar usuário:', error);
+      console.error('❌ Erro ao conectar usuário:', error);
     }
   });
 
@@ -176,18 +174,13 @@ socketIoServer.on('connection', async(socket) => {
     socket.leave(roomId);
   });
 
-  socket.on('disconnect', async (data) => {
+  socket.on('disconnect', async (reason) => {
     if (socket.userId && socket.schema) {
       try {
         await changeOffline(socket.userId, socket.schema);
-        console.log(socket.userId, socket.schema);
-        // const { changeOffline } = require('./services/UserService');
-        // await changeOffline(socket.userId, socket.schema);
-        
-        // userHeartbeats.delete(`${socket.userId}_${socket.schema}`);
         
       } catch (error) {
-        console.error('Erro ao desconectar usuário:', error);
+        console.error('❌ Erro ao desconectar usuário:', error);
       }
     }
   });

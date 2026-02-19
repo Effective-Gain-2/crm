@@ -315,7 +315,6 @@ function ChatPage({ theme, chat_id }) {
   const nomeContatoRef = useRef(null);
   const [showNewContactModal, setShowNewContactModal] = useState(false);
   const [isBotActive, setIsBotActive] = useState(false);
-  const [socketInstance] = useState(socket)
   const url = process.env.REACT_APP_URL;
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [sideMenuActive, setSideMenuActive] = useState(false);
@@ -335,8 +334,38 @@ function ChatPage({ theme, chat_id }) {
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showResumoModal, setShowResumoModal] = useState(false);
   const [apiChats, setApiChats] = useState([])
+  const [socketInstance, setSocketInstance] = useState(null);
 
-  //Use States para filtros
+  // Inicializar socket connection
+  useEffect(() => {
+    try {
+      const newSocket = socket();
+      setSocketInstance(newSocket);
+
+      // Log de conexão
+      newSocket.on('connect', () => {
+        if (userData?.id && schema) {
+          newSocket.emit('user_login', { userId: userData.id, schema });
+        }
+      });
+
+      newSocket.on('connect_error', (error) => {
+      });
+
+      newSocket.on('disconnect', (reason) => {
+      });
+
+      // Listener genérico para todos os eventos
+      newSocket.onAny((eventName, ...args) => {
+      });
+
+      return () => {
+        newSocket.disconnect();
+      };
+    } catch (error) {
+      console.error('Erro ao inicializar socket:', error);
+    }
+  }, [userData?.id, schema]);
   const [showFilter, setShowFilter] = useState(false);
   const [filterNome, setFilterNome] = useState('');
   const [filterNumero, setFilterNumero] = useState('');

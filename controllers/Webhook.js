@@ -24,9 +24,8 @@ const { getSchemaByPhoneId } = require('../services/ApiConnection');
 const { getBotById } = require('../services/BotService');
 require('dotenv').config({ path: '../.env' });
 
-
 // Função para emitir chats para as filas específicas
-const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
+const emitChatsToQueues = async (schema, chat, baseChat) => {
   if (!global.socketIoServer) return;
 
   try {
@@ -52,7 +51,7 @@ const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
   }
 };
 
-const emitWaitingChatsToQueue = async (serverTest, schema, connectionId, queueId) => {
+const emitWaitingChatsToQueue = async (schema, connectionId, queueId) => {
   if (!global.socketIoServer) return;
 
   try {
@@ -221,7 +220,6 @@ module.exports = (broadcastMessage) => {
   app.post('/chat', async (req, res) => {
     res.sendStatus(200)
     const result = req.body;
-    console.log(result)
     const correctRemoteJid = result.data.key.remoteJid.includes('@s.whatsapp.net') || result.data.key.remoteJid.includes('@c.us') ? result.data.key.remoteJid : result.data.key.remoteJidAlt
     if (!result?.data?.key?.remoteJid) {
       return res.status(400).json({ error: 'Dados incompletos' });
@@ -301,7 +299,7 @@ module.exports = (broadcastMessage) => {
           }
         }
       } else {
-        await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
+        await emitWaitingChatsToQueue(schema, baseChat.connection_id, baseChat.queue_id)
       }
       if (result.data.message.conversation) {
         // Mensagem de texto
@@ -356,7 +354,7 @@ module.exports = (broadcastMessage) => {
           // Envia apenas o chat específico que foi atualizado
           global.socketIoServer.to(`user_${baseChat.assigned_user}`).emit('chats_updated', baseChat)
         } else {
-          await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
+          await emitWaitingChatsToQueue(schema, baseChat.connection_id, baseChat.queue_id)
         }
       }
       global.socketIoServer.to(`schema_${schema}`).emit('message', payload);
