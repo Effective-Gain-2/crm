@@ -27,7 +27,7 @@ require('dotenv').config({ path: '../.env' });
 
 // Função para emitir chats para as filas específicas
 const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
-  if (!serverTest.io) return;
+  if (!global.socketIoServer) return;
 
   try {
     // Buscar usuários da fila do chat
@@ -43,7 +43,7 @@ const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
       for (const userId of userIds) {
         const userChats = await getChatByUser(userId, 'user', schema);
         if (userChats && userChats.length > 0) {
-          serverTest.io.to(`user_${userId}`).emit('chats_updated', userChats);
+            global.socketIoServer.to(`user_${userId}`).emit('chats_updated', userChats);
         }
       }
     }
@@ -53,7 +53,7 @@ const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
 };
 
 const emitWaitingChatsToQueue = async (serverTest, schema, connectionId, queueId) => {
-  if (!serverTest.io) return;
+  if (!global.socketIoServer) return;
 
   try {
     // Buscar todos os usuários online
@@ -69,7 +69,7 @@ const emitWaitingChatsToQueue = async (serverTest, schema, connectionId, queueId
           // Admins e técnicos veem todos os chats na sala de espera
           const allWaitingChats = await getChatIfUserIsNull(connectionId, user.permission, schema);
           if (allWaitingChats && allWaitingChats.length > 0) {
-            serverTest.io.to(`user_${user.id}`).emit('chats_updated', allWaitingChats);
+            global.socketIoServer.to(`user_${user.id}`).emit('chats_updated', allWaitingChats);
           }
         } else {
           // Usuários normais só veem chats da sua fila
@@ -83,7 +83,7 @@ const emitWaitingChatsToQueue = async (serverTest, schema, connectionId, queueId
             const waitingChats = await getChatIfUserIsNull(connectionId, 'user', schema, userQueues);
 
             if (waitingChats && waitingChats.length > 0) {
-              serverTest.io.to(`user_${user.id}`).emit('chats_updated', waitingChats);
+              global.socketIoServer.to(`user_${user.id}`).emit('chats_updated', waitingChats);
             }
           }
         }
@@ -131,9 +131,6 @@ ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 module.exports = (broadcastMessage) => {
   const app = express.Router();
-
-  // Usar a instância global do socket
-  const serverTest = { io: global.socketIoServer };
 
   app.use(express.json({ limit: '100mb' }));
   app.use(express.urlencoded({ limit: '100mb', extended: true }));
@@ -199,8 +196,8 @@ module.exports = (broadcastMessage) => {
           await sendTextMessage(job.data.instance, resposta, job.data.number)
           await saveMessage(job.data.chat_id, message, job.data.schema, null)
           await updateCacheMessages(message.id, job.data.chat_id, message.fromMe, message.message, getCurrentTimestamp(), null, null, null, null, null)
-          if (serverTest.io) {
-            serverTest.io.to(`schema_${job.data.schema}`).emit('message', {
+          if (global.socketIoServer) {
+            global.socketIoServer.to(`schema_${job.data.schema}`).emit('message', {
               chatId: job.data.chat_id,
               body: resposta,
               fromMe: true,
@@ -286,9 +283,9 @@ module.exports = (broadcastMessage) => {
 
       //Emitindo apenas o chat específico que foi atualizado
       if (baseChat.assigned_user !== null) {
-        if (serverTest.io) {
+        if (global.socketIoServer) {
           // Envia apenas o chat específico que foi atualizado, não todos os chats do usuário
-          serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', baseChat)
+          global.socketIoServer.to(`user_${baseChat.assigned_user}`).emit('chats_updated', baseChat)
 
           const adminUsersQuery = await pool.query(
             `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico') AND online = true AND id != $1`,
@@ -299,7 +296,7 @@ module.exports = (broadcastMessage) => {
             const adminUsers = adminUsersQuery.rows.map(row => row.id);
             for (const adminId of adminUsers) {
               // Para admins, também envia apenas o chat específico
-              serverTest.io.to(`user_${adminId}`).emit('chats_updated', baseChat);
+              global.socketIoServer.to(`user_${adminId}`).emit('chats_updated', baseChat);
             }
           }
         }
@@ -354,15 +351,15 @@ module.exports = (broadcastMessage) => {
 
       payload.midiaBase64 ? await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, midiaType, payload.midiaBase64, schema, payload.fileName, payload.mimeType) : null
       await updateCacheMessages(result.data.key.id, baseChat.id, payload.fromMe, messageBody || null, timestamp, midiaType, payload.midiaBase64 || null, null, payload.fileName || null, payload.mimeType || null, schema)
-      if (serverTest.io) {
+      if (global.socketIoServer) {
         if (baseChat.assigned_user) {
           // Envia apenas o chat específico que foi atualizado
-          serverTest.io.to(`user_${baseChat.assigned_user}`).emit('chats_updated', baseChat)
+          global.socketIoServer.to(`user_${baseChat.assigned_user}`).emit('chats_updated', baseChat)
         } else {
           await emitWaitingChatsToQueue(serverTest, schema, baseChat.connection_id, baseChat.queue_id)
         }
       }
-      serverTest.io.to(`schema_${schema}`).emit('message', payload);
+      global.socketIoServer.to(`schema_${schema}`).emit('message', payload);
 
 
       const existingMessage = await pool.query(
@@ -518,7 +515,7 @@ module.exports = (broadcastMessage) => {
       };
 
       // Emitir via socket para aparecer diretamente na interface
-      serverTest.io.to(`schema_${req.body.schema}`).emit('message', payload);
+      global.socketIoServer.to(`schema_${req.body.schema}`).emit('message', payload);
 
       res.status(200).json({ success: true })
     } catch (error) {
@@ -561,10 +558,10 @@ module.exports = (broadcastMessage) => {
     let message = null;
     midiaBase64 ? message = await saveMediaMessage(changes[0].value.messages[0].id, false, chat.id, getCurrentTimestamp(), changes[0].value.messages[0].type, midiaBase64, schema, changes[0].value.messages[0].document?.filename || null, changes[0].value.messages[0].document?.mime_type || null) : message = await saveMessage(chat.id, new Message(uuidv4(), changes[0].value.messages[0].text?.body || null, false, chat.id, getCurrentTimestamp()), schema, null)
     await updateCacheMessages(message?.id, chat.id, false, changes[0].value.messages[0].text?.body || null, getCurrentTimestamp(), null, midiaBase64 || null, null, changes[0].value.messages[0].document?.filename || null, changes[0].value.messages[0].document?.mime_type || null)
-    if (!serverTest.io) {
+    if (!global.socketIoServer) {
       return
     }
-    serverTest.io.to(`schema_${schema}`).emit('chats_updated', {
+    global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', {
       chat_id: chat.chat_id,
       connection_id: chat.conntection_id,
       created_at: chat.created_at,
@@ -579,7 +576,7 @@ module.exports = (broadcastMessage) => {
       user_id: chat.user_id,
       isApi: true
     })
-    serverTest.io.to(`schema_${schema}`).emit('message', {
+    global.socketIoServer.to(`schema_${schema}`).emit('message', {
       chatId: chat.id,
       body: changes[0].value.messages[0].text?.body || null,
       midiaBase64: midiaBase64 || null,
