@@ -246,6 +246,20 @@ app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Rota temporária para testar emissões via Socket.io (ANTES de outras rotas)
+app.get('/test-socket/:schema', (req, res) => {
+  try {
+    const schema = req.params.schema;
+    if (!global.socketIoServer) return res.status(500).send('Socket server not initialized');
+    const payload = { test: true, timestamp: Date.now(), schema };
+    global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', payload);
+    return res.status(200).json({ sent: true, payload });
+  } catch (error) {
+    console.error('Erro em /test-socket:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 app.use('/api/webhook', webhook((msg) => socketIoServer.emit('message', msg)));
 app.get('/api/test', (_req, res) => {
   res.status(200).json({ success: true });
@@ -253,21 +267,6 @@ app.get('/api/test', (_req, res) => {
 app.get('/health', (req, res) => {
   res.status(200).json({ ok: true })
 })
-
-// Rota temporária para testar emissões via Socket.io
-app.get('/socket-test/:schema', (req, res) => {
-  try {
-    const schema = req.params.schema;
-    if (!global.socketIoServer) return res.status(500).send('Socket server not initialized');
-    const payload = { test: true, timestamp: Date.now(), schema };
-    // Emite para a sala do schema
-    global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', payload);
-    return res.status(200).json({ sent: true, payload });
-  } catch (error) {
-    console.error('Erro em /socket-test:', error);
-    return res.status(500).json({ error: error.message });
-  }
-});
 
 app.use('/api/api', userRoutes);
 app.use('/api/company', companyRoutes);
