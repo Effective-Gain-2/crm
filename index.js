@@ -254,6 +254,21 @@ app.get('/health', (req, res) => {
   res.status(200).json({ ok: true })
 })
 
+// Rota temporária para testar emissões via Socket.io
+app.get('/socket-test/:schema', (req, res) => {
+  try {
+    const schema = req.params.schema;
+    if (!global.socketIoServer) return res.status(500).send('Socket server not initialized');
+    const payload = { test: true, timestamp: Date.now(), schema };
+    // Emite para a sala do schema
+    global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', payload);
+    return res.status(200).json({ sent: true, payload });
+  } catch (error) {
+    console.error('Erro em /socket-test:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 app.use('/api/api', userRoutes);
 app.use('/api/company', companyRoutes);
 app.use('/api/queue', queueRoutes);
