@@ -293,6 +293,10 @@ const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const { changeOnline, changeOffline } = require('./services/UserService');
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
+
+
+
+
 app.post('/webhook/audio', async (req, res) => {
   const { type, body, from } = req.body;
 
@@ -333,7 +337,7 @@ app.post('/webhook/audio', async (req, res) => {
 
 const PORT = 3002;
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
 console.log(`Servidor rodando na porta ${PORT} 🚀`);
 });
 
