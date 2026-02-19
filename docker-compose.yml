@@ -4,7 +4,6 @@ services:
     restart: always
     expose:
       - "3002"
-      - "3333"
     healthcheck:
       test: ["CMD", "curl", "-f", "https://eg-crm.effectivegain.com/health"]
       interval: 30s
