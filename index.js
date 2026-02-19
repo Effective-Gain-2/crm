@@ -48,6 +48,9 @@ const cookieParser = require('cookie-parser');
 
 const app = express();
 
+// Trust proxy - necessário para funcionar com proxy reverso
+app.set('trust proxy', 1);
+
 // const oauth2Client  = new google.auth.OAuth2(
 //   process.env.GOOGLE_CLIENT_ID,
 //   process.env.GOOGLE_CLIENT_SECRET,
@@ -115,6 +118,7 @@ const allowedOrigins = [
 
 const server = http.createServer(app);
 const socketIoServer = socketIo(server, {
+  path: '/socket.io/',
   cors: {
     origin: [
       "http://localhost:3001",
@@ -136,7 +140,9 @@ const socketIoServer = socketIo(server, {
     methods: ["GET", "POST", "DELETE", "PUT"],
     allowedHeaders: ["Content-Type"],
     credentials: true
-  }
+  },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true
 });
 
 global.socketIoServer = socketIoServer;
