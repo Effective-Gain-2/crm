@@ -6,7 +6,7 @@ services:
       - "3002"
       - "3333"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      test: ["CMD", "curl", "-f", "https://eg-crm.effectivegain.com/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -18,7 +18,7 @@ services:
       args:
         REACT_APP_URL: /
         REACT_APP_RECAPTCHA_SITE_KEY: 6LfPUUgsAAAAAF1UNb5tVs6bDjbcMwQMEYR-eUHw
-        REACT_APP_SOCKET_URL: eg-crm.effectivegain.com
+        REACT_APP_SOCKET_URL: https://eg-crm.effectivegain.com
     restart: always
     expose:
       - "80"
