@@ -51,6 +51,20 @@ const app = express();
 // Trust proxy - necessário para funcionar com proxy reverso
 app.set('trust proxy', 1);
 
+// Rota temporária para testar emissões via Socket.io (antes de qualquer middleware)
+app.get('/test-socket/:schema', (req, res) => {
+  try {
+    const schema = req.params.schema;
+    if (!global.socketIoServer) return res.status(500).send('Socket server not initialized');
+    const payload = { test: true, timestamp: Date.now(), schema };
+    global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', payload);
+    return res.status(200).json({ sent: true, payload });
+  } catch (error) {
+    console.error('Erro em /test-socket:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // const oauth2Client  = new google.auth.OAuth2(
 //   process.env.GOOGLE_CLIENT_ID,
 //   process.env.GOOGLE_CLIENT_SECRET,
@@ -245,20 +259,6 @@ app.use((req, res, next) => {
 app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-// Rota temporária para testar emissões via Socket.io (ANTES de outras rotas)
-app.get('/test-socket/:schema', (req, res) => {
-  try {
-    const schema = req.params.schema;
-    if (!global.socketIoServer) return res.status(500).send('Socket server not initialized');
-    const payload = { test: true, timestamp: Date.now(), schema };
-    global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', payload);
-    return res.status(200).json({ sent: true, payload });
-  } catch (error) {
-    console.error('Erro em /test-socket:', error);
-    return res.status(500).json({ error: error.message });
-  }
-});
 
 app.use('/api/webhook', webhook((msg) => socketIoServer.emit('message', msg)));
 app.get('/api/test', (_req, res) => {
