@@ -142,7 +142,8 @@ const socketIoServer = socketIo(server, {
     credentials: true
   },
   transports: ['websocket', 'polling'],
-  allowEIO3: true
+  allowEIO3: true,
+  allowUpgrades: true
 });
 
 global.socketIoServer = socketIoServer;
