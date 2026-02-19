@@ -289,6 +289,10 @@ app.use('/api/webhook', webhook((msg) => io.emit('message', msg)));
 app.get('/api/test', (_req, res) => {
   res.status(200).json({ success: true });
 });
+app.get('/health', (req, res) => {
+  res.status(200).json({ ok: true })
+})
+
 app.use('/api/api', userRoutes);
 app.use('/api/company', companyRoutes);
 app.use('/api/queue', queueRoutes);
