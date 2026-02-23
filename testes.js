@@ -1,3 +1,5 @@
+const pool = require("./db/queries");
+const { runMigrations } = require("./db/runMigrations");
 const { generateQrCode, getConnectionHealth } = require("./requests/evolution");
 const { createApiConnection } = require("./services/ApiConnection");
 const { sendApiWhatsappMessage, addTestMessage } = require("./services/ChatService");
@@ -13,8 +15,9 @@ require('dotenv')
 //     apiKey: process.env.OPENAI_KEY
 // })
 
-const test = async () => {
-    await createCompanySelfService('Empresa de teste Ççãõóí', 'Nome do usuário', 'email@exemplo.com', 'senha123');
+const test = async (schema) => {
+const client = await pool.connect()
+await runMigrations(client, schema)
 };
 
-test();
+test('effective_gain');

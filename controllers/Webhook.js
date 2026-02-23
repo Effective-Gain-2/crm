@@ -188,6 +188,7 @@ module.exports = (broadcastMessage) => {
       }
 
       const resposta = job.data.thread_id ? await getAssistantReply(job.data.thread_id, body, job.data.assistant_id, job.data.chat_id, job.data.schema) : await createThread(body, job.data.assistant_id, job.data.chat_id, job.data.schema)
+      console.log('resposta gpt', body, resposta, job.data)
       if (resposta) {
         if (typeof resposta === 'object' && resposta.functionName && resposta.executed) {
         } else if (typeof resposta === 'string') {

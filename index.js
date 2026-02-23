@@ -51,38 +51,7 @@ const app = express();
 // Trust proxy - necessário para funcionar com proxy reverso
 app.set('trust proxy', 1);
 
-// DEBUG: Log todas as requisições
-app.use((req, res, next) => {
-  if (req.url.includes('test') || req.url.includes('socket')) {
-    console.log('🔍 DEBUG REQUEST:', req.method, req.url, req.path);
-  }
-  next();
-});
 
-// Rota de teste simples (sem parâmetros)
-app.get('/simple-test', (req, res) => {
-  console.log('✅ /simple-test foi acessada!');
-  res.status(200).json({ ok: true });
-});
-
-// Rota de teste com schema
-app.get('/test-socket/:schema', (req, res) => {
-  try {
-    const schema = req.params.schema;
-    console.log('🔴 /test-socket acessada com schema:', schema);
-    if (!global.socketIoServer) {
-      console.log('❌ Socket server not initialized');
-      return res.status(500).send('Socket server not initialized');
-    }
-    const payload = { test: true, timestamp: Date.now(), schema };
-    console.log('📤 Emitindo para schema_' + schema);
-    global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', payload);
-    return res.status(200).json({ sent: true, payload });
-  } catch (error) {
-    console.error('❌ Erro em /test-socket:', error);
-    return res.status(500).json({ error: error.message });
-  }
-});
 
 // const oauth2Client  = new google.auth.OAuth2(
 //   process.env.GOOGLE_CLIENT_ID,
