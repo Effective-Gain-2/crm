@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS voice_calls ( 
   id                UUID DEFAULT gen_random_uuid() PRIMARY KEY, 
   tenant_id         VARCHAR(100) NOT NULL, 
-  lead_id           UUID NOT NULL, 
+  lead_id           text NOT NULL, --number
   vapi_call_id      VARCHAR(200) UNIQUE, 
   idempotency_key   VARCHAR(200) UNIQUE NOT NULL, 
   status            VARCHAR(50) DEFAULT 'initiated' 
@@ -21,9 +21,10 @@ CREATE TABLE IF NOT EXISTS voice_calls (
   created_at         TIMESTAMPTZ DEFAULT NOW(), 
   updated_at         TIMESTAMPTZ DEFAULT NOW() 
 ); 
-CREATE INDEX idx_vc_lead   ON voice_calls(lead_id); 
-CREATE INDEX idx_vc_tenant ON voice_calls(tenant_id); 
-CREATE INDEX idx_vc_status ON voice_calls(status); 
+
+CREATE INDEX IF NOT EXISTS  idx_vc_lead   ON voice_calls(lead_id); 
+CREATE INDEX IF NOT EXISTS idx_vc_tenant ON voice_calls(tenant_id); 
+CREATE INDEX IF NOT EXISTS idx_vc_status ON voice_calls(status); 
 
 CREATE TABLE IF NOT EXISTS voice_transcripts ( 
   id             UUID DEFAULT gen_random_uuid() PRIMARY KEY, 
@@ -71,7 +72,7 @@ CREATE TABLE IF NOT EXISTS voice_costs (
 
 CREATE TABLE IF NOT EXISTS lead_consents ( 
   id              UUID DEFAULT gen_random_uuid() PRIMARY KEY, 
-  lead_id         UUID NOT NULL, 
+  lead_id         text NOT NULL, 
   tenant_id       VARCHAR(100) NOT NULL, 
   consent_type    VARCHAR(50) DEFAULT 'ai_call', 
   consent_version VARCHAR(20) DEFAULT 'v1.0', 
@@ -82,7 +83,7 @@ CREATE TABLE IF NOT EXISTS lead_consents (
   ip_address      INET 
 ); 
 
-CREATE INDEX idx_consent_lead ON lead_consents(lead_id) WHERE revoked_at IS NULL; 
+CREATE INDEX IF NOT EXISTS idx_consent_lead ON lead_consents(lead_id) WHERE revoked_at IS NULL; 
 
 CREATE TABLE IF NOT EXISTS idempotency_keys ( 
   key          VARCHAR(300) PRIMARY KEY, 

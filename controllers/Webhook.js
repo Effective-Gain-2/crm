@@ -22,6 +22,13 @@ const { createApiOfcChat, setApiChatQueue, getImageApiOfc } = require('../servic
 const { getItemByName, updateItemInStock, alterItemQuantityInStock } = require('../services/StockService');
 const { getSchemaByPhoneId } = require('../services/ApiConnection');
 const { getBotById } = require('../services/BotService');
+const { canCall } = require('../compilance/compilance.service');
+const { configDotenv } = require('dotenv');
+const { getContactByNumber, createContact } = require('../services/ContactService');
+const { createCall } = require('./VoiceController');
+const { getTenant } = require('../middlewares/webhookMiddleware');
+const { extractFromTranscript } = require('../services/ExtractionService');
+const { score } = require('../services/ScoreService');
 require('dotenv').config({ path: '../.env' });
 
 // Função para emitir chats para as filas específicas
@@ -42,7 +49,7 @@ const emitChatsToQueues = async (schema, chat, baseChat) => {
       for (const userId of userIds) {
         const userChats = await getChatByUser(userId, 'user', schema);
         if (userChats && userChats.length > 0) {
-            global.socketIoServer.to(`user_${userId}`).emit('chats_updated', userChats);
+          global.socketIoServer.to(`user_${userId}`).emit('chats_updated', userChats);
         }
       }
     }
@@ -144,20 +151,20 @@ module.exports = (broadcastMessage) => {
         broadcastMessage({ type: 'message', payload: job.data });
       }
     } catch (error) {
-       if (job.attemptsMade > 1) {
+      if (job.attemptsMade > 1) {
         console.error('Áudio falhou após múltiplas tentativas');
         throw new Error('Max retries exceeded for audio processing');
       }
       console.error(error)
     }
-  }, { connection: bullConn, maxRetries: 1})
+  }, { connection: bullConn, maxRetries: 1 })
   const gptQueue = new Queue('gpt', { connection: bullConn });
 
   new Worker('gpt', async (job) => {
     try {
       const gptData = await getBotById(job.data.assistant_id, job.data.schema)
-      
-      if(gptData && gptData.init_time){
+
+      if (gptData && gptData.init_time) {
         const init_time = parseInt(gptData.init_time.split(':')[0], 10)
         const end_time = parseInt(gptData.end_time.split(':')[0], 10)
         if (new Date().getHours() <= init_time && new Date().getHours() >= end_time) {
@@ -188,7 +195,6 @@ module.exports = (broadcastMessage) => {
       }
 
       const resposta = job.data.thread_id ? await getAssistantReply(job.data.thread_id, body, job.data.assistant_id, job.data.chat_id, job.data.schema) : await createThread(body, job.data.assistant_id, job.data.chat_id, job.data.schema)
-      console.log('resposta gpt', body, resposta, job.data)
       if (resposta) {
         if (typeof resposta === 'object' && resposta.functionName && resposta.executed) {
         } else if (typeof resposta === 'string') {
@@ -217,6 +223,60 @@ module.exports = (broadcastMessage) => {
       console.error(error)
     }
   }, { connection: bullConn })
+
+  app.post('/call', getTenant, async (req, res) => {
+    const body=req.body
+    const schema=req.schema
+    res.status(200).json({ success: true });
+    if(body.message.type === 'end-of-call-report' || body.message.type === 'transcription' || body.message.type === 'call.ended') {
+      const call = await pool.query(`SELECT * FROM ${schema}.voice_calls WHERE vapi_call_id = $1`, [body.message.call.id])
+      const transcription = await pool.query(`INSERT INTO ${schema}.voice_transcripts(call_id, tenant_id, transcript_raw, extraction_at) VALUES ($1, $2, $3, $4) RETURNING *`, [call.rows[0].id, schema, JSON.stringify(body.message.artifact.transcript), new Date()])
+      const transcriptionResume = await extractFromTranscript(transcription.rows[0].transcript_raw, body.message.call.duration_seconds)
+      await pool.query(`UPDATE ${schema}.voice_transcripts SET extracted_data = $1 WHERE id = $2`, [transcriptionResume.data, transcription.rows[0].id])
+      const scoreData = await score(transcriptionResume.data)
+      await pool.query(`INSERT INTO ${schema}.voice_scores(call_id, tenant_id, score_financial, score_urgency, score_engagement, score_composite, classification, hot_override, score_inputs, scored_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, [call.rows[0].id, schema, scoreData.score_financial, scoreData.score_urgency, scoreData.score_engagement, scoreData.score_composite, scoreData.classification, scoreData.hot_override, scoreData, new Date()])
+      const costs = body.message.costs
+      let totalAmount  = costs.reduce((total, cost) => total + parseFloat(cost.cost), 0)
+      const voiceCost = await pool.query(`INSERT INTO ${schema}.voice_costs(call_id, tenant_id, cost_vapi_usd, cost_telnyx_usd, cost_wa_brl, cost_llm_usd, cost_total_brl, exchange_rate, recorded_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`, [call.rows[0].id, schema, body.message.costBreakdown.total, costs.find(cost => cost.type === 'telnyx')?.cost || null, costs.find(cost => cost.type === 'wa')?.cost || null, costs.find(cost=>cost.type==='model').cost, body.message.costBreakdown.total* 5, 5.0, new Date()])
+    }
+    const data = {
+      schema:schema,
+      lead_id: body.message.customer.number,
+      vapi_call_id:body.message.call.id,
+      idempotency_key:`call_${body.message.customer.number}_${Math.floor(Date.now() / 60000)}`,
+      status:body.message.status,
+      phone_dialed:body.message.customer.number,
+      attempt_number:1,
+      cost_estimated:body.message.call.cost,
+      metadata_json:req.body,
+      started_at:body.message.startedAt,
+      created_at:new Date(),
+    }
+    const call = await createCall(data)
+  })
+
+  app.post('/leads/intake', async (req, res) => {
+    const {name, number} = req.body
+    const schema = req.schema
+    if (!name || !number) {
+      return res.status(400).json({ error: 'name e number são obrigatórios' });
+    }
+    const normalizedNumber = number.replace(/\D/g, '');
+    try {
+      const existingContact = await getContactByNumber(normalizedNumber, schema);
+
+      if (existingContact) {
+        return res.status(200).json({ contact: existingContact, isNew: false });
+      } 
+      
+      const contact = await createContact(normalizedNumber, name, null, null, schema )
+      const consent = await pool.query(`INSERT INTO ${schema}.lead_consents (lead_id, tenant_id, consent_text, channel, granted_at) VALUES ($1, $2, $3, $4, $5) RETURNING *`, [contact.contact.number, schema, 'O cliente consentiu em receber mensagens via WhatsApp', 'whatsapp', getCurrentTimestamp()])
+      return res.status(201).json({ contact: contact.contact, isNew: true , consent: consent.rows[0]});
+    } catch (error) {
+      console.error(error)
+    }
+
+  })
 
   app.post('/chat', async (req, res) => {
     res.sendStatus(200)

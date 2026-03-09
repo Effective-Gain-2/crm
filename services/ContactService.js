@@ -138,6 +138,11 @@ const getCustomValueById = async (id, number, schema) => {
     return result.rows[0]
 }
 
+const getContactByNumber = async (number, schema) => {
+    const result = await pool.query(`SELECT * FROM ${schema}.contacts WHERE number=$1`, [number])
+    return result.rows[0]
+}
+
 
 
 module.exports = { 
@@ -149,5 +154,6 @@ module.exports = {
     getCustomFieldsByContact,
     changeKanbanPreference,
     getKanbanPreference,
-    getCustomValueById
+    getCustomValueById,
+    getContactByNumber
 };

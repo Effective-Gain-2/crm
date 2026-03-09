@@ -19,7 +19,11 @@ const {
 const { updateContactName } = require('../services/ChatService');
 const { verifyToken } = require('../controllers/UserController');
 const { allowedRoles } = require('../middlewares/RequireUser');
+const { getDailyCostController, getVoiceSummaryController } = require('../controllers/VoiceViewController');
 const router = express.Router();
+
+router.get('/get-daily-cost/:call_date', verifyToken, allowedRoles(), getDailyCostController);
+router.get('/get-calls-summary/:days', verifyToken, allowedRoles(), getVoiceSummaryController);
 
 router.get('/getChats/:schema',verifyToken, allowedRoles(), getChatsController);
 router.get('/getChat/:userId/:schema/:role', verifyToken, allowedRoles(), getChatByUserController);
