@@ -27,7 +27,7 @@ const { configDotenv } = require('dotenv');
 const { getContactByNumber, createContact } = require('../services/ContactService');
 const { createCall } = require('./VoiceController');
 const { getTenant } = require('../middlewares/webhookMiddleware');
-const { extractFromTranscript } = require('../services/ExtractionService');
+const { extractFromTranscript, insertDNC } = require('../services/ExtractionService');
 const { score } = require('../services/ScoreService');
 require('dotenv').config({ path: '../.env' });
 
@@ -236,8 +236,10 @@ module.exports = (broadcastMessage) => {
       const scoreData = await score(transcriptionResume.data)
       await pool.query(`INSERT INTO ${schema}.voice_scores(call_id, tenant_id, score_financial, score_urgency, score_engagement, score_composite, classification, hot_override, score_inputs, scored_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, [call.rows[0].id, schema, scoreData.score_financial, scoreData.score_urgency, scoreData.score_engagement, scoreData.score_composite, scoreData.classification, scoreData.hot_override, scoreData, new Date()])
       const costs = body.message.costs
+      await insertDNC({objections:transcriptionResume.data.objections, phone: call.rows[0].phone_dialed, schema: schema})
       let totalAmount  = costs.reduce((total, cost) => total + parseFloat(cost.cost), 0)
       const voiceCost = await pool.query(`INSERT INTO ${schema}.voice_costs(call_id, tenant_id, cost_vapi_usd, cost_telnyx_usd, cost_wa_brl, cost_llm_usd, cost_total_brl, exchange_rate, recorded_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`, [call.rows[0].id, schema, body.message.costBreakdown.total, costs.find(cost => cost.type === 'telnyx')?.cost || null, costs.find(cost => cost.type === 'wa')?.cost || null, costs.find(cost=>cost.type==='model').cost, body.message.costBreakdown.total* 5, 5.0, new Date()])
+      await axios.post('https://n8n-n8n-start.8rxpnw.easypanel.host/webhook-test/everything',{transcription_resume:transcriptionResume, score:scoreData, costs: voiceCost.rows[0]})
     }
     const data = {
       schema:schema,

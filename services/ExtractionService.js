@@ -3,6 +3,7 @@ const { sendTextMessage } = require('../requests/evolution');
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_KEY });
 
+const pool = require('../db/queries');
 
 
 const prompt = `Retorne SOMENTE JSON válido, sem markdown: 
@@ -14,7 +15,7 @@ const prompt = `Retorne SOMENTE JSON válido, sem markdown:
   'down_payment_value': <numero reais ou null — só se mencionado>, 
   'timeline':           'urgente_3m'|'curto_6m'|'medio_12m'|'longo_24m'|'sem_urgencia'|null, 
   'interest_level':     'alto'|'medio'|'baixo'|'desinteressado', 
-  'objections':         ['string'], 
+  'objections':         ['string'] //caso o cliente não tenha interesse, ou peça que não ligue mais, coloque nas objections, exemplo: ['não tenho interesse', 'não quero ser contactado', 'desejo parar de receber ligações'] 
   'objections_count':   <numero>, 
   'call_ended_by':      'lead'|'sofia'|'timeout', 
   'qualifiable':        true|false 
@@ -37,7 +38,6 @@ async function extractFromTranscript(transcript, durationSeconds) {
 
     const keyWords = ['cpf', 'aprovado', 'garantido', 'taxa', 'juros', 'c p f']
     if (keyWords.some(kw => transcript.toLowerCase().includes(kw))) {
-        console.log('key words')
         await sendTextMessage('4091dc13-9658-452d-b507-e6e67bb90d4f','Lead mencionou palavras relacionadas a crédito, revisar extração manualmente.', '557588821124');
     }
 
@@ -48,6 +48,13 @@ async function extractFromTranscript(transcript, durationSeconds) {
     return { data, cost_usd: (res.usage.total_tokens / 1000) * 0.00015 };
 }
 
+const insertDNC = async (data) => {
+    const dncWords = ['não quero', 'não tenho interesse', 'cancelar', 'remover', 'excluir', 'desejo parar', 'pare de me contactar'];
+    if(dncWords.some(dnc=>data.objections.some(obj=>obj.toLowerCase().includes(dnc)))){
+        await pool.query(`INSERT INTO ${data.schema}.dnc_list(phone, added_at) VALUES ($1, NOW())`, [data.phone]);
+    }
+}
 
 
-module.exports = { extractFromTranscript }; 
+
+module.exports = { extractFromTranscript, insertDNC }; 

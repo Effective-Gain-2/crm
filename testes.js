@@ -2,6 +2,7 @@ const pool = require("./db/queries");
 const { runMigrations } = require("./db/runMigrations");
 const { generateQrCode, getConnectionHealth } = require("./requests/evolution");
 const { createApiConnection } = require("./services/ApiConnection");
+const { initiateVAPICall } = require("./services/CallService");
 const { sendApiWhatsappMessage, addTestMessage } = require("./services/ChatService");
 const { createCompanySelfService } = require("./services/CompanyService");
 const { replacePlaceholders } = require("./services/MessageBlast");
@@ -20,4 +21,9 @@ const client = await pool.connect()
 await runMigrations(client, schema)
 };
 
-test('effective_gain');
+const initiateCall = async()=>{
+    const res = await initiateVAPICall({phone:'+5575988040003', schema:'effective_gain'})
+}
+
+
+initiateCall()

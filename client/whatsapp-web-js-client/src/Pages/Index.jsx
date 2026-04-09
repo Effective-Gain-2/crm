@@ -31,6 +31,7 @@
 import ClientesPage from './Clientes';
 import WhatsappTemplatesPage from './WhatsappTemplates';
 import LogsPage from './Logs';
+import VoiceTranscriptsPage from './VoiceTranscripts';
 import { useAuth } from '../contexts/AuthContext';
 
   window.addEventListener('error', function (event) {
@@ -466,6 +467,7 @@ import { useAuth } from '../contexts/AuthContext';
         case 'integracoes': return <IntegracoesPage theme={theme} onOpenWhatsappModal={handleWhatsapp} />;
         case 'whatsapp-templates': return <WhatsappTemplatesPage theme={theme} />;
         case 'logs': return <LogsPage theme={theme} />;
+        case 'voice-transcripts': return <VoiceTranscriptsPage theme={theme} />;
         case 'agenda': return <LembretesPage
     theme={theme}
     lembretes={lembretes}
@@ -661,6 +663,17 @@ import { useAuth } from '../contexts/AuthContext';
               >
                 <i className="bi bi-journal-text"></i>
                 <span className="sidebar-label d-none">Logs</span>
+              </button>
+              <button
+                id="voice-transcripts"
+                onClick={() => handlePageChange('voice-transcripts')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Transcricoes"
+                className={`btn ${page === 'voice-transcripts' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-card-text"></i>
+                <span className="sidebar-label d-none">Transcricoes</span>
               </button>
               <hr className={`hr-${theme} mx-auto my-0`} style={{ width: '50%' }} />
               <button
