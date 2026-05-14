@@ -99,6 +99,11 @@ const createChat = async (chat, instance, message, etapa, io) => {
       contactName = newContact.rows[0].contact_name;
     }
 
+    // Schemas antigos podem estar sem essas colunas — garante antes do INSERT.
+    await pool.query(`ALTER TABLE ${schema}.chats ADD COLUMN IF NOT EXISTS isboton boolean DEFAULT true`);
+    await pool.query(`ALTER TABLE ${schema}.chats ADD COLUMN IF NOT EXISTS thread_id text`);
+    await pool.query(`ALTER TABLE ${schema}.chats ADD COLUMN IF NOT EXISTS last_user_message bigint`);
+
     let values, query;
     if (etapa) {
       values = [
@@ -116,9 +121,9 @@ const createChat = async (chat, instance, message, etapa, io) => {
         etapa,
         getCurrentTimestamp()
       ];
-      query = `INSERT INTO ${schema}.chats 
-        (id, chat_id, connection_id, queue_id, isGroup, contact_name, assigned_user, status, created_at, messages, contact_phone, etapa_id, updated_time) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`;
+      query = `INSERT INTO ${schema}.chats
+        (id, chat_id, connection_id, queue_id, isGroup, contact_name, assigned_user, status, created_at, messages, contact_phone, etapa_id, updated_time, isboton)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true) RETURNING *`;
     } else {
       values = [
         chat.getId(),
@@ -134,9 +139,9 @@ const createChat = async (chat, instance, message, etapa, io) => {
         contactNumber,
         getCurrentTimestamp()
       ];
-      query = `INSERT INTO ${schema}.chats 
-        (id, chat_id, connection_id, queue_id, isGroup, contact_name, assigned_user, status, created_at, messages, contact_phone, updated_time) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`;
+      query = `INSERT INTO ${schema}.chats
+        (id, chat_id, connection_id, queue_id, isGroup, contact_name, assigned_user, status, created_at, messages, contact_phone, updated_time, isboton)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true) RETURNING *`;
     }
 
     const result = await pool.query(query, values);

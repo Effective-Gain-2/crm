@@ -84,6 +84,19 @@ const removeBotTestNumber = async (id, assistant_id, schema) => {
     return result.rows[0] || null
 }
 
+// Gera variantes para casar com a forma BR sem-9 que o webhook normaliza
+// e com a forma com-9 que o usuário normalmente cadastra.
+const numberVariants = (raw) => {
+    const n = normalizeNumber(raw)
+    if (!n) return []
+    const set = new Set([n])
+    // 13 dígitos começando com 55 e com o 9 do celular → adiciona versão sem 9
+    if (/^55\d{2}9\d{8}$/.test(n)) set.add(n.slice(0, 4) + n.slice(5))
+    // 12 dígitos começando com 55 → adiciona versão com 9
+    if (/^55\d{10}$/.test(n)) set.add(n.slice(0, 4) + '9' + n.slice(4))
+    return [...set]
+}
+
 const isNumberAllowedForBot = async (assistant_id, rawNumber, schema) => {
     if (!assistant_id) return true
     const bot = await pool.query(
@@ -91,11 +104,11 @@ const isNumberAllowedForBot = async (assistant_id, rawNumber, schema) => {
         [assistant_id]
     )
     if (bot.rowCount === 0 || !bot.rows[0].test_mode) return true
-    const number = normalizeNumber(rawNumber)
-    if (!number) return false
+    const variants = numberVariants(rawNumber)
+    if (variants.length === 0) return false
     const allowed = await pool.query(
-        `SELECT 1 FROM ${schema}.bot_test_numbers WHERE assistant_id = $1 AND number = $2 LIMIT 1`,
-        [assistant_id, number]
+        `SELECT 1 FROM ${schema}.bot_test_numbers WHERE assistant_id = $1 AND number = ANY($2) LIMIT 1`,
+        [assistant_id, variants]
     )
     return allowed.rowCount > 0
 }

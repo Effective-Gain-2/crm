@@ -417,37 +417,44 @@ module.exports = (broadcastMessage) => {
         mimeType: mimeType || null,
       }
 
-      payload.midiaBase64 ? await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, midiaType, payload.midiaBase64, schema, payload.fileName, payload.mimeType) : null
+      // Persistir ANTES de emitir socket — evita "mensagens somem ao reabrir
+      // o chat" se algum INSERT falhar e o emit já tiver mostrado a mensagem.
+      const existingMessage = await pool.query(
+        `SELECT id FROM ${schema}.messages WHERE id = $1`,
+        [result.data.key.id]
+      );
+
+      if (existingMessage.rowCount === 0) {
+        try {
+          if (payload.midiaBase64) {
+            await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, midiaType, payload.midiaBase64, schema, payload.fileName, payload.mimeType);
+          } else if (!result.data.message?.audioMessage?.base64) {
+            await saveMessage(
+              chatDb.id,
+              new Message(
+                result.data.key.id,
+                messageBody,
+                result.data.key.fromMe,
+                result.data.key.remoteJid,
+                timestamp
+              ),
+              schema
+            );
+          }
+        } catch (persistErr) {
+          console.error('Falha ao persistir mensagem recebida:', persistErr);
+        }
+      }
+
       await updateCacheMessages(result.data.key.id, baseChat.id, payload.fromMe, messageBody || null, timestamp, midiaType, payload.midiaBase64 || null, null, payload.fileName || null, payload.mimeType || null, schema)
       if (global.socketIoServer) {
         if (baseChat.assigned_user) {
-          // Envia apenas o chat específico que foi atualizado
           global.socketIoServer.to(`user_${baseChat.assigned_user}`).emit('chats_updated', baseChat)
         } else {
           await emitWaitingChatsToQueue(schema, baseChat.connection_id, baseChat.queue_id)
         }
       }
       global.socketIoServer.to(`schema_${schema}`).emit('message', payload);
-
-
-      const existingMessage = await pool.query(
-        `SELECT id FROM ${schema}.messages WHERE id = $1`,
-        [result.data.key.id]
-      );
-
-      if (existingMessage.rowCount === 0 && !result.data.message?.audioMessage?.base64) {
-        await saveMessage(
-          chatDb.id,
-          new Message(
-            result.data.key.id,
-            messageBody,
-            result.data.key.fromMe,
-            result.data.key.remoteJid,
-            timestamp
-          ),
-          schema
-        );
-      }
       const data = {
         chatId: chatDb.id,
         instance: result.instance,
