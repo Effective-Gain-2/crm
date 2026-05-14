@@ -1,16 +1,40 @@
 import * as bootstrap from 'bootstrap';
 
-// Bootstrap 5 race: Tooltip.dispose() seta _activeTrigger = null, mas
-// transitionend ainda pode disparar depois e chamar
-// Tooltip._isWithActiveTrigger, que faz Object.values(this._activeTrigger).
-// Patch global one-shot para tornar o método null-safe.
-if (!bootstrap.Tooltip.prototype.__activeTriggerPatched) {
-  const original = bootstrap.Tooltip.prototype._isWithActiveTrigger;
+// Bootstrap 5 tem várias races entre Tooltip.dispose() e transitionend.
+// Depois do dispose, `_activeTrigger`, `_element` e `tip` viram null, mas
+// callbacks já agendados (queueCallback) ainda disparam e acessam essas
+// propriedades. Patches globais one-shot:
+if (!bootstrap.Tooltip.prototype.__racePatched) {
+  // 1) _isWithActiveTrigger faz Object.values(this._activeTrigger).
+  const originalIsActive = bootstrap.Tooltip.prototype._isWithActiveTrigger;
   bootstrap.Tooltip.prototype._isWithActiveTrigger = function () {
     if (!this._activeTrigger) return false;
-    return original.call(this);
+    return originalIsActive.call(this);
   };
-  bootstrap.Tooltip.prototype.__activeTriggerPatched = true;
+
+  // 2) O complete callback do hide()/show() acessa this._element.removeAttribute
+  //    e similares depois do dispose. Wrappa _queueCallback (herdado de
+  //    BaseComponent) para engolir TypeErrors de null/undefined access — esses
+  //    sempre são pós-dispose, não bugs reais do app.
+  const originalQueue = bootstrap.Tooltip.prototype._queueCallback;
+  if (originalQueue) {
+    bootstrap.Tooltip.prototype._queueCallback = function (callback, element, isAnimated) {
+      const safeCallback = () => {
+        try {
+          callback();
+        } catch (err) {
+          if (err instanceof TypeError && /(?:null|undefined)/.test(err.message)) {
+            // Tooltip já foi descartado entre o agendamento e o disparo — ignora.
+            return;
+          }
+          throw err;
+        }
+      };
+      return originalQueue.call(this, safeCallback, element, isAnimated);
+    };
+  }
+
+  bootstrap.Tooltip.prototype.__racePatched = true;
 }
 
 // Inicializa tooltips Bootstrap dentro de um container (default: document).

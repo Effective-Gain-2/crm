@@ -60,7 +60,7 @@ const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
           }
         }
 
-        // Fetch do usuário
+        // Fetch do usuário (404 é esperado quando o assigned_user foi deletado)
         if (selectedChat.assigned_user) {
           try {
             const userRes = await api.get(`/api/search-user/${schema}/${selectedChat.assigned_user}`);
@@ -68,7 +68,11 @@ const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
               setUserData(userRes.data.user);
             }
           } catch (error) {
-            console.error('Erro ao buscar usuário:', error);
+            if (error.response && error.response.status === 404) {
+              setUserData(null);
+            } else {
+              console.error('Erro ao buscar usuário:', error);
+            }
           }
         }
 

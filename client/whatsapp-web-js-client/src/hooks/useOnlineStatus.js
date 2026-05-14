@@ -8,8 +8,10 @@ const useOnlineStatus = (userId, schema) => {
   useEffect(() => {
     if (!userId || !schema) return;
 
-    // Conectar ao socket
-    socketRef.current = io('http://localhost:3333');
+    // Conectar ao socket (mesma URL do socket principal — antes era localhost:3333 hardcoded)
+    socketRef.current = io(process.env.REACT_APP_SOCKET_URL || window.location.origin, {
+      path: '/socket.io/',
+    });
 
     // Função para enviar status de visibilidade
     const sendVisibilityStatus = (isVisible) => {

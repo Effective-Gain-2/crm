@@ -181,9 +181,9 @@ module.exports = (broadcastMessage) => {
           return
         }
       }
-      if (Number(getCurrentTimestamp() - Number(job.data.updated_at)) < 60000 * 30) {
-        return
-      }
+      // Cooldown de 30min após msg do atendente foi removido: o auto-disable
+      // do bot quando o atendente envia (controllers/Chat/Evolution) já desliga
+      // isboton, então esse gate ficou redundante e travava re-ativação manual.
       const formData = new FormData();
       let body = job.data.body;
 
