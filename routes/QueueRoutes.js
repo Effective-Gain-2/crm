@@ -6,7 +6,7 @@ const { allowedRoles } = require('../middlewares/RequireUser');
 const router = express.Router();
 
 router.post('/create-queue', verifyToken, allowedRoles('tec-admin', true, 'Fila criada'), createQueueController)
-router.post('/addUser', allowedRoles('tec-admin', true, 'Usuário adicionado à fila'), addUserinQueueController)
+router.post('/addUser', verifyToken, allowedRoles('tec-admin', true, 'Usuário adicionado à fila'), addUserinQueueController)
 router.get('/get-user-queue/:userId/:schema', verifyToken, allowedRoles(), getUserQueuesController)
 router.get('/get-all-queues/:schema', verifyToken, allowedRoles(), getAllQueuesControllers)
 router.delete('/delete-queue/:queueId/:schema', verifyToken, allowedRoles('tec-admin', true, 'Fila deletada'), deleteQueueController)

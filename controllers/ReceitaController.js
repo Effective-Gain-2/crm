@@ -39,7 +39,7 @@ const createReceitaController = async (req, res) => {
 };
 
 const getReceitasController = async (req, res) => {
-    const { schema } = req.schema;
+    const schema = req.schema;
     
     try {
         const receitas = await getReceitas(schema);
@@ -100,7 +100,7 @@ const deleteReceitaController = async (req, res) => {
 };
 
 const getReceitasStatsController = async (req, res) => {
-    const { schema } = req.schema;
+    const schema = req.schema;
     
     try {
         const stats = await getReceitasStats(schema);

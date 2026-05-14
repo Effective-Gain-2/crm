@@ -55,20 +55,30 @@ const removeTagFromChatController = async (req, res) => {
 
 const updateTagsController = async (req, res) => {
   try {
-  const {chat_id, tag_id, schema} = req.body
-  const tags = await TagService.getTagsByChat(chat_id, schema)
+    const { chat_id, tag_id, schema } = req.body
+    const tags = await TagService.getTagsByChat(chat_id, schema)
+    const wasPresent = tags.some(tag => tag.id === tag_id)
 
-    if (tags.some(tag => tag.id === tag_id)) {
-     await TagService.removeTagFromChat(chat_id, tag_id, schema)
-    }else{
+    if (wasPresent) {
+      await TagService.removeTagFromChat(chat_id, tag_id, schema)
+    } else {
       await TagService.addTagToChat(chat_id, tag_id, schema)
     }
-  global.socketIoServer.to(`schema_${schema}`).emit('tagUpdated', { chat_id, tag, checked, schema });
-  
-} catch (error) {
-  console.error(error)
-}
 
+    if (global.socketIoServer) {
+      global.socketIoServer.to(`schema_${schema}`).emit('tagUpdated', {
+        chat_id,
+        tag_id,
+        checked: !wasPresent,
+        schema,
+      })
+    }
+
+    res.status(200).json({ success: true, checked: !wasPresent })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ success: false, message: 'Erro ao atualizar tag' })
+  }
 }
 
 const getTagsByChatController = async (req, res) => {

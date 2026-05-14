@@ -1,7 +1,7 @@
 const { createQuickMessage, getAllQuickMessages, getQuickMessageById, updateQuickMessage, deleteQuickMessage, getAllQuickMessagesByUser } = require('../services/QuickMessagesService');
 
 const getAllQuickMessagesController = async (req, res) => {
-  const { schema } = req.schema;
+  const schema = req.schema;
   
   try {
     const result = await getAllQuickMessages(schema);

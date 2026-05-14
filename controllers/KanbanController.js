@@ -60,6 +60,7 @@ const getChatsInKanbanController = async (req, res) => {
         res.status(200).json(result)
     } catch (error) {
         console.error(error)
+        res.status(500).json({ success: false, message: 'Erro ao buscar chats do kanban' })
     }
 }
 
@@ -89,20 +90,21 @@ const changeKanbanStageController = async (req, res) => {
 const updateStageNameController = async (req, res) => {
     const {etapa_id, etapa_nome, sector, color, index} = req.body
     const schema = req.schema;
+    let responded = false;
     try {
-        if(color){
-            const result = await updateStageName(etapa_id, etapa_nome, color, sector, schema)
-            res.status(200).json(result)
-
-        }else{
-            const result = await updateStageName(etapa_id, etapa_nome, null, sector, schema)
-            res.status(200).json(result)
-
-        }
+        const result = color
+          ? await updateStageName(etapa_id, etapa_nome, color, sector, schema)
+          : await updateStageName(etapa_id, etapa_nome, null, sector, schema);
+        res.status(200).json(result);
+        responded = true;
     } catch (error) {
         console.error(error)
-    }finally{
-        updateStageIndex(etapa_id, index, sector, schema)
+        if (!responded) {
+            res.status(500).json({ success: false, message: 'Erro ao atualizar etapa' })
+            responded = true;
+        }
+    } finally {
+        try { await updateStageIndex(etapa_id, index, sector, schema) } catch (e) { console.error(e) }
     }
 }
 const createFunilController = async (req, res) => {
@@ -116,6 +118,7 @@ const createFunilController = async (req, res) => {
 
     } catch (error) {
         console.error(error)
+        res.status(500).json({ success: false, message: 'Erro ao criar funil' })
     }
 }
 const deleteFunilController = async (req, res) => {
@@ -181,15 +184,17 @@ const deleteEtapaController = async (req, res) => {
 
     } catch (error) {
         console.error(error)
+        res.status(500).json({ success: false, message: 'Erro ao deletar etapa' })
     }
 }
 const getCustomFieldsController = async (req, res) => {
-    const {schema} = req.schema
+    const schema = req.schema
     try {
-        const result = await getCustomFields(req.schema)
+        const result = await getCustomFields(schema)
         res.status(200).json(result)
     } catch (error) {
         console.error(error)
+        res.status(500).json({ success: false, message: 'Erro ao buscar campos personalizados' })
     }
 }
 const transferAllChatsToStage = async (req, res) => {
@@ -207,6 +212,7 @@ const transferAllChatsToStage = async (req, res) => {
         })
     } catch (error) {
         console.error(error)
+        res.status(500).json({ success: false, message: 'Erro ao transferir chats em massa' })
     }
 }
 const getContactsInKanbanStageController = async (req, res) => {

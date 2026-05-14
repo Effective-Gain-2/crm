@@ -336,6 +336,7 @@ try {
   })
 } catch (error) {
   console.error(error)
+  res.status(500).json({ success: false, message: 'Erro ao marcar como lida' })
 }
 }
 const createStatusController = async (req, res) => {
@@ -384,6 +385,7 @@ const closeChatContoller = async(req, res)=>{
   })
   } catch (error) {
     console.error(error)
+    res.status(500).json({ success: false, message: 'Erro ao fechar chat' })
   }
 }
 
@@ -421,6 +423,7 @@ const setSpecificUserController = async(req, res) => {
     })
   } catch (error) {
     console.error(error)
+    res.status(500).json({ success: false, message: 'Erro ao transferir chat' })
   }
 };
 
@@ -434,6 +437,7 @@ const getScheduledMessagesController = async (req, res) => {
     });
   } catch (error) {
     console.error(error)
+    res.status(500).json({ success: false, message: 'Erro ao buscar mensagens agendadas' })
   }
 }
 const scheduleMessageController = async (req, res) => {
@@ -447,6 +451,7 @@ const scheduleMessageController = async (req, res) => {
       })
     } catch (error) {
       console.error(error)
+      res.status(500).json({ success: false, message: 'Erro ao agendar mensagem' })
     }
   }
 
@@ -459,6 +464,7 @@ const deleteScheduledMessageController = async (req, res) => {
     })
   } catch (error) {
     console.error(error)
+    res.status(500).json({ success: false, message: 'Erro ao deletar mensagem agendada' })
   }
 }
 
@@ -471,6 +477,7 @@ const disableBotController = async (req, res) => {
     })
   } catch (error) {
     console.error(error)
+    res.status(500).json({ success: false, message: 'Erro ao desativar bot' })
   }
 }
 

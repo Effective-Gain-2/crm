@@ -57,6 +57,7 @@ const updateContactNameController = async(req, res)=>{
         })
     } catch (error) {
         console.error(error)
+        res.status(500).json({ success: false, message: 'Erro ao atualizar contato' })
     }
 }
 const getCustomFieldsByContactController = async (req, res) => {

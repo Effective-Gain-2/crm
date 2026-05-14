@@ -195,7 +195,7 @@ const searchUserByIdController = async (req, res) => {
   }
 }
 const getOnlineUsersController = async (req, res) => {
-  const { schema } = req.schema
+  const schema = req.schema
   try {
     const result = await getOnlineUsers(schema);
     res.status(201).json({
@@ -276,7 +276,7 @@ const googleCallbackController = async (req, res) => {
 const gerarLembretesController = async (req, res) => {
   try {
     const { lembrete_name, message, date, user_id } = req.body;
-    const { schema } = req.schema;
+    const schema = req.schema;
 
     console.log('=== TESTE DE INTEGRAÇÃO GOOGLE CALENDAR ===');
     console.log('Dados recebidos:', { lembrete_name, message, date, user_id, schema });

@@ -3,6 +3,8 @@ const multer = require('multer');
 const path = require('path');
 const DocumentController = require('../controllers/DocumentController');
 const errorHandler = require('../middlewares/ErrorHandler');
+const { verifyToken } = require('../controllers/UserController');
+const { allowedRoles } = require('../middlewares/RequireUser');
 
 const router = express.Router();
 
@@ -40,9 +42,9 @@ const upload = multer({
   }
 });
 
-router.post('/upload', upload.single('file'), DocumentController.uploadDocument);
-router.get('/', DocumentController.getDocuments);
-router.delete('/:id', DocumentController.deleteDocument);
+router.post('/upload', verifyToken, allowedRoles(), upload.single('file'), DocumentController.uploadDocument);
+router.get('/', verifyToken, allowedRoles(), DocumentController.getDocuments);
+router.delete('/:id', verifyToken, allowedRoles('tec-admin', true, 'Documento deletado'), DocumentController.deleteDocument);
 
 router.use(errorHandler);
 

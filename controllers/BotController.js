@@ -21,30 +21,28 @@ const createAssistantController = async (req, res) => {
 }
 
 const deleteAssistantController = async (req, res) => {
-    const {assistant_id} = req.params
+    const { assistant_id } = req.params
     const schema = req.schema
     try {
-        await deleteAssistant(assistant_id)
-    } catch (error) {
-        res.status(500).json({
-            success:false,
-            message:'Erro ao deletar assistente IA'
-        })
-    }finally{
+        // OpenAI delete pode falhar (ex: assistente já não existe lá) — não
+        // bloqueia a remoção local porque o registro local é o que importa.
         try {
-            await deleteBotInTable(assistant_id, schema)
-            res.status(200).json({
-            success:true,
-            message:'Assistente deletado com sucesso'
+            await deleteAssistant(assistant_id)
+        } catch (openaiError) {
+            console.warn('Falha ao apagar assistente no OpenAI (seguindo com remoção local):', openaiError.message || openaiError)
+        }
+        await deleteBotInTable(assistant_id, schema)
+        return res.status(200).json({
+            success: true,
+            message: 'Assistente deletado com sucesso'
         })
     } catch (error) {
         console.error(error)
-        res.status(400).json({
-            success:false,
-            message:'Erro ao deletar assistente'
+        return res.status(500).json({
+            success: false,
+            message: 'Erro ao deletar assistente'
         })
     }
-}
 }
 const getBotsController = async (req, res) => {
     const schema = req.schema

@@ -21,7 +21,7 @@ const createExpenseController = async (req, res) => {
 }
 
 const getExpensesController = async (req, res) => {
-    const { schema } = req.schema;
+    const schema = req.schema;
     try {
         const expenses = await getExpenses(schema);
         res.status(200).json({ success: true, data: expenses });
@@ -44,7 +44,7 @@ const createTaxRateController = async (req, res) => {
 }
 
 const getTaxRatesController = async (req, res) => {
-    const { schema } = req.schema;
+    const schema = req.schema;
     try {
         const taxRates = await getTaxRates(schema);
         res.status(200).json({ success: true, data: taxRates });

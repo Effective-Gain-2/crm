@@ -144,7 +144,7 @@ const deleteApiOfcDataController = async (req, res) => {
 
 const getAllApiOfcConnectionsController = async (req, res) => {
     try {
-        const { schema } = req.schema;
+        const schema = req.schema;
 
         if (!schema || schema === 'null' || schema === 'undefined') {
             return res.status(400).json({
