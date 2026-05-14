@@ -1,4 +1,4 @@
-const { insertBotInTable, deleteBotInTable, getBots, getFunctions, insertBotFunctions, deleteAllBotFunctions, updateBotInTable } = require("../services/BotService")
+const { insertBotInTable, deleteBotInTable, getBots, getFunctions, insertBotFunctions, deleteAllBotFunctions, updateBotInTable, setBotTestMode, getBotTestNumbers, addBotTestNumber, removeBotTestNumber } = require("../services/BotService")
 const { createAssistant, deleteAssistant, updateAssistant } = require("../services/OpenAi")
 
 const createAssistantController = async (req, res) => {
@@ -141,11 +141,74 @@ const updateBotController = async (req, res) => {
         })
     }
 }
+const setTestModeController = async (req, res) => {
+    const { assistant_id } = req.params
+    const { test_mode } = req.body
+    const schema = req.schema
+    try {
+        const result = await setBotTestMode(assistant_id, test_mode, schema)
+        if (!result) {
+            return res.status(404).json({ success: false, message: 'Assistente não encontrado' })
+        }
+        res.status(200).json({ success: true, data: result })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ success: false, message: 'Erro ao atualizar modo de teste' })
+    }
+}
+
+const getTestNumbersController = async (req, res) => {
+    const { assistant_id } = req.params
+    const schema = req.schema
+    try {
+        const result = await getBotTestNumbers(assistant_id, schema)
+        res.status(200).json({ success: true, data: result })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ success: false, message: 'Erro ao buscar números de teste' })
+    }
+}
+
+const addTestNumberController = async (req, res) => {
+    const { assistant_id } = req.params
+    const { number } = req.body
+    const schema = req.schema
+    try {
+        const result = await addBotTestNumber(assistant_id, number, schema)
+        if (!result) {
+            return res.status(200).json({ success: true, data: null, message: 'Número já cadastrado' })
+        }
+        res.status(201).json({ success: true, data: result })
+    } catch (error) {
+        console.error(error)
+        res.status(400).json({ success: false, message: error.message || 'Erro ao adicionar número' })
+    }
+}
+
+const removeTestNumberController = async (req, res) => {
+    const { assistant_id, id } = req.params
+    const schema = req.schema
+    try {
+        const result = await removeBotTestNumber(id, assistant_id, schema)
+        if (!result) {
+            return res.status(404).json({ success: false, message: 'Número não encontrado' })
+        }
+        res.status(200).json({ success: true, data: result })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ success: false, message: 'Erro ao remover número' })
+    }
+}
+
 module.exports={
     createAssistantController,
     deleteAssistantController,
     getBotsController,
     getFunctionsController,
     insertBotFunctionsController,
-    updateBotController
+    updateBotController,
+    setTestModeController,
+    getTestNumbersController,
+    addTestNumberController,
+    removeTestNumberController
 }

@@ -7,6 +7,10 @@ function EditAssistantModal({ theme, assistente, onAssistantUpdated }) {
   const [instructions, setInstructions] = useState('');
   const [model, setModel] = useState('');
   const [funcoesSelecionadas, setFuncoesSelecionadas] = useState([]);
+  const [testMode, setTestMode] = useState(false);
+  const [testNumbers, setTestNumbers] = useState([]);
+  const [novoNumero, setNovoNumero] = useState('');
+  const [savingNumber, setSavingNumber] = useState(false);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const schema = user.schema;
 
@@ -25,6 +29,7 @@ function EditAssistantModal({ theme, assistente, onAssistantUpdated }) {
       setName(assistente.name || '');
       setInstructions(assistente.instructions || '');
       setModel(assistente.model || '');
+      setTestMode(!!assistente.test_mode);
       // Só definir funções se existirem e forem um array
       if (assistente.functions && Array.isArray(assistente.functions)) {
         setFuncoesSelecionadas(assistente.functions);
@@ -33,6 +38,63 @@ function EditAssistantModal({ theme, assistente, onAssistantUpdated }) {
       }
     }
   }, [assistente]);
+
+  useEffect(() => {
+    if (!assistente?.id) {
+      setTestNumbers([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await api.get(`/bot/${assistente.id}/test-numbers`);
+        if (!cancelled) setTestNumbers(resp.data.data || []);
+      } catch (error) {
+        if (!cancelled) console.error('Erro ao carregar números de teste:', error);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [assistente?.id]);
+
+  const handleToggleTestMode = async (next) => {
+    if (!assistente?.id) return;
+    const previous = testMode;
+    setTestMode(next);
+    try {
+      await api.put(`/bot/${assistente.id}/test-mode`, { test_mode: next });
+    } catch (error) {
+      console.error('Erro ao alterar modo de teste:', error);
+      setTestMode(previous);
+    }
+  };
+
+  const handleAddTestNumber = async () => {
+    if (!assistente?.id) return;
+    const numero = novoNumero.replace(/\D/g, '');
+    if (!numero) return;
+    setSavingNumber(true);
+    try {
+      const resp = await api.post(`/bot/${assistente.id}/test-numbers`, { number: numero });
+      if (resp.data?.data) {
+        setTestNumbers(prev => [...prev, resp.data.data]);
+      }
+      setNovoNumero('');
+    } catch (error) {
+      console.error('Erro ao adicionar número de teste:', error);
+    } finally {
+      setSavingNumber(false);
+    }
+  };
+
+  const handleRemoveTestNumber = async (id) => {
+    if (!assistente?.id) return;
+    try {
+      await api.delete(`/bot/${assistente.id}/test-numbers/${id}`);
+      setTestNumbers(prev => prev.filter(n => n.id !== id));
+    } catch (error) {
+      console.error('Erro ao remover número de teste:', error);
+    }
+  };
 
   const adicionarFuncao = () => {
   const disponiveis = funcoesDisponiveis.filter(f => !funcoesSelecionadas.some(fs => fs.id === f.id || fs.value === f.value));
@@ -248,6 +310,69 @@ const removerFuncao = (idx) => {
     </button>
   </div>
 </div>
+
+            {/* Modo de Teste */}
+            <div className="mb-3">
+              <label className={`form-label card-subtitle-${theme}`}>
+                Modo de Teste
+              </label>
+              <div className={`p-3 rounded border d-flex flex-column gap-3`} style={{ borderColor: `var(--border-color-${theme})` }}>
+                <div className="form-check form-switch">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    role="switch"
+                    id="botTestModeSwitch"
+                    checked={testMode}
+                    onChange={(e) => handleToggleTestMode(e.target.checked)}
+                  />
+                  <label className={`form-check-label card-subtitle-${theme}`} htmlFor="botTestModeSwitch">
+                    Restringir respostas apenas a números cadastrados abaixo
+                  </label>
+                </div>
+                <div className="form-text text-muted">
+                  Quando ativo, o bot ignora qualquer número que não esteja na lista. Use para testar sem atrapalhar o uso comercial.
+                </div>
+                <div className="d-flex gap-2">
+                  <input
+                    type="text"
+                    className={`form-control input-${theme}`}
+                    placeholder="Ex: 5511999999999"
+                    value={novoNumero}
+                    onChange={(e) => setNovoNumero(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTestNumber(); } }}
+                    disabled={!testMode}
+                  />
+                  <button
+                    type="button"
+                    className={`btn btn-1-${theme}`}
+                    onClick={handleAddTestNumber}
+                    disabled={!testMode || savingNumber || !novoNumero.trim()}
+                  >
+                    Adicionar
+                  </button>
+                </div>
+                {testNumbers.length > 0 ? (
+                  <ul className="list-group">
+                    {testNumbers.map(n => (
+                      <li key={n.id} className="list-group-item d-flex justify-content-between align-items-center" style={{ backgroundColor: `var(--bg-color-${theme})` }}>
+                        <span className={`card-subtitle-${theme}`}>{n.number}</span>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => handleRemoveTestNumber(n.id)}
+                          title="Remover"
+                        >
+                          <i className="bi bi-x"></i>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <small className="text-muted">Nenhum número cadastrado.</small>
+                )}
+              </div>
+            </div>
 
             {/* Preview das instruções */}
             {instructions && (

@@ -5,14 +5,12 @@ import { api } from '../../utils/axiosConfig';
 import { useToast } from '../../contexts/ToastContext';
 
 function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
-  const { showSuccess } = useToast();
-  const [filas, setFilas] = useState([])
+  const { showSuccess, showError } = useToast();
   const [todasFilas, setTodasFilas] = useState([])
   const [filaAtual, setFilaAtual] = useState(null)
   const [loading, setLoading] = useState(false)
-  const userData = JSON.parse(localStorage.getItem('user')); 
+  const userData = JSON.parse(localStorage.getItem('user'));
   const schema = userData?.schema
-  const url = process.env.REACT_APP_URL;
 
    useEffect(() => {
     if (!contato) return;
@@ -60,8 +58,7 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
 
   const trocarFila = async (novaFilaId) => {
     if (!contato || !novaFilaId) return;
-    console.log(contato)
-    
+
     setLoading(true);
     try {
       const response = await api.post(`/connection/setConnQueue`, {
@@ -73,15 +70,20 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
       if (response.data.success) {
         const novaFila = todasFilas.find(f => f.id === novaFilaId);
         setFilaAtual(novaFila);
-        
-        // Notificar o componente pai sobre a mudança
+
         if (onQueueChange) {
           onQueueChange(contato.connection.id, novaFilaId, novaFila);
         }
-        
+        showSuccess('Fila vinculada com sucesso!');
+      } else {
+        showError('Não foi possível vincular a fila.');
       }
     } catch (error) {
       console.error('Erro ao trocar fila:', error);
+      const msg = error?.response?.status === 403
+        ? 'Você não tem permissão para alterar filas da conexão.'
+        : 'Erro ao vincular fila. Tente novamente.';
+      showError(msg);
     } finally {
       setLoading(false);
     }
@@ -89,7 +91,7 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
 
   const desvincularFila = async () => {
     if (!contato) return;
-    
+
     setLoading(true);
     try {
       const response = await api.post(`/connection/setConnQueue`, {
@@ -100,17 +102,21 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
 
       if (response.data.success) {
         setFilaAtual(null);
-        
-        // Notificar o componente pai sobre a mudança
+
         if (onQueueChange) {
           onQueueChange(contato.connection.id, null, null);
         }
-        
-        // Feedback visual
+
         showSuccess('Contato desvinculado da fila com sucesso!');
+      } else {
+        showError('Não foi possível desvincular a fila.');
       }
     } catch (error) {
       console.error('Erro ao desvincular fila:', error);
+      const msg = error?.response?.status === 403
+        ? 'Você não tem permissão para alterar filas da conexão.'
+        : 'Erro ao desvincular fila. Tente novamente.';
+      showError(msg);
     } finally {
       setLoading(false);
     }

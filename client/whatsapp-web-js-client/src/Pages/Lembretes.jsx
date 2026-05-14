@@ -70,6 +70,8 @@ function getFirstDayOfWeek(year, month) {
 }
 
 
+const SHOW_CALENDAR_VIEW = false;
+
 function LembretesPage({ theme, lembretes, atualizarLembretes }) {
     const { showError, showSuccess } = useToast();
     const [showNovoLembrete, setShowNovoLembrete] = useState(false);
@@ -465,7 +467,7 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
 
             <div className="d-flex flex-row gap-3 h-100" style={{ minHeight: 400 }}>
                 {/* Lista de lembretes à esquerda */}
-                <div style={{ width: '30%', minWidth: 220, maxWidth: 400, display: 'flex', flexDirection: 'column', borderRight: `1px solid var(--border-color-${theme})` }} className="px-3">
+                <div style={{ width: SHOW_CALENDAR_VIEW ? '30%' : '100%', minWidth: 220, maxWidth: SHOW_CALENDAR_VIEW ? 400 : 'none', display: 'flex', flexDirection: 'column', borderRight: SHOW_CALENDAR_VIEW ? `1px solid var(--border-color-${theme})` : 'none' }} className="px-3">
                     <div className="d-flex flex-row align-items-center justify-content-between mb-3">
                         <h3 className={`ps-3 title-${theme} m-0`} style={{ fontWeight: 400 }}>Lista</h3>
                         <button className={`btn btn-1-${theme} d-flex gap-2 align-items-center`} onClick={() => { setLembreteEditando(null); setShowNovoLembrete(true); }}>
@@ -542,6 +544,7 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
                     </div>
                 </div>
                 {/* Calendário à direita */}
+                {SHOW_CALENDAR_VIEW && (
                 <div style={{ width: '70%' }}>
                     <div className="d-flex flex-row align-items-center justify-content-between mb-3">
                         <h3 className={`ms-3 title-${theme} m-0`} style={{ fontWeight: 400 }}>Calendário</h3>
@@ -751,6 +754,7 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
                         </table>
                     </div>
                 </div>
+                )}
             </div>
             <LembreteNovoLembrete
                 show={showNovoLembrete}

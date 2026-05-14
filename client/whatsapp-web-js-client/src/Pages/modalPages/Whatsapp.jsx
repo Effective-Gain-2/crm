@@ -20,7 +20,7 @@ function WhatsappModal({ theme, show, onHide }) {
   const { showError, showSuccess } = useToast();
   
 
-  const userData = useAuth(); 
+  const { userData } = useAuth();
   const schema = userData?.schema
   const url = process.env.REACT_APP_URL;
 
@@ -57,12 +57,12 @@ function WhatsappModal({ theme, show, onHide }) {
     setShowUsuariosModal(true);
   };
 
-  const handleQueueChange = (contatoId, novaFilaId, novaFila) => {
-    // Atualizar o contato na lista com a nova fila
-    setContatos(prevContatos => 
-      prevContatos.map(contato => 
-        contato.id === contatoId 
-          ? { ...contato, queue_id: novaFilaId }
+  const handleQueueChange = (connectionId, novaFilaId, novaFila) => {
+    // Atualizar a conexão na lista com a nova fila
+    setContatos(prevContatos =>
+      prevContatos.map(contato =>
+        contato.connection?.id === connectionId
+          ? { ...contato, connection: { ...contato.connection, queue_id: novaFilaId } }
           : contato
       )
     );

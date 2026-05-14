@@ -21,7 +21,7 @@ const { updateContactInKanban, getSpecificContactInKanban, insertContactInKanban
 const { createApiOfcChat, setApiChatQueue, getImageApiOfc } = require('../services/ChatApiOfc');
 const { getItemByName, updateItemInStock, alterItemQuantityInStock } = require('../services/StockService');
 const { getSchemaByPhoneId } = require('../services/ApiConnection');
-const { getBotById } = require('../services/BotService');
+const { getBotById, isNumberAllowedForBot } = require('../services/BotService');
 const { canCall } = require('../compilance/compilance.service');
 const { configDotenv } = require('dotenv');
 const { getContactByNumber, createContact } = require('../services/ContactService');
@@ -163,6 +163,13 @@ module.exports = (broadcastMessage) => {
   new Worker('gpt', async (job) => {
     try {
       const gptData = await getBotById(job.data.assistant_id, job.data.schema)
+
+      if (gptData && gptData.test_mode) {
+        const allowed = await isNumberAllowedForBot(job.data.assistant_id, job.data.number, job.data.schema)
+        if (!allowed) {
+          return
+        }
+      }
 
       if (gptData && gptData.init_time) {
         const init_time = parseInt(gptData.init_time.split(':')[0], 10)

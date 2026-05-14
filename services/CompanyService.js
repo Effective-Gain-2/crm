@@ -912,7 +912,18 @@ const updateSchema = async (schema) => {
     created_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000),
     updated_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000),
     init_time TEXT,
-    end_time TEXT
+    end_time TEXT,
+    test_mode BOOLEAN DEFAULT false
+);`)
+
+    await pool.query(`ALTER TABLE IF EXISTS ${schema}.bots ADD COLUMN IF NOT EXISTS test_mode BOOLEAN DEFAULT false;`)
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.bot_test_numbers (
+    id text PRIMARY KEY DEFAULT gen_random_uuid(),
+    assistant_id text NOT NULL,
+    number text NOT NULL,
+    created_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000),
+    UNIQUE(assistant_id, number)
 );`)
 
     await pool.query(`ALTER TABLE IF EXISTS ${schema}.chats ADD COLUMN IF NOT EXISTS thread_id text;`)

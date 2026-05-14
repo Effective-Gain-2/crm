@@ -535,7 +535,7 @@ import { useAuth } from '../contexts/AuthContext';
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
                 data-bs-title="Controle de Estoque"
-                className={`btn ${page === 'estoque' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+                className={`btn ${page === 'estoque' ? `btn-1-${theme}` : `btn-2-${theme}`} d-none flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
                 <i className="bi bi-box-seam"></i>
                 <span className="sidebar-label ">Controle de Estoque</span>
@@ -659,7 +659,7 @@ import { useAuth } from '../contexts/AuthContext';
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
                 data-bs-title="Logs"
-                className={`btn ${page === 'logs' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+                className={`btn ${page === 'logs' ? `btn-1-${theme}` : `btn-2-${theme}`} d-none flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
                 <i className="bi bi-journal-text"></i>
                 <span className="sidebar-label d-none">Logs</span>
