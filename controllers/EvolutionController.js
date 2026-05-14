@@ -5,7 +5,7 @@ const { createConnection, fetchInstance, searchConnById } = require('../services
 const { saveMessage, updateMessageChat } = require('../services/MessageService');
 const { Message } = require('../entities/Message');
 const { getCurrentTimestamp } = require('../services/getCurrentTimestamp');
-const { updateCacheMessages } = require('../services/ChatService');
+const { updateCacheMessages, disableBotIfActive } = require('../services/ChatService');
 const { sendMessageApiOfc } = require('../services/ChatApiOfc');
 const { getApiConnections } = require('../services/ApiConnection');
 
@@ -97,7 +97,18 @@ const sendTextMessageController = async (req, res) => {
 
         await updateMessageChat(chatId, message, schema);
         await saveMessage(chatId, message, schema, user_id);
-        
+
+        if (chatId) {
+            const updatedChat = await disableBotIfActive(chatId, schema);
+            if (updatedChat && global.socketIoServer) {
+                global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', updatedChat);
+                if (updatedChat.assigned_user) {
+                    global.socketIoServer
+                        .to(`user_${updatedChat.assigned_user}`)
+                        .emit('chats_updated', updatedChat);
+                }
+            }
+        }
 
         res.status(200).json({ result });
     } catch (error) {

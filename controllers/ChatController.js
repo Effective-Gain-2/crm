@@ -1,5 +1,5 @@
 
-const { setUserChat, getChats, getMessages, getChatData, getChatByUser, updateQueue, getChatById, saveMediaMessage, setMessageAsRead, closeChat, setSpecificUser, scheduleMessage, getScheduledMessages, deleteScheduledMessage, disableBot, closeChatContact, createStatus, getStatus, getClosedChats, getAverageTimeToClose, activeBot, deleteCacheMessages, updateCacheMessages, get20MoreMessages } = require('../services/ChatService');
+const { setUserChat, getChats, getMessages, getChatData, getChatByUser, updateQueue, getChatById, saveMediaMessage, setMessageAsRead, closeChat, setSpecificUser, scheduleMessage, getScheduledMessages, deleteScheduledMessage, disableBot, disableBotIfActive, closeChatContact, createStatus, getStatus, getClosedChats, getAverageTimeToClose, activeBot, deleteCacheMessages, updateCacheMessages, get20MoreMessages } = require('../services/ChatService');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
@@ -106,7 +106,15 @@ const sendImageController = async (req, res) => {
     
     await saveMediaMessage(evolutionResponse.key.id, 'true', chatId, getCurrentTimestamp(), 'image', imageBase64, schema);
     await updateCacheMessages(evolutionResponse.key.id, chatId, evolutionResponse.key.fromMe, null, getCurrentTimestamp(),'image', imageBase64, null, null, null)
-    
+
+    const updatedChat = await disableBotIfActive(chatId, schema);
+    if (updatedChat && global.socketIoServer) {
+      global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', updatedChat);
+      if (updatedChat.assigned_user) {
+        global.socketIoServer.to(`user_${updatedChat.assigned_user}`).emit('chats_updated', updatedChat);
+      }
+    }
+
     res.status(200).json({ success: true, message: 'Imagem processada e enviada com sucesso', evolutionResponse });
   } catch (error) {
     console.error('Erro ao processar imagem:', error.message);
@@ -296,6 +304,13 @@ const sendAudioController = async (req, res) => {
     await saveMediaMessage(evolutionResponse.key.id, 'true', chatId, getCurrentTimestamp(), 'audio', audioBase64, schema);
     await updateCacheMessages(evolutionResponse.key.id, chatId, evolutionResponse.key.fromMe, null, getCurrentTimestamp(),'audio', audioBase64, null, null, null)
 
+    const updatedChat = await disableBotIfActive(chatId, schema);
+    if (updatedChat && global.socketIoServer) {
+      global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', updatedChat);
+      if (updatedChat.assigned_user) {
+        global.socketIoServer.to(`user_${updatedChat.assigned_user}`).emit('chats_updated', updatedChat);
+      }
+    }
 
     res.status(200).json({ success: true, message: 'Áudio processado e enviado com sucesso', evolutionResponse });
   } catch (error) {

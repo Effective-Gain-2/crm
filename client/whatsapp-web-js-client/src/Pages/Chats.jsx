@@ -756,6 +756,20 @@ function ChatPage({ theme, chat_id }) {
   };
 
   useEffect(() => {
+    if (!selectedChatId) return;
+    const updated = chatList.find(c => c.id === selectedChatId);
+    if (!updated) return;
+    setSelectedChat(prev => {
+      if (!prev || prev.isboton === updated.isboton) return prev;
+      return { ...prev, isboton: updated.isboton };
+    });
+    setIsBotActive(prev => {
+      const next = !!updated.isboton;
+      return prev === next ? prev : next;
+    });
+  }, [chatList, selectedChatId]);
+
+  useEffect(() => {
     if (socketInstance && selectedChatId) {
       socketInstance.emit('join', selectedChatId);
 
@@ -1304,6 +1318,11 @@ function ChatPage({ theme, chat_id }) {
         isApi: selectedChat.isApi || false
       });
         setLastMessage(newMessage)
+        if (isBotActive) {
+          setIsBotActive(false);
+          setSelectedChat(prev => prev ? { ...prev, isboton: false } : prev);
+          setChats(prev => prev.map(c => c.id === selectedChat.id ? { ...c, isboton: false } : c));
+        }
     } catch (error) {
       console.error('Erro ao enviar a mensagem:', error);
       showError(error.response.status);
@@ -1343,6 +1362,11 @@ function ChatPage({ theme, chat_id }) {
         },
       });
 
+      if (isBotActive) {
+        setIsBotActive(false);
+        setSelectedChat(prev => prev ? { ...prev, isboton: false } : prev);
+        setChats(prev => prev.map(c => c.id === selectedChat.id ? { ...c, isboton: false } : c));
+      }
 
       const message = {
         id: newImageUrl,
@@ -1408,6 +1432,11 @@ function ChatPage({ theme, chat_id }) {
                 'Content-Type': 'multipart/form-data',
               },
             });
+            if (isBotActive) {
+              setIsBotActive(false);
+              setSelectedChat(prev => prev ? { ...prev, isboton: false } : prev);
+              setChats(prev => prev.map(c => c.id === selectedChat.id ? { ...c, isboton: false } : c));
+            }
             const message = {
               id: audioBlob,
               text: null,

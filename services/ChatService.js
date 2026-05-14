@@ -695,11 +695,24 @@ const deleteScheduledMessage = async (id, schema) => {
 const disableBot = async(chat_id, schema)=>{
   try{
     const result = await pool.query(
-      `UPDATE ${schema}.chats SET isboton = $1 where id = $2`,[false, chat_id]
+      `UPDATE ${schema}.chats SET isboton = $1 where id = $2 RETURNING *`,[false, chat_id]
     )
     return result.rows[0];
   }catch(error){
     console.error(error)
+  }
+}
+
+const disableBotIfActive = async (chat_id, schema) => {
+  try {
+    const result = await pool.query(
+      `UPDATE ${schema}.chats SET isboton = false WHERE id = $1 AND isboton = true RETURNING *`,
+      [chat_id]
+    );
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error(error);
+    return null;
   }
 }
 
@@ -814,6 +827,7 @@ module.exports = {
   getScheduledMessages,
   deleteScheduledMessage,
   disableBot,
+  disableBotIfActive,
   updateChatConnection,
   closeChatContact,
   createStatus,
