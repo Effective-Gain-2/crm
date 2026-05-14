@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
+import { initTooltips } from '../utils/tooltips';
 import NewAssistantModal from './modalPages/Assistentes_novoAssistente';
 import DeleteAssistantModal from './modalPages/Assistentes_delete';
 import EditAssistantModal from './modalPages/Assistentes_editarAssistente';
@@ -23,23 +24,7 @@ function AssistentesPage({ theme }) {
       fetchAssistentes()
   }, [schema]);
 
-  useEffect(() => {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    const tooltipList = [...tooltipTriggerList].map(el => {
-      if (el) {
-        return new bootstrap.Tooltip(el);
-      }
-      return null;
-    });
-
-    return () => {
-      tooltipList.forEach(t => {
-        if (t && t._element && t._element.closest) {
-          t.dispose();
-        }
-      });
-    };
-  }, [assistentes]);
+  useEffect(() => initTooltips(), [assistentes]);
 
   const assistentesFiltrados = assistentes.filter(assistente => {
     const nome = assistente?.name || '';

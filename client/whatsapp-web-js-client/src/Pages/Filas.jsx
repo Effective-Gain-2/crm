@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
 import { api } from '../utils/axiosConfig';
+import { initTooltips } from '../utils/tooltips';
 import NewQueueModal from './modalPages/Filas_novaFila';
 import DeleteQueueModal from './modalPages/Filas_delete';
 import FilasWebhookModal from './modalPages/Filas_webhook';
@@ -21,23 +22,7 @@ function FilaPage({ theme }) {
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
 
-  useEffect(() => {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    const tooltipList = [...tooltipTriggerList].map(el => {
-      if (el) {
-        return new bootstrap.Tooltip(el);
-      }
-      return null;
-    });
-
-    return () => {
-      tooltipList.forEach(t => {
-        if (t && t._element && t._element.closest) {
-          t.dispose();
-        }
-      });
-    };
-  }, [filas]);
+  useEffect(() => initTooltips(), [filas]);
 
   useEffect(() => {
   const fetchFilas = async () => {

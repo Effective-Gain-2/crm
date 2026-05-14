@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 import { api } from '../../utils/axiosConfig';
 import * as bootstrap from 'bootstrap';
+import { initTooltips } from '../../utils/tooltips';
 
 function CustomValuesModal({ show, onHide, theme}) {
   const [fields, setFields] = useState([]);
@@ -47,11 +48,7 @@ function CustomValuesModal({ show, onHide, theme}) {
     setLoading(false);
   };
 
-  useEffect(() => {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    const tooltipList = [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
-    return () => tooltipList.forEach(tooltip => tooltip.dispose());
-  }, [show]);
+  useEffect(() => initTooltips(), [show]);
 
   return (
     <Modal show={show} onHide={onHide} centered dialogClassName="custom-values-modal" contentClassName={`custom-values-modal-content bg-form-${theme} border-${theme}`}> 

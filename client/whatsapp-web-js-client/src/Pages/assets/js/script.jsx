@@ -85,8 +85,15 @@ export function MoneyToggleCard({ value, theme }) {
 
 export function useTooltips() {
   useEffect(() => {
-    const tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltips.map(el => new Tooltip(el));
+    const triggers = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const created = [];
+    triggers.forEach((el) => {
+      if (!el || Tooltip.getInstance(el)) return;
+      try { created.push(new Tooltip(el)); } catch (_) {}
+    });
+    return () => {
+      created.forEach((t) => { try { t.dispose(); } catch (_) {} });
+    };
   }, []);
 }
 

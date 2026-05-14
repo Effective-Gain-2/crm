@@ -7,6 +7,7 @@ import { api } from '../utils/axiosConfig';
 import { useToast } from '../contexts/ToastContext';
 import { socket } from '../socket';
 import { useAuth } from '../contexts/AuthContext';
+import { initTooltips } from '../utils/tooltips';
 
 // Estilo moderno para o botão Google Calendar
 const style = document.createElement('style');
@@ -302,16 +303,7 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
     }, [showSuccess]);
 
     // Inicializar tooltips do Bootstrap
-    useEffect(() => {
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-
-        return () => {
-            tooltipList.forEach(tooltip => tooltip.dispose());
-        };
-    }, [lembretesState]);
+    useEffect(() => initTooltips(), [lembretesState]);
 
     const handleDeleteLembrete = (id) => {
         setLembretesState(prev => prev.filter(l => l.id !== id));

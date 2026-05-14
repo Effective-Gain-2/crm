@@ -3,6 +3,7 @@ import * as bootstrap from 'bootstrap';
 import { api } from '../utils/axiosConfig';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { initTooltips } from '../utils/tooltips';
 
 
 function WhatsappTemplates({ theme }) {
@@ -32,13 +33,7 @@ function WhatsappTemplates({ theme }) {
   const [connectionsError, setConnectionsError] = useState(null);
   const { showError, showSuccess } = useToast();
 
-  useEffect(() => {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    const tooltipList = [...tooltipTriggerList].map(
-      (tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl)
-    );
-    return () => tooltipList.forEach((tooltip) => tooltip.dispose());
-  }, []);
+  useEffect(() => initTooltips(), []);
 
   useEffect(() => {
     const fetchConnections = async () => {

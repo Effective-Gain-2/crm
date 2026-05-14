@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { socket } from '../socket'
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { initTooltips } from '../utils/tooltips';
 
 // Função para refresh token
 // const refreshToken = async () => {
@@ -134,23 +135,7 @@ function UsuariosPage({ theme }) {
     }
   };
 
-  useEffect(() => {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    tooltipTriggerList.forEach((el) => {
-      if (el) {
-        new bootstrap.Tooltip(el);
-      }
-    });
-
-    return () => {
-      tooltipTriggerList.forEach((el) => {
-        if (el) {
-          const tooltip = bootstrap.Tooltip.getInstance(el);
-          if (tooltip) tooltip.dispose();
-        }
-      });
-    };
-  }, [usuarios]);
+  useEffect(() => initTooltips(), [usuarios]);
 
   // Configurar refresh automático de token
   // useEffect(() => {

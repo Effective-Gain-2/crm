@@ -5,6 +5,7 @@ import ReceitasModal from './modalPages/ReceitasModal';
 import { ExpensesService, CategoriesService, VendorsService } from '../services/FinanceiroService';
 import { useToast } from '../contexts/ToastContext';
 import { api } from '../utils/axiosConfig';
+import { initTooltips } from '../utils/tooltips';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -448,20 +449,7 @@ useEffect(()=>{
     loadPerspectiveData();
   }, [schema]);
 
-  useEffect(() => {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    if (tooltipTriggerList.length > 0) {
-      const tooltipList = [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
-      
-      return () => {
-        tooltipList.forEach(tooltip => {
-          if (tooltip && tooltip._element) {
-            tooltip.dispose();
-          }
-        });
-      };
-    }
-  }, [activeTab]);
+  useEffect(() => initTooltips(), [activeTab]);
 
   // Carregar dados iniciais
   useEffect(() => {

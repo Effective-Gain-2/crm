@@ -8,6 +8,7 @@ import DisparoModal from './modalPages/Disparos_novoDisparo';
 import DeleteDisparoModal from './modalPages/Disparos_delete';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { initTooltips } from '../utils/tooltips';
 
 
 
@@ -98,18 +99,11 @@ function DisparosPage({ theme }) {
     fetchConexoes();
   }, [schema])
   
-  // Inicialização dos tooltips
+  // Inicialização dos tooltips + modal de exclusão
   useEffect(() => {
-    let tooltipList = [];
+    const disposeTooltips = initTooltips();
     let deleteModal = null;
-    
     try {
-      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-      if (tooltipTriggerList.length > 0) {
-        tooltipList = [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
-      }
-      
-      // Inicializa o modal de exclusão
       const modalElement = document.getElementById('DeleteDisparoModal');
       if (modalElement) {
         deleteModal = new bootstrap.Modal(modalElement);
@@ -117,17 +111,10 @@ function DisparosPage({ theme }) {
     } catch (error) {
       console.error('Erro ao inicializar componentes:', error);
     }
-    
     return () => {
-      if (tooltipList.length > 0) {
-        tooltipList.forEach(t => {
-          if (t && t._element) {
-            t.dispose();
-          }
-        });
-      }
+      disposeTooltips();
       if (deleteModal) {
-        deleteModal.dispose();
+        try { deleteModal.dispose(); } catch (_) {}
       }
     };
   }, []);

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api } from '../../utils/axiosConfig';
 import { useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
+import { initTooltips } from '../../utils/tooltips';
 
 function NewUserModal({ theme, type }) {
   const [userName, setUserName] = useState('');
@@ -50,12 +51,7 @@ function NewUserModal({ theme, type }) {
     }
   };
 
-  useEffect(() => {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    const tooltipList = [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
-
-    return () => tooltipList.forEach(tooltip => tooltip.dispose());
-  }, []);
+  useEffect(() => initTooltips(), []);
 
 
   return (

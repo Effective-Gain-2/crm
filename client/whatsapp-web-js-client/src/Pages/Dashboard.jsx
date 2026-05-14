@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import * as bootstrap from 'bootstrap';
 import { api } from '../utils/axiosConfig';
+import { initTooltips } from '../utils/tooltips';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -40,13 +41,7 @@ function Dashboard({ theme }) {
   const [modalChatId, setModalChatId] = useState(null);
   const [filas, setFilas] = useState([]);
 
-  useEffect(() => {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    const tooltipList = [...tooltipTriggerList].map(
-      (tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl)
-    );
-    return () => tooltipList.forEach((tooltip) => tooltip.dispose());
-  }, []);
+  useEffect(() => initTooltips(), []);
 
   useEffect(() => {
     const fetchUsuarios = async () => {

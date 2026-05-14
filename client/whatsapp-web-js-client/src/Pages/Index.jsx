@@ -25,6 +25,7 @@
   import FinanceiroPage from './Financeiro';
   import ControleEstoque from './ControleEstoque';
   import { api } from '../utils/axiosConfig';
+  import { initTooltips } from '../utils/tooltips';
   import useUserPreferences from '../hooks/useUserPreferences';
   import CustomValuesModal from './modalPages/CustomValuesModal';
   import { useToast } from '../contexts/ToastContext';
@@ -359,38 +360,17 @@ import { useAuth } from '../contexts/AuthContext';
       setIsSidebarExpanded(!isSidebarExpanded);
     };
 
-    useEffect(() => {
-    let tooltipList = [];
-
-    try {
-      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-      if (tooltipTriggerList.length > 0) {
-        tooltipList = [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el));
-      }
-    } catch (error) {
-      console.error('Erro ao inicializar tooltips:', error);
-    }
-
-    return () => {
-      if (tooltipList.length > 0) {
-        tooltipList.forEach(t => {
-          if (t && t._element) {
-            t.dispose();
-          }
-        });
-      }
-    };
-  }, [page]);
+    useEffect(() => initTooltips(), [page]);
 
   useEffect(() => {
+    if (!customValuesBtnRef.current) return undefined;
+    if (bootstrap.Tooltip.getInstance(customValuesBtnRef.current)) return undefined;
     let tooltipInstance = null;
-    if (customValuesBtnRef.current) {
+    try {
       tooltipInstance = new bootstrap.Tooltip(customValuesBtnRef.current, { trigger: 'hover focus' });
-    }
+    } catch (_) {}
     return () => {
-      if (tooltipInstance) {
-        tooltipInstance.dispose();
-      }
+      if (tooltipInstance) { try { tooltipInstance.dispose(); } catch (_) {} }
     };
   }, [theme, showCustomValuesModal]);
 
