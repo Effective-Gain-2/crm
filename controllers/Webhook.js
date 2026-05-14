@@ -171,10 +171,13 @@ module.exports = (broadcastMessage) => {
         }
       }
 
-      if (gptData && gptData.init_time) {
+      if (gptData && gptData.init_time && gptData.end_time) {
+        // Bot só responde DENTRO do horário comercial configurado.
+        // Fora dele (antes de init OU depois de end), aborta.
         const init_time = parseInt(gptData.init_time.split(':')[0], 10)
         const end_time = parseInt(gptData.end_time.split(':')[0], 10)
-        if (new Date().getHours() <= init_time && new Date().getHours() >= end_time) {
+        const currentHour = new Date().getHours()
+        if (currentHour < init_time || currentHour >= end_time) {
           return
         }
       }
