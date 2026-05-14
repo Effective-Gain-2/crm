@@ -628,7 +628,7 @@ import { useAuth } from '../contexts/AuthContext';
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
                 data-bs-title="Lembretes"
-                className={`btn ${page === 'agenda' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+                className={`btn ${page === 'agenda' ? `btn-1-${theme}` : `btn-2-${theme}`} d-none flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
                 <i className="bi bi-bell"></i>
                 <span className="sidebar-label d-none">Lembretes</span>
@@ -650,7 +650,7 @@ import { useAuth } from '../contexts/AuthContext';
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
                 data-bs-title="Transcricoes"
-                className={`btn ${page === 'voice-transcripts' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+                className={`btn ${page === 'voice-transcripts' ? `btn-1-${theme}` : `btn-2-${theme}`} d-none flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
                 <i className="bi bi-card-text"></i>
                 <span className="sidebar-label d-none">Transcricoes</span>
