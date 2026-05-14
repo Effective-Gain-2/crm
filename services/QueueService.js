@@ -153,6 +153,9 @@ const updateQueue = async (queueId, name, color, super_user, distribution, stage
 };
 
 const updateAssistantId = async (queue_id, assistant_id, schema) => {
+    // Garante que a coluna existe — schemas antigos podem não ter sido
+    // re-provisionados desde que a feature de bot foi adicionada.
+    await pool.query(`ALTER TABLE ${schema}.queues ADD COLUMN IF NOT EXISTS assistant_id text`)
     const result = await pool.query(`UPDATE ${schema}.queues SET assistant_id=$1 WHERE id=$2 RETURNING *`,[assistant_id, queue_id])
     return result.rows[0]
 }
