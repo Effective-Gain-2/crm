@@ -5,6 +5,7 @@
   import shortlogo from './assets/favicon.png';
   import logo from './assets/effective-gain_logo.png';
   import AssistentesPage from './Assistentes';
+  import Workflows from './Workflows';
   import './assets/style.css';
   import { useTheme } from './assets/js/useTheme';
   import { useNavigate } from 'react-router-dom';
@@ -439,6 +440,7 @@ import { useAuth } from '../contexts/AuthContext';
         case 'financeiro': return <FinanceiroPage theme={theme} />;
         case 'estoque': return <ControleEstoque theme={theme} />;
         case 'assistentes': return <AssistentesPage theme={theme} />;
+        case 'workflows': return <Workflows theme={theme} />;
         case 'chats': return <ChatPage theme={theme} />;
         case 'kanban': return <KanbanPage theme={theme} />;
         case 'filas': return <FilaPage theme={theme} />;
@@ -552,6 +554,17 @@ import { useAuth } from '../contexts/AuthContext';
               >
                 <i className="bi bi-robot"></i>
                 <span className="sidebar-label ">Assistentes IA</span>
+              </button>
+              <button
+                id="workflows"
+                onClick={() => handlePageChange('workflows')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Workflows"
+                className={`btn ${page === 'workflows' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-diagram-2"></i>
+                <span className="sidebar-label">Workflows</span>
               </button>
               <button
                 id="filas"
