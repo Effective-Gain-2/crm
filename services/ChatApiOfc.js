@@ -24,14 +24,24 @@ const createApiOfcChat = async (chat_id, connection_id, number, name, queue_id, 
 }
 
 const getApiChats = async (schema) => {
-    const result = await pool.query(
-        `SELECT * FROM ${schema}.api_ofc_chats WHERE status <> 'closed'`
-    )
-    result.rows = result.rows.map(row => ({
-        ...row,
-        isApi: true
-    }))
-    return result.rows
+    try {
+        const result = await pool.query(
+            `SELECT * FROM ${schema}.api_ofc_chats WHERE status <> 'closed'`
+        )
+        result.rows = result.rows.map(row => ({
+            ...row,
+            isApi: true
+        }))
+        return result.rows
+    } catch (err) {
+        // Schemas antigos podem não ter sido provisionados com api_ofc_chats.
+        // Retorna lista vazia em vez de derrubar /chat/getChats inteiro.
+        if (err && err.code === '42P01') {
+            console.warn(`Tabela ${schema}.api_ofc_chats nao existe; retornando vazio.`)
+            return []
+        }
+        throw err
+    }
 }
 
 const setApiChatQueue = async (chat_id, schema) => {

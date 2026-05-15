@@ -76,24 +76,23 @@ const getRun = async (thread) => {
   }
 }
 
-const createThread = async (message, assistant_id, chat_id, schema) => {
+// Cria uma thread vazia e persiste o thread_id no chat. NÃO envia
+// mensagem nem inicia run — quem faz o polling + handling de
+// function-calls é getAssistantReply, chamado em seguida pelo worker.
+// Assim a primeira mensagem do cliente passa pelo mesmo caminho das
+// subsequentes, evitando bug onde createAndRun retornava o objeto run
+// e o worker o ignorava (não era string).
+const createThread = async (assistant_id, chat_id, schema) => {
   const client = getOpenAIClient();
   if (!client) {
     console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
     return null;
   }
-  const response = await client.beta.threads.createAndRun({
-    assistant_id,
-    thread: {
-      messages: [
-        { role: 'user', content: message }
-      ]
-    }
-  });
+  const thread = await client.beta.threads.create();
   if (chat_id) {
-    await pool.query(`UPDATE ${schema}.chats SET thread_id=$1 WHERE id=$2`, [response.thread_id, chat_id]);
+    await pool.query(`UPDATE ${schema}.chats SET thread_id=$1 WHERE id=$2`, [thread.id, chat_id]);
   }
-  return response;
+  return thread.id;
 }
 
 const getAssistantMessageWithoutThreadId = async (message, assistant_id) => {

@@ -204,7 +204,18 @@ module.exports = (broadcastMessage) => {
 
       }
 
-      const resposta = job.data.thread_id ? await getAssistantReply(job.data.thread_id, body, job.data.assistant_id, job.data.chat_id, job.data.schema) : await createThread(body, job.data.assistant_id, job.data.chat_id, job.data.schema)
+      let threadId = job.data.thread_id
+      if (!threadId) {
+        threadId = await createThread(job.data.assistant_id, job.data.chat_id, job.data.schema)
+        if (!threadId) {
+          console.error('Nao foi possivel criar thread OpenAI para chat', job.data.chat_id)
+          return
+        }
+      }
+      const resposta = await getAssistantReply(threadId, body, job.data.assistant_id, job.data.chat_id, job.data.schema)
+      if (!resposta) {
+        console.warn('Bot nao retornou resposta para chat', job.data.chat_id)
+      }
       if (resposta) {
         if (typeof resposta === 'object' && resposta.functionName && resposta.executed) {
         } else if (typeof resposta === 'string') {

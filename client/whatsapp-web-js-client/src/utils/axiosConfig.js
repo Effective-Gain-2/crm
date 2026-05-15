@@ -1,8 +1,11 @@
 import axios from 'axios';
 
 // Definir baseURL dinâmico para funcionar com nginx
+// Em dev, se REACT_APP_URL não estiver setado, cai para localhost:3002
+// (o servidor backend padrão) em vez de gerar "/api/undefined".
+const devBase = process.env.REACT_APP_URL || 'http://localhost:3002';
 const baseURL = process.env.NODE_ENV === 'development'
-  ? `${process.env.REACT_APP_URL}/api`
+  ? `${devBase}/api`
   : '/api';
 
 // Criar instância de axios centralizada
