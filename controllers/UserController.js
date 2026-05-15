@@ -114,11 +114,12 @@ const searchUserController = async (req, res) => {
       return res.status(404).json({success:false});
     }
 
-    const isBlocked = await getLoginAttempts(ip, result.company.schema_name);
-    console.log("isBlocked:", isBlocked);
-    if(isBlocked){
-      return res.status(429).json({ error: 'IP bloqueado por tentativas excessivas' });
-    }
+    // Bloqueio por IP desativado a pedido do usuario. A logica original
+    // tratava QUALQUER row existente em login_data como "bloqueado" (sem
+    // reset por tempo nem limite minimo de attempts), o que efetivamente
+    // banía pra sempre qualquer IP que ja tenha errado senha uma vez.
+    // const isBlocked = await getLoginAttempts(ip, result.company.schema_name);
+    // if (isBlocked) return res.status(429).json({ error: 'IP bloqueado por tentativas excessivas' });
 
     changeOnline(result.user.id, result.company.schema_name);
 
