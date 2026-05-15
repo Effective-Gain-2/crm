@@ -287,6 +287,7 @@ app.use('/api/ofc-campaing', OfcCampaingRoutes)
 app.use('/api/ajuda', ajudaRoutes);
 app.use('/api/clientes', clientesRoutes);
 app.use('/api/lead-summaries', require('./routes/LeadSummaryRoutes'));
+app.use('/api/workflow', require('./routes/WorkflowRoutes'));
 
 
 const axios = require('axios');
@@ -353,6 +354,12 @@ setGlobalSocket(socketIoServer);
 // Worker que gera resumo do lead 24h apos a primeira mensagem do cliente
 const { startSummaryWorker } = require('./services/LeadSummaryWorker');
 startSummaryWorker();
+
+// Engine de workflows: executor BullMQ + scanner para trigger no_reply
+const { startExecutorWorker } = require('./services/WorkflowExecutor');
+const { startNoReplyScanner } = require('./services/WorkflowTrigger');
+startExecutorWorker();
+startNoReplyScanner();
 
 // setInterval(async () => {
 //   const now = Date.now();

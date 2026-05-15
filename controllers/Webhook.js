@@ -30,6 +30,7 @@ const { getTenant } = require('../middlewares/webhookMiddleware');
 const { extractFromTranscript, insertDNC } = require('../services/ExtractionService');
 const { score } = require('../services/ScoreService');
 const { scheduleLeadSummary } = require('../services/LeadSummaryWorker');
+const { fireTrigger: fireWorkflowTrigger } = require('../services/WorkflowTrigger');
 require('dotenv').config({ path: '../.env' });
 
 // Função para emitir chats para as filas específicas
@@ -475,6 +476,26 @@ module.exports = (broadcastMessage) => {
         // veio do cliente. Idempotente via jobId estavel.
         if (priorCount === 0 && result.data.key.fromMe === false) {
           scheduleLeadSummary(schema, chatDb.id);
+        }
+
+        // Triggers de workflow: new_message sempre que cliente envia,
+        // first_message só na primeira (priorCount=0).
+        if (result.data.key.fromMe === false) {
+          const wfContext = {
+            chat: baseChat,
+            contact: { name: chatDb.contact_name, number: chatDb.contact_phone },
+            message: { id: result.data.key.id, body: messageBody, type: midiaType || 'text' },
+          };
+          const wfPayload = {
+            chat_id: chatDb.id,
+            queue_id: chatDb.queue_id,
+            contact_phone: chatDb.contact_phone,
+            body: messageBody,
+          };
+          fireWorkflowTrigger(schema, 'new_message', { ...wfPayload, ...wfContext });
+          if (priorCount === 0) {
+            fireWorkflowTrigger(schema, 'first_message', { ...wfPayload, ...wfContext });
+          }
         }
       }
 

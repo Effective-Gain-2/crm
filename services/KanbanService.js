@@ -204,11 +204,35 @@ const getChatsInKanban = async (sector, schema) => {
 };
 
 const changeKanbanStage = async (chat_id, stage_id, schema) => {
+  // captura a etapa anterior para fornecer ao trigger
+  let fromStage = null;
+  try {
+    const prev = await pool.query(`SELECT etapa_id FROM ${schema}.chats WHERE id = $1`, [chat_id]);
+    if (prev.rowCount > 0) fromStage = prev.rows[0].etapa_id;
+  } catch (_) {}
+
   await pool.query(
     `UPDATE ${schema}.chats set etapa_id=$1 where id=$2`,
     [stage_id, chat_id]
   )
 
+  // dispara workflows com trigger 'kanban_stage_changed' (fire-and-forget)
+  try {
+    const { fireTrigger } = require('./WorkflowTrigger');
+    const c = await pool.query(`SELECT * FROM ${schema}.chats WHERE id = $1`, [chat_id]);
+    const chat = c.rows[0];
+    if (chat) {
+      fireTrigger(schema, 'kanban_stage_changed', {
+        chat_id,
+        from_stage_id: fromStage,
+        to_stage_id: stage_id,
+        chat,
+        contact: { name: chat.contact_name, number: chat.contact_phone },
+      });
+    }
+  } catch (err) {
+    console.error('Falha ao disparar trigger kanban_stage_changed:', err.message);
+  }
 }
 
 const updateStageName = async (etapa_id, etapa_nome, color, sector, schema) => {

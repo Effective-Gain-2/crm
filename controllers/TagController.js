@@ -1,4 +1,6 @@
 const TagService = require('../services/TagService');
+const { fireTrigger: fireWorkflowTrigger } = require('../services/WorkflowTrigger');
+const pool = require('../db/queries');
 
 
 
@@ -72,6 +74,21 @@ const updateTagsController = async (req, res) => {
         checked: !wasPresent,
         schema,
       })
+    }
+
+    // dispara workflows ligados ao toggle de tag
+    try {
+      const c = await pool.query(`SELECT * FROM ${schema}.chats WHERE id = $1`, [chat_id])
+      const chat = c.rows[0]
+      const trigger = wasPresent ? 'tag_removed' : 'tag_added'
+      fireWorkflowTrigger(schema, trigger, {
+        chat_id,
+        tag_id,
+        chat: chat || null,
+        contact: chat ? { name: chat.contact_name, number: chat.contact_phone } : null,
+      })
+    } catch (e) {
+      console.error('Falha ao disparar trigger tag_*:', e.message)
     }
 
     res.status(200).json({ success: true, checked: !wasPresent })
