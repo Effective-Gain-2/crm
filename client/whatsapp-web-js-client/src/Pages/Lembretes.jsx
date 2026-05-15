@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
 import LembreteNovoLembrete from './modalPages/Lembrete_novoLembrete';
 import LembreteDeletarLembrete from './modalPages/Lembrete_deletarLembrete';
-import { animate as anime } from 'animejs';
+import anime from 'animejs';
 import { api } from '../utils/axiosConfig';
 import { useToast } from '../contexts/ToastContext';
 import { socket } from '../socket';
@@ -617,10 +617,11 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
                                                                                 button.appendChild(expandContainer);
                                                                             }
 
-                                                                            anime(expandContainer, {
+                                                                            anime({
+                                                                                targets: expandContainer,
                                                                                 width: Math.max(90, lembretesDia.length * 24),
                                                                                 duration: 150,
-                                                                                ease: 'outQuad'
+                                                                                easing: 'easeOutQuad'
                                                                             });
 
                                                                             // Adiciona TODOS os ícones ao container de expansão
@@ -639,11 +640,12 @@ function LembretesPage({ theme, lembretes, atualizarLembretes }) {
 
                                                                             const expandContainer = button.querySelector('.expand-container');
                                                                             if (expandContainer) {
-                                                                                anime(expandContainer, {
+                                                                                anime({
+                                                                                    targets: expandContainer,
                                                                                     width: 0,
                                                                                     duration: 150,
-                                                                                    ease: 'outQuad',
-                                                                                    onComplete: () => {
+                                                                                    easing: 'easeOutQuad',
+                                                                                    complete: () => {
                                                                                         expandContainer.remove();
                                                                                     }
                                                                                 });
