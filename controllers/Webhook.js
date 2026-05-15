@@ -166,12 +166,14 @@ module.exports = (broadcastMessage) => {
     try {
       const gptData = await getBotById(job.data.assistant_id, job.data.schema)
 
-      if (gptData && gptData.test_mode) {
-        const allowed = await isNumberAllowedForBot(job.data.assistant_id, job.data.number, job.data.schema)
-        if (!allowed) {
-          return
-        }
-      }
+      // Bloqueio por número no test_mode foi desativado a pedido do usuario.
+      // A flag test_mode e a tabela bot_test_numbers continuam existindo;
+      // basta restaurar este bloco se quiser religar o filtro:
+      //
+      // if (gptData && gptData.test_mode) {
+      //   const allowed = await isNumberAllowedForBot(job.data.assistant_id, job.data.number, job.data.schema)
+      //   if (!allowed) return
+      // }
 
       if (gptData && gptData.init_time && gptData.end_time) {
         // Bot só responde DENTRO do horário comercial configurado.
