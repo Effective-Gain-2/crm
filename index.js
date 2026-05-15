@@ -286,6 +286,7 @@ app.use('/api/stock', stockRoutes)
 app.use('/api/ofc-campaing', OfcCampaingRoutes)
 app.use('/api/ajuda', ajudaRoutes);
 app.use('/api/clientes', clientesRoutes);
+app.use('/api/lead-summaries', require('./routes/LeadSummaryRoutes'));
 
 
 const axios = require('axios');
@@ -348,6 +349,10 @@ console.log(`Servidor rodando na porta ${PORT} 🚀`);
 
 // Configurar o socket global para o LembreteService
 setGlobalSocket(socketIoServer);
+
+// Worker que gera resumo do lead 24h apos a primeira mensagem do cliente
+const { startSummaryWorker } = require('./services/LeadSummaryWorker');
+startSummaryWorker();
 
 // setInterval(async () => {
 //   const now = Date.now();

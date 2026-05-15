@@ -29,6 +29,7 @@ const { createCall } = require('./VoiceController');
 const { getTenant } = require('../middlewares/webhookMiddleware');
 const { extractFromTranscript, insertDNC } = require('../services/ExtractionService');
 const { score } = require('../services/ScoreService');
+const { scheduleLeadSummary } = require('../services/LeadSummaryWorker');
 require('dotenv').config({ path: '../.env' });
 
 // Função para emitir chats para as filas específicas
@@ -439,6 +440,17 @@ module.exports = (broadcastMessage) => {
       );
 
       if (existingMessage.rowCount === 0) {
+        // Conta mensagens previas antes de inserir a nova para detectar
+        // "primeira mensagem do lead" (usado abaixo para agendar resumo 24h).
+        let priorCount = 0;
+        try {
+          const cnt = await pool.query(
+            `SELECT COUNT(*)::int AS c FROM ${schema}.messages WHERE chat_id = $1`,
+            [chatDb.id]
+          );
+          priorCount = cnt.rows[0].c;
+        } catch (_) {}
+
         try {
           if (payload.midiaBase64) {
             await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, midiaType, payload.midiaBase64, schema, payload.fileName, payload.mimeType);
@@ -457,6 +469,12 @@ module.exports = (broadcastMessage) => {
           }
         } catch (persistErr) {
           console.error('Falha ao persistir mensagem recebida:', persistErr);
+        }
+
+        // Trigger do resumo 24h: somente quando a primeira mensagem do chat
+        // veio do cliente. Idempotente via jobId estavel.
+        if (priorCount === 0 && result.data.key.fromMe === false) {
+          scheduleLeadSummary(schema, chatDb.id);
         }
       }
 

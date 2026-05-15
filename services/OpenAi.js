@@ -361,6 +361,54 @@ const speechToText = async (file) => {
 
   return response.text;
 };
+
+// Gera um resumo + sugestao de proxima etapa a partir das mensagens da
+// conversa. Usa chat.completions diretamente (mais barato/rapido que
+// assistente com thread) e pede resposta JSON. Devolve { summary, next_step }
+// ou null em caso de falha.
+const generateLeadSummary = async (messages, contactName) => {
+  const client = getOpenAIClient();
+  if (!client) return null;
+  if (!Array.isArray(messages) || messages.length === 0) return null;
+
+  const transcript = messages
+    .map((m) => `${m.from_me ? 'Atendente' : (contactName || 'Cliente')}: ${m.body || '[midia/sem texto]'}`)
+    .join('\n');
+
+  const prompt = `Voce e um assistente que analisa conversas comerciais via WhatsApp e gera um resumo objetivo para o time comercial.
+
+Receba a transcricao abaixo e responda APENAS com um JSON valido contendo dois campos:
+- "summary": resumo de 2 a 4 frases sobre o que o cliente quer, dores e contexto relevante.
+- "next_step": uma sugestao clara e acionavel do proximo passo que o atendente deve tomar.
+
+Sem markdown, sem texto fora do JSON.
+
+Transcricao:
+${transcript}`;
+
+  try {
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'Voce gera resumos objetivos de conversas de vendas.' },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.3,
+    });
+    const raw = response.choices?.[0]?.message?.content;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return {
+      summary: parsed.summary || parsed.resumo || null,
+      next_step: parsed.next_step || parsed.proxima_etapa || null,
+    };
+  } catch (err) {
+    console.error('Falha em generateLeadSummary:', err.message || err);
+    return null;
+  }
+};
+
 module.exports = {
   createChatCompletion,
   getRun,
@@ -375,6 +423,6 @@ module.exports = {
   deleteAssistant,
   getSummary,
   getAssistantMessageWithoutThreadId,
-  speechToText
-
+  speechToText,
+  generateLeadSummary,
 }

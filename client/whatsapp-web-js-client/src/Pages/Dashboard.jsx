@@ -14,6 +14,7 @@ import {
   Legend,
 } from 'chart.js';
 import ChatViewModal from './Componentes/ChatViewModal';
+import LeadSummaryCard from './Componentes/LeadSummaryCard';
 import { useAuth } from '../contexts/AuthContext';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
@@ -349,6 +350,7 @@ function Dashboard({ theme }) {
     <div className="pt-3" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="container-fluid ps-2 pe-0" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <h2 className={`mb-3 ms-3 header-text-${theme}`} style={{ fontWeight: 400 }}>Dashboard</h2>
+        <LeadSummaryCard theme={theme} />
         <ul 
           className="nav nav-tabs ps-3"
           style={{
