@@ -274,28 +274,40 @@ const createAssistant = async (name, instructions, model) => {
   return result;
 }
 const updateAssistant = async (assistant_id, name, instructions, model, functions) => {
-  const tools = [
-  ];
-
-  if (functions && functions.length > 0) {
-    for (const func of functions) {
-      tools.push({
-        function: func
-      });
-    }
-  }
-
   const client = getOpenAIClient();
   if (!client) {
     console.error('OpenAI não configurado. Variável OPENAI_KEY não encontrada.');
     return null;
   }
-  const response = await client.beta.assistants.update(assistant_id, {
-    instructions: instructions,
-    name: name,
-    tools: tools.map(tool => tool.function),
-    model: model
-  })
+
+  // Caller passa tools no formato { type: 'function', function: {...} }.
+  // Aceita esse formato OU array de funcoes cruas — normaliza.
+  const tools = Array.isArray(functions)
+    ? functions
+        .map((f) => {
+          if (!f) return null;
+          if (f.type === 'function' && f.function) return f;
+          if (f.name) return { type: 'function', function: f };
+          return null;
+        })
+        .filter(Boolean)
+    : [];
+
+  // Timeout de 25s — em prod nginx geralmente derruba em 60s e devolve 502;
+  // se a API OpenAI travar, prefereimos estourar aqui e tratar no controller
+  // do que deixar o nginx matar a conexao.
+  const updatePromise = client.beta.assistants.update(assistant_id, {
+    instructions,
+    name,
+    tools,
+    model,
+  });
+  const timeoutMs = 25000;
+  const response = await Promise.race([
+    updatePromise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('OpenAI assistants.update timeout')), timeoutMs)),
+  ]);
+  return response;
 }
 const deleteAssistant = async (assistant_id) => {
   const client = getOpenAIClient();

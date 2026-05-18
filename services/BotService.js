@@ -16,7 +16,14 @@ const insertBotInTable = async (assistant_id, name, instructions, model, has_fun
 }
 
 const updateBotInTable = async (assistant_id, name, instructions, model, has_func, schema) => {
-    const result = await pool.query(`UPDATE ${schema}.bots
+    // Schemas antigos podem nao ter todas as colunas — garante antes do UPDATE.
+    try {
+        await pool.query(`ALTER TABLE ${schema}.bots ADD COLUMN IF NOT EXISTS instructions TEXT`)
+        await pool.query(`ALTER TABLE ${schema}.bots ADD COLUMN IF NOT EXISTS model TEXT`)
+        await pool.query(`ALTER TABLE ${schema}.bots ADD COLUMN IF NOT EXISTS has_func BOOLEAN DEFAULT false`)
+        await pool.query(`ALTER TABLE ${schema}.bots ADD COLUMN IF NOT EXISTS updated_at BIGINT`)
+    } catch (_) {}
+    await pool.query(`UPDATE ${schema}.bots
         SET name = $2, instructions = $3, model = $4, has_func = $5, updated_at = $6
         WHERE id = $1
         `, [assistant_id, name, instructions, model, has_func || false, getCurrentTimestamp()])
@@ -34,10 +41,20 @@ const getFunctions = async (schema) => {
     const result = await pool.query(`SELECT * FROM ${schema}.functions`)
     return result.rows
 }
+const ensureBotFunctionsTable = async (schema) => {
+    try {
+        await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.bot_functions (
+            assistant_id TEXT NOT NULL,
+            func_id UUID NOT NULL
+        )`)
+    } catch (_) {}
+}
 const insertBotFunctions = async (assistant_id, function_id, schema) => {
+    await ensureBotFunctionsTable(schema)
     await pool.query(`INSERT INTO ${schema}.bot_functions(assistant_id, func_id) VALUES ($1, $2)`, [assistant_id, function_id])
 }
 const deleteAllBotFunctions = async (assistant_id, schema) => {
+    await ensureBotFunctionsTable(schema)
     await pool.query(`DELETE FROM ${schema}.bot_functions WHERE assistant_id = $1`, [assistant_id])
 }
 const getBotById = async (assistant_id, schema) => {
