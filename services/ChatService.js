@@ -313,11 +313,18 @@ const setUserChat = async (chatId, schema) => {
         `SELECT user_id FROM ${schema}.queue_users WHERE queue_id=$1`,
         [queueId]
       );
-      const userIdsInQueue = queueUsersQuery.rows.map(row => row.user_id);
-      if (userIdsInQueue.length === 0){
+      const allUserIdsInQueue = queueUsersQuery.rows.map(row => row.user_id);
+      if (allUserIdsInQueue.length === 0){
         await putChatInWaiting(chatId, schema);
         return;
-      } 
+      }
+      // Filtra por turno (HH:MM em users.shift_start/end). Se ninguem
+      // esta no turno agora, usa o pool inteiro para nao deixar lead orfao.
+      const { getInShiftUserIdsForQueue } = require('./ShiftService');
+      const { userIds: userIdsInQueue, fallback: shiftFallback } = await getInShiftUserIdsForQueue(queueId, schema);
+      if (shiftFallback) {
+        // mantem ordem original como fallback
+      }
       const lastAssigned = await getLastAssignedUser(queueId, schema);
       let nextUser;
       if (!lastAssigned) {

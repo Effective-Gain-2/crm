@@ -6,7 +6,9 @@ function EditUserModal({ theme, user }) {
   const [userName, setUserName] = useState(user?.name || '');
   const [userEmail, setUserEmail] = useState(user?.email || '');
   const [userRole, setUserRole] = useState(user?.role || '');
-  const userData = JSON.parse(localStorage.getItem('user')); 
+  const [shiftStart, setShiftStart] = useState(user?.shift_start || '');
+  const [shiftEnd, setShiftEnd] = useState(user?.shift_end || '');
+  const userData = JSON.parse(localStorage.getItem('user'));
   const schema = userData?.schema
 
     const url = process.env.REACT_APP_URL;
@@ -21,11 +23,18 @@ function EditUserModal({ theme, user }) {
       ? user.permission
       : ''
 );
+  setShiftStart(user?.shift_start || '');
+  setShiftEnd(user?.shift_end || '');
 }, [user]);
 
   const handleSave = async () => {
     if (!userName || !userEmail || !userRole) {
       console.error('Preencha todos os campos.');
+      return;
+    }
+    // turno: ambos vazios = sem turno; ambos preenchidos = ok; um so = erro
+    if ((shiftStart && !shiftEnd) || (!shiftStart && shiftEnd)) {
+      console.error('Defina inicio e fim do turno, ou deixe ambos em branco.');
       return;
     }
 
@@ -37,7 +46,9 @@ function EditUserModal({ theme, user }) {
           userName: userName,
           userEmail: userEmail,
           userRole: userRole,
-          schema: schema
+          schema: schema,
+          shift_start: shiftStart || null,
+          shift_end: shiftEnd || null,
         }
       );
       // Aqui você pode fechar o modal ou atualizar a lista de usuários, se necessário
@@ -97,6 +108,34 @@ function EditUserModal({ theme, user }) {
                 <option value="user">Usuário</option>
                 <option value="admin">Administrador</option>
             </select>
+            </div>
+
+            {/* Turno */}
+            <div className="mb-2">
+              <label className={`form-label card-subtitle-${theme}`}>
+                Turno (em branco = sem restrição)
+              </label>
+              <div className="d-flex gap-2">
+                <input
+                  type="time"
+                  className={`form-control input-${theme}`}
+                  value={shiftStart}
+                  onChange={(e) => setShiftStart(e.target.value)}
+                  placeholder="Início"
+                  title="Início do turno"
+                />
+                <input
+                  type="time"
+                  className={`form-control input-${theme}`}
+                  value={shiftEnd}
+                  onChange={(e) => setShiftEnd(e.target.value)}
+                  placeholder="Fim"
+                  title="Fim do turno"
+                />
+              </div>
+              <small className={`card-subtitle-${theme}`} style={{ fontSize: 11, opacity: 0.75 }}>
+                Suporta turnos que atravessam meia-noite (ex: 18:00 a 01:00).
+              </small>
             </div>
           </div>
 

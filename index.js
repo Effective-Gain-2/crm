@@ -361,6 +361,10 @@ const { startNoReplyScanner } = require('./services/WorkflowTrigger');
 startExecutorWorker();
 startNoReplyScanner();
 
+// Worker de turnos: a cada 5min reatribui chats com atendente fora de turno
+const { startShiftHandoffWorker } = require('./services/ShiftHandoffWorker');
+startShiftHandoffWorker();
+
 // setInterval(async () => {
 //   const now = Date.now();
 //   const timeout = 2 * 60 * 1000; 

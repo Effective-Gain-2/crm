@@ -74,12 +74,13 @@ const createUserController = async (req, res) => {
     }
   };
   const updateUserController = async (req, res) => {
-    const { userId, userName, userEmail, userRole } = req.body;
+    const { userId, userName, userEmail, userRole, shift_start, shift_end } = req.body;
     const schema = req.schema;
     try {
-      const result = await updateUser(userId, userName, userEmail, userRole, schema);
+      const result = await updateUser(userId, userName, userEmail, userRole, schema, { shift_start, shift_end });
       res.status(200).json({
         message: 'Usuário atualizado com sucesso',
+        user: result,
       })
     } catch (error) {
       console.error("Erro ao atualizar usuário:", error.message);

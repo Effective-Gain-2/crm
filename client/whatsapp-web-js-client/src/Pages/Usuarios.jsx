@@ -281,6 +281,7 @@ function UsuariosPage({ theme }) {
               <th>Nome</th>
               <th>Email</th>
               <th>Perfil</th>
+              <th>Turno</th>
               <th>Filas</th>
               {canManageUsers && <th>Ações</th>}
             </tr>
@@ -296,6 +297,11 @@ function UsuariosPage({ theme }) {
                   <td>{usuario.name}</td>
                   <td>{usuario.email}</td>
                   <td>{usuario.permission}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>
+                    {usuario.shift_start && usuario.shift_end
+                      ? `${usuario.shift_start} – ${usuario.shift_end}`
+                      : <span style={{ opacity: 0.5 }}>sem restrição</span>}
+                  </td>
 
                   <td>
                     <div className='d-flex justify-content-between'>

@@ -31,6 +31,8 @@ const changePassword = async (user_mail, new_password, schema) => {
 }
 
 const getAllUsers = async (schema) => {
+    const { ensureShiftColumns } = require('./ShiftService');
+    await ensureShiftColumns(schema);
     const result = await pool.query(`SELECT * FROM ${schema}.users`);
     return result.rows;
 };
@@ -93,10 +95,18 @@ const searchUser = async (userMail, userPassword) => {
   return null; 
 };
 
-  const updateUser=async(userId, userName, userEmail, userRole, schema)=>{
+  const updateUser=async(userId, userName, userEmail, userRole, schema, opts = {})=>{
+    const { ensureShiftColumns } = require('./ShiftService');
+    await ensureShiftColumns(schema);
+    const sets = ['name=$1', 'email=$2', 'permission=$3'];
+    const values = [userName, userEmail, userRole];
+    let idx = 4;
+    if (opts.shift_start !== undefined) { sets.push(`shift_start=$${idx++}`); values.push(opts.shift_start || null); }
+    if (opts.shift_end !== undefined)   { sets.push(`shift_end=$${idx++}`);   values.push(opts.shift_end   || null); }
+    values.push(userId);
     const result = await pool.query(
-      `UPDATE ${schema}.users SET name=$1, email=$2, permission=$3 WHERE id=$4`,
-      [userName, userEmail, userRole, userId]
+      `UPDATE ${schema}.users SET ${sets.join(', ')} WHERE id=$${idx} RETURNING *`,
+      values
     )
     return result.rows[0]
   }
