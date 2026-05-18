@@ -46,6 +46,12 @@ const getBotById = async (assistant_id, schema) => {
 }
 
 const setBotTestMode = async (assistant_id, test_mode, schema) => {
+    // Schemas antigos podem nao ter sido provisionados com test_mode —
+    // garante a coluna antes do UPDATE para nao estourar 42703 (que
+    // sob nginx em prod pode aparecer como 502 se o backend reciclar).
+    try {
+        await pool.query(`ALTER TABLE ${schema}.bots ADD COLUMN IF NOT EXISTS test_mode BOOLEAN DEFAULT false`)
+    } catch (_) {}
     const result = await pool.query(
         `UPDATE ${schema}.bots SET test_mode = $1, updated_at = $2 WHERE id = $3 RETURNING *`,
         [!!test_mode, getCurrentTimestamp(), assistant_id]
@@ -53,7 +59,21 @@ const setBotTestMode = async (assistant_id, test_mode, schema) => {
     return result.rows[0]
 }
 
+const ensureBotTestNumbersTable = async (schema) => {
+    try {
+        await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.bot_test_numbers (
+            id UUID PRIMARY KEY,
+            assistant_id TEXT NOT NULL,
+            number TEXT NOT NULL,
+            created_at BIGINT
+        )`)
+        await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS bot_test_numbers_unique
+            ON ${schema}.bot_test_numbers (assistant_id, number)`)
+    } catch (_) { /* ignore */ }
+}
+
 const getBotTestNumbers = async (assistant_id, schema) => {
+    await ensureBotTestNumbersTable(schema)
     const result = await pool.query(
         `SELECT id, number, created_at FROM ${schema}.bot_test_numbers WHERE assistant_id = $1 ORDER BY created_at ASC`,
         [assistant_id]
@@ -66,6 +86,7 @@ const addBotTestNumber = async (assistant_id, rawNumber, schema) => {
     if (!number) {
         throw new Error('Número inválido')
     }
+    await ensureBotTestNumbersTable(schema)
     const result = await pool.query(
         `INSERT INTO ${schema}.bot_test_numbers (id, assistant_id, number, created_at)
          VALUES ($1, $2, $3, $4)
@@ -77,6 +98,7 @@ const addBotTestNumber = async (assistant_id, rawNumber, schema) => {
 }
 
 const removeBotTestNumber = async (id, assistant_id, schema) => {
+    await ensureBotTestNumbersTable(schema)
     const result = await pool.query(
         `DELETE FROM ${schema}.bot_test_numbers WHERE id = $1 AND assistant_id = $2 RETURNING *`,
         [id, assistant_id]
