@@ -256,6 +256,64 @@ app.get('/health', (req, res) => {
   res.status(200).json({ ok: true })
 })
 
+// Health check completo: DB + Redis + OpenAI key. Cada check tem timeout
+// curto (1.5s) e e isolado — uma dependencia caida nao trava as outras.
+// Resposta sempre HTTP 200 com flags por componente para facilitar
+// debug pos-deploy. Use ?strict=1 para retornar 503 quando algo falha.
+app.get('/api/health', async (req, res) => {
+  const startedAt = Date.now();
+  const withTimeout = (label, fn, ms = 1500) => new Promise((resolve) => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (done) return; done = true;
+      resolve({ ok: false, error: 'timeout', took_ms: ms });
+    }, ms);
+    Promise.resolve()
+      .then(fn)
+      .then((info) => {
+        if (done) return; done = true;
+        clearTimeout(timer);
+        resolve({ ok: true, took_ms: Date.now() - startedAt, ...(info || {}) });
+      })
+      .catch((err) => {
+        if (done) return; done = true;
+        clearTimeout(timer);
+        resolve({ ok: false, error: err.message || String(err), took_ms: Date.now() - startedAt });
+      });
+  });
+
+  const pool = require('./db/queries');
+  const createRedisConnection = require('./config/Redis');
+
+  const [db, redis] = await Promise.all([
+    withTimeout('db', async () => {
+      const r = await pool.query('SELECT 1 AS ok');
+      return { rows: r.rowCount };
+    }),
+    withTimeout('redis', async () => {
+      const conn = createRedisConnection();
+      const pong = await conn.ping();
+      return { pong };
+    }),
+  ]);
+
+  const openai = {
+    ok: !!process.env.OPENAI_KEY,
+    configured: !!process.env.OPENAI_KEY,
+  };
+
+  const allOk = db.ok && redis.ok && openai.ok;
+  const status = req.query.strict === '1' && !allOk ? 503 : 200;
+
+  res.status(status).json({
+    ok: allOk,
+    uptime_sec: Math.floor(process.uptime()),
+    node_env: process.env.NODE_ENV || 'development',
+    time: new Date().toISOString(),
+    checks: { db, redis, openai },
+  });
+});
+
 app.use('/api/api', userRoutes);
 app.use('/api/company', companyRoutes);
 app.use('/api/queue', queueRoutes);
