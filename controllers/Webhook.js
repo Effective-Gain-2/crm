@@ -31,6 +31,7 @@ const { extractFromTranscript, insertDNC } = require('../services/ExtractionServ
 const { score } = require('../services/ScoreService');
 const { scheduleLeadSummary } = require('../services/LeadSummaryWorker');
 const { fireTrigger: fireWorkflowTrigger } = require('../services/WorkflowTrigger');
+const { tag: tagOutboundSource, consume: consumeOutboundSource } = require('../services/MessageSourceTracker');
 require('dotenv').config({ path: '../.env' });
 
 // Função para emitir chats para as filas específicas
@@ -223,9 +224,14 @@ module.exports = (broadcastMessage) => {
       if (resposta) {
         if (typeof resposta === 'object' && resposta.functionName && resposta.executed) {
         } else if (typeof resposta === 'string') {
-          const message = new Message(uuidv4(), resposta, true, job.data.chat_id, getCurrentTimestamp());
-          await sendTextMessage(job.data.instance, resposta, job.data.number)
-          await saveMessage(job.data.chat_id, message, job.data.schema, null)
+          const sendResult = await sendTextMessage(job.data.instance, resposta, job.data.number)
+          // Tag a mensagem como 'bot' ANTES do echo do Evolution chegar — assim
+          // o handler /chat sabe que nao deve auto-desativar o proprio bot.
+          if (sendResult?.key?.id) {
+            await tagOutboundSource(sendResult.key.id, 'bot');
+          }
+          const message = new Message(sendResult?.key?.id || uuidv4(), resposta, true, job.data.chat_id, getCurrentTimestamp());
+          await saveMessage(job.data.chat_id, message, job.data.schema, null, 'bot')
           await updateCacheMessages(message.id, job.data.chat_id, message.fromMe, message.message, getCurrentTimestamp(), null, null, null, null, null)
           if (global.socketIoServer) {
             global.socketIoServer.to(`schema_${job.data.schema}`).emit('message', {
@@ -454,6 +460,16 @@ module.exports = (broadcastMessage) => {
           priorCount = cnt.rows[0].c;
         } catch (_) {}
 
+        // Resolve source: cliente -> 'client'; nosso outbound vem com tag em
+        // Redis ('bot' | 'crm_web' | 'crm_api'); se fromMe=true e nao tem
+        // tag, foi enviado direto pelo celular do atendente.
+        let messageSource;
+        if (result.data.key.fromMe === false) {
+          messageSource = 'client';
+        } else {
+          messageSource = await consumeOutboundSource(result.data.key.id) || 'whatsapp_direct';
+        }
+
         try {
           if (payload.midiaBase64) {
             await saveMediaMessage(result.data.key.id, result.data.key.fromMe, chatDb.id, timestamp, midiaType, payload.midiaBase64, schema, payload.fileName, payload.mimeType);
@@ -467,12 +483,18 @@ module.exports = (broadcastMessage) => {
                 result.data.key.remoteJid,
                 timestamp
               ),
-              schema
+              schema,
+              null,
+              messageSource
             );
           }
         } catch (persistErr) {
           console.error('Falha ao persistir mensagem recebida:', persistErr);
         }
+
+        // Guarda no escopo do handler para o auto-disable abaixo
+        // diferenciar bot de humano.
+        result._resolvedSource = messageSource;
 
         // Trigger do resumo 24h: somente quando a primeira mensagem do chat
         // veio do cliente. Idempotente via jobId estavel.
@@ -540,18 +562,20 @@ module.exports = (broadcastMessage) => {
       if (data.fromMe === true) {
         await updateMessageChat(data.chatId, data, schema)
         // Atendente respondeu (via CRM OU direto pelo WhatsApp do celular).
-        // Desliga o bot pra evitar duplicidade. Emite chats_updated para
-        // que a UI atualize o estado do botao de pause/play em tempo real.
-        try {
-          const { disableBotIfActive } = require('../services/ChatService');
-          const updated = await disableBotIfActive(data.chatId, schema);
-          if (updated && global.socketIoServer) {
-            global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', updated);
-            if (updated.assigned_user) {
-              global.socketIoServer.to(`user_${updated.assigned_user}`).emit('chats_updated', updated);
+        // Desliga o bot pra evitar duplicidade — MAS só se NAO for o proprio
+        // bot enviando (senao ele se auto-desativaria apos a 1a resposta).
+        if (result._resolvedSource && result._resolvedSource !== 'bot') {
+          try {
+            const { disableBotIfActive } = require('../services/ChatService');
+            const updated = await disableBotIfActive(data.chatId, schema);
+            if (updated && global.socketIoServer) {
+              global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', updated);
+              if (updated.assigned_user) {
+                global.socketIoServer.to(`user_${updated.assigned_user}`).emit('chats_updated', updated);
+              }
             }
-          }
-        } catch (e) { console.error('Falha ao auto-desativar bot via webhook fromMe:', e.message); }
+          } catch (e) { console.error('Falha ao auto-desativar bot via webhook fromMe:', e.message); }
+        }
         return
       }
       queueById[0].assistant_id && baseChat.isboton ? await gptQueue.add('gpt', {

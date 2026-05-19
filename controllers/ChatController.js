@@ -1,5 +1,6 @@
 
 const { setUserChat, getChats, getMessages, getChatData, getChatByUser, updateQueue, getChatById, saveMediaMessage, setMessageAsRead, closeChat, setSpecificUser, scheduleMessage, getScheduledMessages, deleteScheduledMessage, disableBot, disableBotIfActive, closeChatContact, createStatus, getStatus, getClosedChats, getAverageTimeToClose, activeBot, deleteCacheMessages, updateCacheMessages, get20MoreMessages } = require('../services/ChatService');
+const { tag: tagOutboundSource } = require('../services/MessageSourceTracker');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
@@ -103,7 +104,11 @@ const sendImageController = async (req, res) => {
     const instanceId = await searchConnById(connectionId, schema);
     
     const evolutionResponse = await sendImageToWhatsApp(chat_id.contact_phone, imageBase64, instanceId.name);
-    
+
+    if (evolutionResponse?.key?.id) {
+      await tagOutboundSource(evolutionResponse.key.id, 'crm_web');
+    }
+
     await saveMediaMessage(evolutionResponse.key.id, 'true', chatId, getCurrentTimestamp(), 'image', imageBase64, schema);
     await updateCacheMessages(evolutionResponse.key.id, chatId, evolutionResponse.key.fromMe, null, getCurrentTimestamp(),'image', imageBase64, null, null, null)
 
@@ -300,6 +305,10 @@ const sendAudioController = async (req, res) => {
     const instanceId = await searchConnById(connectionId, schema);
 
     const evolutionResponse = await sendAudioToWhatsApp(chat_id.contact_phone, audioBase64, instanceId.name);
+
+    if (evolutionResponse?.key?.id) {
+      await tagOutboundSource(evolutionResponse.key.id, 'crm_web');
+    }
 
     await saveMediaMessage(evolutionResponse.key.id, 'true', chatId, getCurrentTimestamp(), 'audio', audioBase64, schema);
     await updateCacheMessages(evolutionResponse.key.id, chatId, evolutionResponse.key.fromMe, null, getCurrentTimestamp(),'audio', audioBase64, null, null, null)

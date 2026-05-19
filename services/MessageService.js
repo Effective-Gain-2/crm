@@ -11,9 +11,10 @@ const ensureMessagesColumns = async (schema) => {
     await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS quote_id text`);
     await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS filename text`);
     await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS mimetype text`);
+    await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS source text`);
 };
 
-const saveMessage = async (chatId, message, schema, user_id) => {
+const saveMessage = async (chatId, message, schema, user_id, source = null) => {
     if (!(message instanceof Message)) {
         message = new Message(
             message.id,
@@ -29,34 +30,27 @@ const saveMessage = async (chatId, message, schema, user_id) => {
         createdAt = createdAt * 1000;
     }
 
+    const doInsert = async () => pool.query(
+        `INSERT INTO ${schema}.messages(id, body, from_me, chat_id, created_at, user_id, source) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+         [
+            message.getId(),
+            message.getMessage(),
+            message.getFromMe(),
+            chatId,
+            createdAt,
+            user_id,
+            source
+        ]
+    );
+
     try {
-        const result = await pool.query(
-            `INSERT INTO ${schema}.messages(id, body, from_me, chat_id, created_at, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-             [
-                message.getId(),
-                message.getMessage(),
-                message.getFromMe(),
-                chatId,
-                createdAt,
-                user_id
-            ]
-        );
+        const result = await doInsert();
         return result.rows[0];
     } catch (err) {
         // Coluna ausente em schema antigo — provisiona e tenta de novo.
         if (err && err.code === '42703') {
             await ensureMessagesColumns(schema);
-            const retry = await pool.query(
-                `INSERT INTO ${schema}.messages(id, body, from_me, chat_id, created_at, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-                 [
-                    message.getId(),
-                    message.getMessage(),
-                    message.getFromMe(),
-                    chatId,
-                    createdAt,
-                    user_id
-                ]
-            );
+            const retry = await doInsert();
             return retry.rows[0];
         }
         throw err;

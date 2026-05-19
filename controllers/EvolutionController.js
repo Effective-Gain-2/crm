@@ -6,6 +6,7 @@ const { saveMessage, updateMessageChat } = require('../services/MessageService')
 const { Message } = require('../entities/Message');
 const { getCurrentTimestamp } = require('../services/getCurrentTimestamp');
 const { updateCacheMessages, disableBotIfActive } = require('../services/ChatService');
+const { tag: tagOutboundSource } = require('../services/MessageSourceTracker');
 const { sendMessageApiOfc } = require('../services/ChatApiOfc');
 const { getApiConnections } = require('../services/ApiConnection');
 
@@ -80,6 +81,13 @@ const sendTextMessageController = async (req, res) => {
             return res.status(500).json({ error: 'Erro ao enviar mensagem: resposta inválida do serviço.' });
         }
 
+        // Tag a mensagem como 'crm_web' ANTES do echo do Evolution chegar no
+        // webhook /chat — assim o handler distingue de envio direto pelo
+        // celular ou do bot.
+        if (result?.key?.id) {
+            await tagOutboundSource(result.key.id, 'crm_web');
+        }
+
         const message = new Message(
             result.key.id,
             text,
@@ -96,7 +104,7 @@ const sendTextMessageController = async (req, res) => {
         // }
 
         await updateMessageChat(chatId, message, schema);
-        await saveMessage(chatId, message, schema, user_id);
+        await saveMessage(chatId, message, schema, user_id, 'crm_web');
 
         if (chatId) {
             const updatedChat = await disableBotIfActive(chatId, schema);
