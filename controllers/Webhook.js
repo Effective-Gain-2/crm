@@ -167,14 +167,16 @@ module.exports = (broadcastMessage) => {
     try {
       const gptData = await getBotById(job.data.assistant_id, job.data.schema)
 
-      // Bloqueio por número no test_mode foi desativado a pedido do usuario.
-      // A flag test_mode e a tabela bot_test_numbers continuam existindo;
-      // basta restaurar este bloco se quiser religar o filtro:
-      //
-      // if (gptData && gptData.test_mode) {
-      //   const allowed = await isNumberAllowedForBot(job.data.assistant_id, job.data.number, job.data.schema)
-      //   if (!allowed) return
-      // }
+      // Whitelist do modo de teste: quando test_mode=true, so responde
+      // numeros cadastrados em bot_test_numbers (fuzzy match BR — pega
+      // versoes com e sem o 9 do celular).
+      if (gptData && gptData.test_mode) {
+        const allowed = await isNumberAllowedForBot(job.data.assistant_id, job.data.number, job.data.schema)
+        if (!allowed) {
+          console.log(`[bot] whitelist bloqueou ${job.data.number} (assistant=${job.data.assistant_id})`)
+          return
+        }
+      }
 
       if (gptData && gptData.init_time && gptData.end_time) {
         // Bot só responde DENTRO do horário comercial configurado.
