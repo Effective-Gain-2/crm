@@ -717,8 +717,10 @@ const disableBot = async(chat_id, schema)=>{
 
 const disableBotIfActive = async (chat_id, schema) => {
   try {
+    // COALESCE: NULL vira true (= bot logicamente "ativo, nao configurado").
+    // Antes a query so casava com isboton = true e perdia chats com NULL.
     const result = await pool.query(
-      `UPDATE ${schema}.chats SET isboton = false WHERE id = $1 AND isboton = true RETURNING *`,
+      `UPDATE ${schema}.chats SET isboton = false WHERE id = $1 AND COALESCE(isboton, true) = true RETURNING *`,
       [chat_id]
     );
     return result.rows[0] || null;

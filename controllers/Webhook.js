@@ -539,6 +539,19 @@ module.exports = (broadcastMessage) => {
       await chatQueue.add('new_message', data)
       if (data.fromMe === true) {
         await updateMessageChat(data.chatId, data, schema)
+        // Atendente respondeu (via CRM OU direto pelo WhatsApp do celular).
+        // Desliga o bot pra evitar duplicidade. Emite chats_updated para
+        // que a UI atualize o estado do botao de pause/play em tempo real.
+        try {
+          const { disableBotIfActive } = require('../services/ChatService');
+          const updated = await disableBotIfActive(data.chatId, schema);
+          if (updated && global.socketIoServer) {
+            global.socketIoServer.to(`schema_${schema}`).emit('chats_updated', updated);
+            if (updated.assigned_user) {
+              global.socketIoServer.to(`user_${updated.assigned_user}`).emit('chats_updated', updated);
+            }
+          }
+        } catch (e) { console.error('Falha ao auto-desativar bot via webhook fromMe:', e.message); }
         return
       }
       queueById[0].assistant_id && baseChat.isboton ? await gptQueue.add('gpt', {
