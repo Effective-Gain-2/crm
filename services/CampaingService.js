@@ -75,8 +75,16 @@ const deleteAllConnectionsFromCampaing = async(campaing_id, schema)=>{
 }
 
 const insertConnectionsForCampaing = async(campaing_id, connections, schema)=>{
-  for(const connection of connections){
-    await pool.query(`INSERT INTO ${schema}.campaing_connections(campaing_id, connection_id) VALUES ($1, $2)`, [campaing_id, connection])
+  // Normaliza: aceita array, string unica ou null.
+  const list = Array.isArray(connections)
+    ? connections.filter(Boolean)
+    : (connections ? [connections] : []);
+  if (list.length === 0) return;
+  for (const connection of list) {
+    await pool.query(
+      `INSERT INTO ${schema}.campaing_connections(campaing_id, connection_id) VALUES ($1, $2)`,
+      [campaing_id, connection]
+    );
   }
 }
 
@@ -85,97 +93,67 @@ const getAllCampaingConnections = async (campaing_id, schema) => {
   return result.rows
 }
 
+// Converte um valor + unidade ('segundos'|'minutos'|'horas') em segundos.
+// Retorna null se v nao for numero positivo.
+const toSeconds = (v, unidade) => {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  switch (unidade) {
+    case 'horas':   return n * 3600;
+    case 'minutos': return n * 60;
+    case 'segundos':
+    default:        return n;
+  }
+};
+
+// Normaliza o intervalo vindo do frontend para timer/min/max em segundos.
+// Aceita qualquer combinacao: so timer fixo, so min, so max, min+max, ou nada.
+// Default geral: timer = 30s se nada vier preenchido (evita undefined no INSERT).
+const normalizeIntervalo = (intervalo) => {
+  const i = intervalo || {};
+  const timer = toSeconds(i.timer, i.unidade);
+  const min   = toSeconds(i.min,   i.unidade_min);
+  const max   = toSeconds(i.max,   i.unidade_max);
+
+  if (timer && timer > 0) return { timer, min: null, max: null };
+  if (min || max) {
+    // se so um veio, usa o mesmo nos dois bounds — mantem intervalo "dinamico"
+    // funcionando mesmo quando o usuario preencheu so um dos campos.
+    return { timer: null, min: min ?? max, max: max ?? min };
+  }
+  return { timer: 30, min: null, max: null };
+};
+
 const createCampaing = async (campaing_id, campName, sector, kanbanStage, connectionId, startDate, schema, intervalo, init_time, end_time) => {
   try {
     const unixStartDate = parseLocalDateTime(startDate);
-
-    // Converter o intervalo para segundos baseado na unidade
-    let intervalEmSegundos;
-    let intervalMinEmSegundos
-    let intervalMaxEmSegundos
-
-    if (intervalo && intervalo.unidade) {
-      switch (intervalo.unidade) {
-        case 'horas':
-          intervalEmSegundos = intervalo.timer * 3600;
-          break;
-        case 'minutos':
-          intervalEmSegundos = intervalo.timer * 60;
-          break;
-        case 'segundos':
-        default:
-          intervalEmSegundos = intervalo.timer;
-          break;
-      }
-    } else if(intervalo.min && intervalo.max){
-        switch(intervalo.unidade_min){
-          case 'horas':
-          intervalMinEmSegundos = intervalo.min * 3600;
-          break;
-        case 'minutos':
-          intervalMinEmSegundos = intervalo.min * 60;
-          break;
-        case 'segundos':
-        default:
-          intervalMinEmSegundos = intervalo.min;
-          break;
-        }
-        switch(intervalo.unidade_max){
-          case 'horas':
-          intervalMaxEmSegundos = intervalo.max * 3600;
-          break;
-        case 'minutos':
-          intervalMaxEmSegundos = intervalo.max * 60;
-          break;
-        case 'segundos':
-        default:
-          intervalMaxEmSegundos = intervalo.max;
-          break;
-        }
-    }
+    const { timer, min, max } = normalizeIntervalo(intervalo);
 
     let result;
     let campaing;
 
     if (campaing_id) {
-      if(intervalMinEmSegundos){
-        result = await pool.query(
-        `UPDATE ${schema}.campaing 
-         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, init_time=$9, end_time=$10
-         WHERE id=$6  RETURNING *`,
-        [campName, sector, kanbanStage, unixStartDate, null, campaing_id, intervalMinEmSegundos, intervalMaxEmSegundos, init_time, end_time]
+      result = await pool.query(
+        `UPDATE ${schema}.campaing
+            SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4,
+                timer=$5, min=$6, max=$7, init_time=$8, end_time=$9
+          WHERE id=$10 RETURNING *`,
+        [campName, sector, kanbanStage, unixStartDate, timer, min, max, init_time, end_time, campaing_id]
       );
       campaing = result.rows[0];
-      await deleteAllConnectionsFromCampaing(campaing.id, schema)
-      await insertConnectionsForCampaing(campaing.id,connectionId, schema)
-      }else{
-         result = await pool.query(
-        `UPDATE ${schema}.campaing 
-         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, init_time=$9, end_time=$10
-         WHERE id=$6 RETURNING *`,
-        [campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, campaing_id, null, null, init_time, end_time]
-      );
-      campaing = result.rows[0];
-      await deleteAllConnectionsFromCampaing(campaing.id, schema)
-      await insertConnectionsForCampaing(campaing.id,connectionId, schema)
-      }
-     
+      if (!campaing) throw new Error(`Campanha ${campaing_id} nao encontrada para update`);
+      await deleteAllConnectionsFromCampaing(campaing.id, schema);
+      await insertConnectionsForCampaing(campaing.id, connectionId, schema);
     } else {
-      if(intervalMinEmSegundos) {
-        result = await pool.query(
-          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, min, max, init_time, end_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-          [uuidv4(), campName, sector, kanbanStage, unixStartDate, null, intervalMinEmSegundos, intervalMaxEmSegundos, init_time, end_time]
-        );
-        campaing = result.rows[0];
-        await insertConnectionsForCampaing(campaing.id,connectionId, schema)
-      } else {
-        result = await pool.query(
-          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, init_time, end_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-          [uuidv4(), campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, init_time, end_time]
-        );
-        campaing = result.rows[0];
-        await insertConnectionsForCampaing(campaing.id,connectionId, schema)
-      }
+      result = await pool.query(
+        `INSERT INTO ${schema}.campaing
+            (id, campaing_name, sector, kanban_stage, start_date,
+             timer, min, max, init_time, end_time)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        [uuidv4(), campName, sector, kanbanStage, unixStartDate, timer, min, max, init_time, end_time]
+      );
+      campaing = result.rows[0];
+      await insertConnectionsForCampaing(campaing.id, connectionId, schema);
     }
 
     return campaing;

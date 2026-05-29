@@ -77,6 +77,8 @@ const createCampaingController = async (req, res) => {
     console.error('Erro ao criar campanha:', error);
     res.status(500).json({
       erro: 'Não foi possível criar a campanha',
+      detail: error?.message || String(error),
+      hint: error?.hint || null,
     });
   }
 };
