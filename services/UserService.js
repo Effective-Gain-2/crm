@@ -154,15 +154,30 @@ const searchUser = async (userMail, userPassword) => {
     );
 };
 
-const deleteUser = async(user_id, schema)=>{
+// Deleta um usuario fazendo cleanup defensivo das FKs/referencias logicas
+// para nao estourar foreign key violation. Idempotente — tabelas/colunas
+// ausentes em schemas antigos sao puladas silenciosamente.
+const deleteUser = async (user_id, schema) => {
+  const safe = async (sql, params = []) => {
+    try { await pool.query(sql, params); } catch (_) { /* tabela/col ausente */ }
+  };
+  // FKs declaradas
+  await safe(`DELETE FROM ${schema}.queue_users WHERE user_id = $1`, [user_id]);
+  await safe(`UPDATE ${schema}.queues SET superuser = NULL WHERE superuser = $1`, [user_id]);
+  await safe(`DELETE FROM ${schema}.last_assigned_user WHERE user_id = $1`, [user_id]);
+  await safe(`DELETE FROM ${schema}.user_preferences WHERE user_id = $1`, [user_id]);
+  await safe(`DELETE FROM ${schema}.quick_messages WHERE user_id = $1`, [user_id]);
+  await safe(`DELETE FROM ${schema}.lembretes WHERE user_id = $1`, [user_id]);
+  // expenses tem valor financeiro — nullify em vez de deletar
+  await safe(`UPDATE ${schema}.expenses SET user_id = NULL WHERE user_id = $1`, [user_id]);
+  // referencias logicas (sem FK formal)
+  await safe(`UPDATE ${schema}.chats SET assigned_user = NULL WHERE assigned_user::text = $1::text`, [user_id]);
+
   const result = await pool.query(
-    `DELETE FROM ${schema}.users where id=$1`,[user_id]
-  )
-  if(result.rowCount>0){
-    console.log("Excluido com sucesso")
-  }
-  
-  return result.rows[0]
+    `DELETE FROM ${schema}.users WHERE id = $1 RETURNING id, name, email`,
+    [user_id]
+  );
+  return result.rows[0] || null;
 }
 
 const getLoginAttempts = async(ip, schema)=>{

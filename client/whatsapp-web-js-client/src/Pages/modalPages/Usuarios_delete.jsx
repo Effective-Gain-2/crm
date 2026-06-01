@@ -5,8 +5,11 @@ import * as bootstrap from 'bootstrap';
 function DeleteUserModal({ theme, usuario, onUserDeleted }) {
   const [password, setPassword] = useState('');
   const [showError, setShowError] = useState(false);
-  const userData = JSON.parse(localStorage.getItem('user')); 
+  const userData = JSON.parse(localStorage.getItem('user'));
   const url = process.env.REACT_APP_URL;
+  // Tecnico pode excluir qualquer usuario (admin ou user) sem senha.
+  // Outras roles continuam vendo o campo de senha (UX inalterada).
+  const isTecnico = (userData?.role === 'tecnico') || (userData?.permission === 'tecnico');
 
   const handleDelete=async()=>{
     try{
@@ -60,7 +63,10 @@ function DeleteUserModal({ theme, usuario, onUserDeleted }) {
                     </span>
                 </p>
     
-                <p className={`card-subtitle-${theme}`}>Essa será uma ação irreversível. Para confirmar, preencha sua senha abaixo.</p>
+                <p className={`card-subtitle-${theme}`}>
+                  Essa será uma ação irreversível
+                  {!isTecnico && '. Para confirmar, preencha sua senha abaixo'}.
+                </p>
                 </>
               ):(
                 <p>Carregando...</p>
@@ -69,15 +75,17 @@ function DeleteUserModal({ theme, usuario, onUserDeleted }) {
             }
 
 
-            <input
-              type="password"
-              className={`form-control input-${theme} mt-2`}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Digite sua senha"
-            />
+            {!isTecnico && (
+              <input
+                type="password"
+                className={`form-control input-${theme} mt-2`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Digite sua senha"
+              />
+            )}
 
-            {showError && (
+            {showError && !isTecnico && (
               <p className="text-danger mt-2" style={{ display: showError ? 'block' : 'none' }}>
                 Senha incorreta, tente novamente.
               </p>
