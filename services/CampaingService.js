@@ -124,8 +124,19 @@ const normalizeIntervalo = (intervalo) => {
   return { timer: 30, min: null, max: null };
 };
 
+// Schemas antigos podem nao ter as colunas adicionadas depois da provisao
+// inicial (timer/min/max ja existiam, mas init_time/end_time nao). Garante
+// idempotentemente antes do INSERT/UPDATE para nao quebrar com 42703.
+const ensureCampaingColumns = async (schema) => {
+  await pool.query(`ALTER TABLE ${schema}.campaing ADD COLUMN IF NOT EXISTS init_time TEXT`);
+  await pool.query(`ALTER TABLE ${schema}.campaing ADD COLUMN IF NOT EXISTS end_time TEXT`);
+  await pool.query(`ALTER TABLE ${schema}.campaing ADD COLUMN IF NOT EXISTS min BIGINT`);
+  await pool.query(`ALTER TABLE ${schema}.campaing ADD COLUMN IF NOT EXISTS max BIGINT`);
+};
+
 const createCampaing = async (campaing_id, campName, sector, kanbanStage, connectionId, startDate, schema, intervalo, init_time, end_time) => {
   try {
+    await ensureCampaingColumns(schema);
     const unixStartDate = parseLocalDateTime(startDate);
     const { timer, min, max } = normalizeIntervalo(intervalo);
 
