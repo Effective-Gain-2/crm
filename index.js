@@ -314,6 +314,7 @@ app.get('/api/health', async (req, res) => {
   });
 });
 
+app.use('/api/signup', require('./routes/SignupRoutes'));
 app.use('/api/api', userRoutes);
 app.use('/api/company', companyRoutes);
 app.use('/api/queue', queueRoutes);
@@ -346,6 +347,7 @@ app.use('/api/ajuda', ajudaRoutes);
 app.use('/api/clientes', clientesRoutes);
 app.use('/api/lead-summaries', require('./routes/LeadSummaryRoutes'));
 app.use('/api/workflow', require('./routes/WorkflowRoutes'));
+app.use('/api/internal-chat', require('./routes/InternalChatRoutes'));
 
 
 const axios = require('axios');

@@ -11,7 +11,7 @@ function allowedRoles(roles, saveLog = false, action_name=null) {
 }
 
 async function verifyUserRoleAndId(req, res, next, roles, saveLog = false, action_name=null) {
-    const { user_id, user_role, schema } = req;
+    const { user_id, user_role, schema, isServiceAuth } = req;
     if (!schema) return null
     let allowedRoles;
     switch (roles) {
@@ -33,6 +33,14 @@ async function verifyUserRoleAndId(req, res, next, roles, saveLog = false, actio
     }
     if (!allowedRoles.includes(user_role)) {
         return returnForbiddenError(res);
+    }
+    // Service-auth (BFF do allpfit): a identidade já foi validada pelo upstream
+    // via pre-shared key. Pulamos o lookup em users — não há registro real.
+    if (isServiceAuth) {
+        if (saveLog) {
+            try { await insertLog(user_id, action_name, schema) } catch (_) { /* não falha o request */ }
+        }
+        return next();
     }
     if (user_role === "tecnico") {
         const user = await getUserById(user_id, "effective_gain");

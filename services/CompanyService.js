@@ -108,6 +108,21 @@ const createCompany = async (company, schema) => {
         );
         `);
     await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.internal_messages (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            sender_id UUID NOT NULL,
+            recipient_type TEXT NOT NULL CHECK (recipient_type IN ('user','queue')),
+            recipient_id UUID NOT NULL,
+            body TEXT,
+            file_url TEXT,
+            file_name TEXT,
+            mimetype TEXT,
+            created_at BIGINT NOT NULL
+        );
+        `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_intmsg_dm ON ${schema}.internal_messages (recipient_type, recipient_id, sender_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_intmsg_created ON ${schema}.internal_messages (created_at)`);
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.custom_fields (
             id UUID PRIMARY KEY,
             field_name TEXT NOT NULL,

@@ -6,6 +6,18 @@ const { getLimitsBySchema } = require('../services/LimitsService');
 const { getLogs } = require('../middlewares/Log');
 
 function verifyToken(req, res, next) {
+  // Service-auth: BFF do allpfit (Next.js) usa pre-shared key. Quando bate, o
+  // user/role/schema vêm de headers, o request é marcado isServiceAuth e o
+  // RequireUser pula o lookup em users (não há usuário real por trás).
+  const serviceKey = req.headers['x-crm-service-key'];
+  if (serviceKey && process.env.CRM_SERVICE_KEY && serviceKey === process.env.CRM_SERVICE_KEY) {
+    req.user_id   = req.headers['x-crm-user-id']   || process.env.DEFAULT_USER_ID;
+    req.user_role = req.headers['x-crm-user-role'] || process.env.DEFAULT_USER_ROLE || 'admin';
+    req.schema    = req.headers['x-crm-schema']    || process.env.DEFAULT_SCHEMA;
+    req.isServiceAuth = true;
+    return next();
+  }
+
   const { token } = req.cookies;
   if (!token) {
     return res.status(401).json({error:'Token não fornecido' });
@@ -16,7 +28,7 @@ function verifyToken(req, res, next) {
     }
     req.user_id = decoded.user_id;
     req.user_role = decoded.user_role;
-    req.schema = decoded.schema;
+    req.schema = decoded.schema || process.env.DEFAULT_SCHEMA;
     next();
 
   });

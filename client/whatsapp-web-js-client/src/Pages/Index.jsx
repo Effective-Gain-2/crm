@@ -35,6 +35,7 @@ import WhatsappTemplatesPage from './WhatsappTemplates';
 import LogsPage from './Logs';
 import VoiceTranscriptsPage from './VoiceTranscripts';
 import { useAuth } from '../contexts/AuthContext';
+import ChatInternoWidget from './Componentes/ChatInternoWidget';
 
   window.addEventListener('error', function (event) {
     if (
@@ -703,18 +704,6 @@ import { useAuth } from '../contexts/AuthContext';
                 <i className="bi bi-question-circle"></i>
                 <span className="sidebar-label d-none">Ajuda</span>
               </button>
-  <button
-    id="chatinterno"
-    onClick={() => handlePageChange('ChatInterno')}
-    data-bs-toggle="tooltip"
-    data-bs-placement="right"
-    data-bs-title="Chat Interno"
-    className={`btn ${page === 'ChatInterno' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''} d-none`}
-  >
-    <i className="bi bi-chat-left-text"></i>
-    <span className="sidebar-label d-none">Chat Interno</span>
-  </button>
-            
 
             </div>
           </div>
@@ -777,6 +766,13 @@ import { useAuth } from '../contexts/AuthContext';
         <CustomValuesModal
           show={showCustomValuesModal}
           onHide={() => setShowCustomValuesModal(false)}
+          theme={theme}
+        />
+
+        {/* Balão flutuante de chat interno (canto inferior direito) */}
+        <ChatInternoWidget
+          socketInstance={socketInstance}
+          userData={userData}
           theme={theme}
         />
       </div>

@@ -13,6 +13,20 @@ let timer = null;
 
 const scanSchema = async (schema, now = new Date()) => {
   try {
+    // Guard: só roda em schemas que têm a estrutura completa esperada.
+    // Banco compartilha vários schemas (multi-tenant + n8n + drizzle etc) e
+    // muitos não têm chats/users. Antes esses falhavam ruidosamente toda
+    // execução; agora passam silenciosamente.
+    const exists = await pool.query(
+      `SELECT
+         to_regclass($1) IS NOT NULL AS has_chats,
+         to_regclass($2) IS NOT NULL AS has_users,
+         to_regclass($3) IS NOT NULL AS has_queue_users`,
+      [`${schema}.chats`, `${schema}.users`, `${schema}.queue_users`]
+    );
+    const row = exists.rows[0] || {};
+    if (!row.has_chats || !row.has_users || !row.has_queue_users) return;
+
     await ensureShiftColumns(schema);
 
     // garante a tabela last_assigned_user (usada para round-robin)
@@ -21,12 +35,14 @@ const scanSchema = async (schema, now = new Date()) => {
       user_id TEXT
     )`);
 
-    // chats abertos com algum atendente
+    // chats abertos com algum atendente.
+    // assigned_user é TEXT nesse schema; users.id é UUID — castamos pra text
+    // pra não quebrar com "operator does not exist: uuid = text".
     const chats = await pool.query(
       `SELECT c.id, c.queue_id, c.assigned_user, c.contact_phone,
               u.shift_start, u.shift_end
          FROM ${schema}.chats c
-         LEFT JOIN ${schema}.users u ON u.id = c.assigned_user
+         LEFT JOIN ${schema}.users u ON u.id::text = c.assigned_user::text
         WHERE c.status <> 'closed'
           AND c.assigned_user IS NOT NULL
           AND c.queue_id IS NOT NULL`
@@ -40,7 +56,7 @@ const scanSchema = async (schema, now = new Date()) => {
       const r = await pool.query(
         `SELECT u.id, u.shift_start, u.shift_end
            FROM ${schema}.queue_users qu
-           JOIN ${schema}.users u ON u.id = qu.user_id
+           JOIN ${schema}.users u ON u.id::text = qu.user_id::text
           WHERE qu.queue_id = $1`,
         [queueId]
       );
@@ -52,7 +68,7 @@ const scanSchema = async (schema, now = new Date()) => {
       const assignee = { shift_start: chat.shift_start, shift_end: chat.shift_end };
       if (isUserInShift(assignee, now)) continue; // ainda esta no turno, ok
       const candidates = (await getQueueUsers(chat.queue_id)).filter(
-        (u) => u.id !== chat.assigned_user && isUserInShift(u, now)
+        (u) => String(u.id) !== String(chat.assigned_user) && isUserInShift(u, now)
       );
       if (candidates.length === 0) continue;
 
