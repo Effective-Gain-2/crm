@@ -10,6 +10,7 @@ const {
   triggerManuallyController,
   listRunsController,
   listRunStepsController,
+  getResourcesController,
   publicWebhookController,
 } = require('../controllers/WorkflowController');
 const { verifyToken } = require('../controllers/UserController');
@@ -18,6 +19,9 @@ const { allowedRoles } = require('../middlewares/RequireUser');
 // Endpoint PÚBLICO (sem JWT) — usado por sistemas externos para disparar
 // workflows. Mantido antes do verifyToken.
 router.post('/hook/:schema/:token', publicWebhookController);
+
+// Recursos do schema p/ dropdowns do builder
+router.get('/resources', verifyToken, allowedRoles(), getResourcesController);
 
 // CRUD autenticado
 router.get('/', verifyToken, allowedRoles(), listWorkflowsController);

@@ -36,6 +36,8 @@ import LogsPage from './Logs';
 import VoiceTranscriptsPage from './VoiceTranscripts';
 import { useAuth } from '../contexts/AuthContext';
 import ChatInternoWidget from './Componentes/ChatInternoWidget';
+import TagsPage from './Tags';
+import LeadsPage from './Leads';
 
   window.addEventListener('error', function (event) {
     if (
@@ -445,6 +447,8 @@ import ChatInternoWidget from './Componentes/ChatInternoWidget';
         case 'chats': return <ChatPage theme={theme} />;
         case 'kanban': return <KanbanPage theme={theme} />;
         case 'filas': return <FilaPage theme={theme} />;
+        case 'tags': return <TagsPage theme={theme} />;
+        case 'leads': return <LeadsPage theme={theme} />;
         case 'usuarios': return <UsuariosPage theme={theme} />;
         case 'clientes': return <ClientesPage theme={theme} />;
         case 'integracoes': return <IntegracoesPage theme={theme} onOpenWhatsappModal={handleWhatsapp} />;
@@ -577,6 +581,28 @@ import ChatInternoWidget from './Componentes/ChatInternoWidget';
               >
                 <i className="bi bi-diagram-3"></i>
                 <span className="sidebar-label d-none">Filas</span>
+              </button>
+              <button
+                id="tags"
+                onClick={() => handlePageChange('tags')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Tags"
+                className={`btn ${page === 'tags' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-tags"></i>
+                <span className="sidebar-label d-none">Tags</span>
+              </button>
+              <button
+                id="leads"
+                onClick={() => handlePageChange('leads')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Leads"
+                className={`btn ${page === 'leads' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-person-lines-fill"></i>
+                <span className="sidebar-label d-none">Leads</span>
               </button>
 {(role === 'admin' || role === 'tecnico') && (
   <button

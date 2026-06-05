@@ -348,6 +348,7 @@ app.use('/api/clientes', clientesRoutes);
 app.use('/api/lead-summaries', require('./routes/LeadSummaryRoutes'));
 app.use('/api/workflow', require('./routes/WorkflowRoutes'));
 app.use('/api/internal-chat', require('./routes/InternalChatRoutes'));
+app.use('/api/leads', require('./routes/LeadRoutes'));
 
 
 const axios = require('axios');
@@ -402,7 +403,10 @@ app.post('/webhook/audio', async (req, res) => {
 
 const PORT = 3002;
 
-server.listen(PORT, '0.0.0.0', () => {
+// Bind dual-stack (IPv6 '::' com IPv4 mapeado): aceita conexões tanto em
+// 127.0.0.1 quanto em ::1. Necessário porque clientes como o n8n resolvem
+// "localhost" para ::1 — com bind só em 0.0.0.0 (IPv4) davam ECONNREFUSED ::1.
+server.listen(PORT, '::', () => {
 console.log(`Servidor rodando na porta ${PORT} 🚀`);
 });
 

@@ -36,7 +36,9 @@
     "start": "set PORT=3001 && react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed"
   },
   "eslintConfig": {
     "extends": [
@@ -62,5 +64,8 @@
   },
   "devServer": {
     "allowedHosts": "all"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
   }
 }

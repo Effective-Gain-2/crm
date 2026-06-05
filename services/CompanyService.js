@@ -152,9 +152,18 @@ const createCompany = async (company, schema) => {
             CREATE TABLE IF NOT EXISTS ${schema}.tag(
             id UUID PRIMARY KEY,
             name text NOT NULL,
-            color text
+            color text,
+            numeric_id bigint
             );
 
+            `)
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS tag_numeric_id_idx ON ${schema}.tag(numeric_id)`)
+    await pool.query(`
+            CREATE TABLE IF NOT EXISTS ${schema}.integration_keys(
+            name TEXT PRIMARY KEY,
+            token TEXT NOT NULL,
+            created_at bigint
+            );
             `)
     await pool.query(
         `CREATE TABLE IF NOT EXISTS ${schema}.chat_tag (

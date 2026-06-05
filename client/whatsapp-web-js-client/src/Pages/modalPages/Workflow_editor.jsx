@@ -25,6 +25,7 @@ const TRIGGER_TYPES = [
   { value: 'tag_removed', label: 'Tag removida', icon: 'bi-tag', color: '#dc3545' },
   { value: 'no_reply', label: 'Cliente sem resposta', icon: 'bi-hourglass-split', color: '#ffc107' },
   { value: 'webhook', label: 'Webhook externo', icon: 'bi-cloud-arrow-up', color: '#0dcaf0' },
+  { value: 'lead_created', label: 'Lead criado (API)', icon: 'bi-person-plus', color: '#198754' },
 ];
 
 const ACTION_DEFS = [
@@ -43,7 +44,9 @@ const ACTION_BY_TYPE = Object.fromEntries(ACTION_DEFS.map((a) => [a.type, a]));
 const TRIGGER_BY_VALUE = Object.fromEntries(TRIGGER_TYPES.map((t) => [t.value, t]));
 
 // --- node visual estilo n8n/manychat ----------------------------------------
-function ActionBlock({ data, selected }) {
+// React.memo: durante o arraste só muda `position` (data mantém referência),
+// então os nós não re-renderizam a cada frame — elimina o lag do drag.
+const ActionBlock = React.memo(function ActionBlock({ data, selected }) {
   const meta = ACTION_BY_TYPE[data?.action] || { label: data?.action || '?', icon: 'bi-gear', color: '#888' };
   const summary = summarizeConfig(data?.action, data?.config || {});
   return (
@@ -90,9 +93,9 @@ function ActionBlock({ data, selected }) {
       <Handle type="source" position={Position.Right} style={{ background: meta.color, width: 10, height: 10 }} />
     </div>
   );
-}
+});
 
-function TriggerBlock({ data, selected }) {
+const TriggerBlock = React.memo(function TriggerBlock({ data, selected }) {
   const meta = TRIGGER_BY_VALUE[data?.triggerType] || { label: 'Gatilho', icon: 'bi-lightning', color: '#0d6efd' };
   return (
     <div
@@ -122,11 +125,16 @@ function TriggerBlock({ data, selected }) {
       </div>
       <div style={{ padding: '8px 12px', fontSize: 12, opacity: 0.9 }}>
         {meta.label}
+        {data?.configSummary && (
+          <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2, wordBreak: 'break-word' }}>
+            <i className="bi bi-funnel me-1" />{data.configSummary}
+          </div>
+        )}
       </div>
       <Handle type="source" position={Position.Right} style={{ background: meta.color, width: 10, height: 10 }} />
     </div>
   );
-}
+});
 
 // Module-scope: referencia ESTAVEL evita o lag classico do React Flow.
 // Inline {{ action: ActionBlock }} recompilaria a cada render do parent.
@@ -141,10 +149,10 @@ function summarizeConfig(action, cfg) {
   switch (action) {
     case 'send_message': return cfg.text ? `"${cfg.text.slice(0, 60)}${cfg.text.length > 60 ? '…' : ''}"` : '';
     case 'add_tag':
-    case 'remove_tag': return cfg.tag_id ? `tag: ${String(cfg.tag_id).slice(0, 10)}…` : '';
-    case 'move_kanban': return cfg.stage_id ? `etapa: ${String(cfg.stage_id).slice(0, 10)}…` : '';
-    case 'transfer_queue': return cfg.queue_id ? `fila: ${String(cfg.queue_id).slice(0, 10)}…` : '';
-    case 'assign_user': return cfg.user_id ? `user: ${String(cfg.user_id).slice(0, 10)}…` : '';
+    case 'remove_tag': return cfg.tag_label ? `tag: ${cfg.tag_label}` : (cfg.tag_id ? `tag: ${String(cfg.tag_id).slice(0, 10)}…` : '');
+    case 'move_kanban': return cfg.stage_label ? `etapa: ${cfg.stage_label}` : (cfg.stage_id ? `etapa: ${String(cfg.stage_id).slice(0, 10)}…` : '');
+    case 'transfer_queue': return cfg.queue_label ? `fila: ${cfg.queue_label}` : (cfg.queue_id ? `fila: ${String(cfg.queue_id).slice(0, 10)}…` : '');
+    case 'assign_user': return cfg.user_label ? `atend.: ${cfg.user_label}` : (cfg.user_id ? `user: ${String(cfg.user_id).slice(0, 10)}…` : '');
     case 'toggle_bot': return cfg.enabled ? 'ligar bot' : 'desligar bot';
     case 'delay': {
       const p = [];
@@ -155,6 +163,31 @@ function summarizeConfig(action, cfg) {
       return p.join(' ') || 'sem espera';
     }
     case 'webhook_out': return cfg.url ? `${cfg.method || 'POST'} ${cfg.url.slice(0, 30)}…` : '';
+    default: return '';
+  }
+}
+
+// Resumo legível dos filtros do gatilho (mostrado no nó e na lista).
+function summarizeTrigger(type, cfg) {
+  cfg = cfg || {};
+  switch (type) {
+    case 'tag_added':
+    case 'tag_removed': return cfg.tag_label ? `tag: ${cfg.tag_label}` : 'qualquer tag';
+    case 'kanban_stage_changed': {
+      const parts = [];
+      if (cfg.from_label) parts.push(`de "${cfg.from_label}"`);
+      if (cfg.to_label) parts.push(`para "${cfg.to_label}"`);
+      return parts.join(' ') || 'qualquer mudança';
+    }
+    case 'new_message':
+    case 'first_message': return cfg.queue_label ? `fila: ${cfg.queue_label}` : 'qualquer fila';
+    case 'no_reply': return cfg.hours ? `${cfg.hours}h sem resposta` : 'sem resposta';
+    case 'lead_created': {
+      const parts = [];
+      if (cfg.tag_label) parts.push(`tag "${cfg.tag_label}"`);
+      if (cfg.stage_label) parts.push(`etapa "${cfg.stage_label}"`);
+      return parts.join(' + ') || 'qualquer lead';
+    }
     default: return '';
   }
 }
@@ -177,6 +210,7 @@ function WorkflowEditorModal({ theme, workflowId, show, onClose, onSaved }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [triggerType, setTriggerType] = useState('new_message');
+  const [triggerConfig, setTriggerConfig] = useState({});
   const [enabled, setEnabled] = useState(true);
   const [webhookToken, setWebhookToken] = useState(null);
   const [currentId, setCurrentId] = useState(workflowId || null);
@@ -185,6 +219,15 @@ function WorkflowEditorModal({ theme, workflowId, show, onClose, onSaved }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [resources, setResources] = useState({ tags: [], queues: [], users: [], stages: [] });
+
+  // Recursos do schema p/ os dropdowns (tags/filas/atendentes/etapas)
+  useEffect(() => {
+    if (!show) return;
+    api.get('/workflow/resources')
+      .then((r) => setResources(r.data?.data || { tags: [], queues: [], users: [], stages: [] }))
+      .catch((err) => console.error('Falha ao carregar recursos do workflow:', err));
+  }, [show]);
 
   // Carga inicial
   useEffect(() => {
@@ -199,12 +242,14 @@ function WorkflowEditorModal({ theme, workflowId, show, onClose, onSaved }) {
           setName(wf.name || '');
           setDescription(wf.description || '');
           setTriggerType(wf.trigger_type);
+          const tcfg = wf.trigger_config || {};
+          setTriggerConfig(tcfg);
           setEnabled(!!wf.enabled);
           setWebhookToken(wf.webhook_token || null);
           const g = wf.graph || initialGraph(wf.trigger_type);
           setNodes((g.nodes || []).map((n) => {
             if (n.id === 'trigger' || n.type === 'trigger') {
-              return { ...n, type: 'trigger', data: { triggerType: n.data?.triggerType || wf.trigger_type } };
+              return { ...n, type: 'trigger', data: { triggerType: n.data?.triggerType || wf.trigger_type, configSummary: summarizeTrigger(wf.trigger_type, tcfg) } };
             }
             return { ...n, type: 'action', data: { action: n.data?.action, config: n.data?.config || {} } };
           }));
@@ -219,6 +264,7 @@ function WorkflowEditorModal({ theme, workflowId, show, onClose, onSaved }) {
       setName('');
       setDescription('');
       setTriggerType('new_message');
+      setTriggerConfig({});
       setEnabled(true);
       setWebhookToken(null);
       setNodes(g.nodes);
@@ -228,13 +274,17 @@ function WorkflowEditorModal({ theme, workflowId, show, onClose, onSaved }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, workflowId]);
 
-  // sincroniza label visual do trigger node quando o type muda
+  // sincroniza label + resumo dos filtros no trigger node quando type/config mudam
   useEffect(() => {
     setNodes((prev) =>
-      prev.map((n) => (n.id === 'trigger' ? { ...n, data: { ...n.data, triggerType } } : n))
+      prev.map((n) => (n.id === 'trigger' ? { ...n, data: { ...n.data, triggerType, configSummary: summarizeTrigger(triggerType, triggerConfig) } } : n))
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [triggerType]);
+  }, [triggerType, triggerConfig]);
+
+  const updateTriggerConfig = useCallback((patch) => {
+    setTriggerConfig((prev) => ({ ...prev, ...patch }));
+  }, []);
 
   const onConnect = useCallback((params) => {
     setEdges((eds) => addEdge({ ...params, type: 'smoothstep', animated: false }, eds));
@@ -303,7 +353,7 @@ function WorkflowEditorModal({ theme, workflowId, show, onClose, onSaved }) {
       description,
       enabled,
       trigger_type: triggerType,
-      trigger_config: {},
+      trigger_config: triggerConfig || {},
       graph: serializeGraph(),
     };
     try {
@@ -395,7 +445,7 @@ function WorkflowEditorModal({ theme, workflowId, show, onClose, onSaved }) {
           />
           <select
             value={triggerType}
-            onChange={(e) => setTriggerType(e.target.value)}
+            onChange={(e) => { setTriggerType(e.target.value); setTriggerConfig({}); }}
             className={`input-${theme}`}
             style={{ padding: '6px 10px', borderRadius: 6 }}
           >
@@ -552,18 +602,17 @@ function WorkflowEditorModal({ theme, workflowId, show, onClose, onSaved }) {
                 node={selectedNode}
                 onChange={updateSelectedConfig}
                 onDelete={deleteSelected}
+                resources={resources}
               />
             )}
             {selectedNode && selectedNode.id === 'trigger' && (
-              <div className={`card-subtitle-${theme}`}>
-                <strong className={`header-text-${theme}`}>Gatilho selecionado</strong>
-                <div className="mt-2" style={{ fontSize: 13 }}>
-                  Tipo: <strong>{TRIGGER_BY_VALUE[triggerType]?.label}</strong>
-                </div>
-                <div className="mt-1" style={{ fontSize: 12, opacity: 0.7 }}>
-                  Mude o tipo de gatilho no seletor da toolbar.
-                </div>
-              </div>
+              <TriggerConfigForm
+                theme={theme}
+                triggerType={triggerType}
+                config={triggerConfig}
+                onChange={updateTriggerConfig}
+                resources={resources}
+              />
             )}
           </div>
         </div>
@@ -572,12 +621,50 @@ function WorkflowEditorModal({ theme, workflowId, show, onClose, onSaved }) {
   );
 }
 
-function NodeConfigForm({ theme, node, onChange, onDelete }) {
+// Dropdown que popula a partir dos recursos do schema. Mantém o valor atual
+// visível mesmo que ele não esteja na lista (ex.: workflow antigo). Suporta
+// agrupamento por `group` (usado p/ etapas por funil).
+function ResourceSelect({ theme, value, label, placeholder, options, onPick }) {
+  const exists = options.some((o) => o.value === value);
+  const groups = [...new Set(options.filter((o) => o.group).map((o) => o.group))];
+  return (
+    <select
+      className={`input-${theme} w-100`}
+      value={value || ''}
+      onChange={(e) => {
+        const opt = options.find((o) => o.value === e.target.value);
+        onPick(e.target.value, opt ? opt.label : '');
+      }}
+      style={{ padding: '6px 10px', borderRadius: 6 }}
+    >
+      <option value="">{placeholder}</option>
+      {value && !exists && <option value={value}>{label || value}</option>}
+      {groups.length > 0
+        ? groups.map((g) => (
+            <optgroup key={g} label={g}>
+              {options.filter((o) => o.group === g).map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </optgroup>
+          ))
+        : options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  );
+}
+
+function NodeConfigForm({ theme, node, onChange, onDelete, resources }) {
   const action = node.data?.action;
   const config = node.data?.config || {};
   const meta = ACTION_BY_TYPE[action];
   const set = (key) => (e) => onChange({ [key]: e.target.value });
   const setNum = (key) => (e) => onChange({ [key]: Number(e.target.value) });
+  const res = resources || { tags: [], queues: [], users: [], stages: [] };
+
+  const tagOptions = (res.tags || []).map((t) => ({ value: t.id, label: t.numeric_id ? `${t.name} — #${t.numeric_id}` : t.name }));
+  const queueOptions = (res.queues || []).map((q) => ({ value: q.id, label: q.name }));
+  const userOptions = (res.users || []).map((u) => ({ value: u.id, label: u.name }));
+  const stageOptions = (res.stages || []).map((s) => ({ value: s.id, label: s.numeric_id ? `${s.etapa} — #${s.numeric_id}` : s.etapa, group: s.funil }));
+  const connectionOptions = (res.connections || []).map((c) => ({ value: c.id, label: c.number ? `${c.name} (${c.number})` : c.name }));
 
   return (
     <div>
@@ -592,46 +679,58 @@ function NodeConfigForm({ theme, node, onChange, onDelete }) {
       </div>
 
       {action === 'send_message' && (
-        <Field theme={theme} label="Texto (suporta {{contact.name}}, {{message.body}})">
-          <textarea
-            className={`input-${theme} w-100`}
-            rows={6}
-            value={config.text || ''}
-            onChange={set('text')}
-            style={{ padding: '6px 10px', borderRadius: 6 }}
-          />
-        </Field>
+        <>
+          <Field theme={theme} label="Conexão (número que envia)">
+            <ResourceSelect theme={theme} value={config.connection_id} label={config.connection_label}
+              placeholder={connectionOptions.length ? 'Usar a conexão do chat' : 'Nenhuma conexão cadastrada'}
+              options={connectionOptions}
+              onPick={(id, label) => onChange({ connection_id: id, connection_label: label })} />
+          </Field>
+          <Field theme={theme} label="Texto (suporta {{contact.name}}, {{message.body}})">
+            <textarea
+              className={`input-${theme} w-100`}
+              rows={6}
+              value={config.text || ''}
+              onChange={set('text')}
+              style={{ padding: '6px 10px', borderRadius: 6 }}
+            />
+          </Field>
+        </>
       )}
 
       {(action === 'add_tag' || action === 'remove_tag') && (
-        <Field theme={theme} label="ID da tag">
-          <input className={`input-${theme} w-100`} value={config.tag_id || ''}
-            onChange={set('tag_id')} placeholder="uuid da tag"
-            style={{ padding: '6px 10px', borderRadius: 6 }} />
+        <Field theme={theme} label="Tag">
+          <ResourceSelect theme={theme} value={config.tag_id} label={config.tag_label}
+            placeholder={tagOptions.length ? 'Selecione uma tag…' : 'Nenhuma tag cadastrada'}
+            options={tagOptions}
+            onPick={(id, label) => onChange({ tag_id: id, tag_label: label })} />
         </Field>
       )}
 
       {action === 'move_kanban' && (
-        <Field theme={theme} label="ID da etapa">
-          <input className={`input-${theme} w-100`} value={config.stage_id || ''}
-            onChange={set('stage_id')} placeholder="uuid da etapa"
-            style={{ padding: '6px 10px', borderRadius: 6 }} />
+        <Field theme={theme} label="Etapa do Kanban">
+          <ResourceSelect theme={theme} value={config.stage_id} label={config.stage_label}
+            placeholder={stageOptions.length ? 'Selecione uma etapa…' : 'Nenhuma etapa cadastrada'}
+            options={stageOptions}
+            onPick={(id, label) => onChange({ stage_id: id, stage_label: label })} />
         </Field>
       )}
 
       {action === 'transfer_queue' && (
-        <Field theme={theme} label="ID da fila">
-          <input className={`input-${theme} w-100`} value={config.queue_id || ''}
-            onChange={set('queue_id')} placeholder="uuid da fila"
-            style={{ padding: '6px 10px', borderRadius: 6 }} />
+        <Field theme={theme} label="Fila">
+          <ResourceSelect theme={theme} value={config.queue_id} label={config.queue_label}
+            placeholder={queueOptions.length ? 'Selecione uma fila…' : 'Nenhuma fila cadastrada'}
+            options={queueOptions}
+            onPick={(id, label) => onChange({ queue_id: id, queue_label: label })} />
         </Field>
       )}
 
       {action === 'assign_user' && (
-        <Field theme={theme} label="ID do atendente">
-          <input className={`input-${theme} w-100`} value={config.user_id || ''}
-            onChange={set('user_id')} placeholder="uuid do atendente"
-            style={{ padding: '6px 10px', borderRadius: 6 }} />
+        <Field theme={theme} label="Atendente">
+          <ResourceSelect theme={theme} value={config.user_id} label={config.user_label}
+            placeholder={userOptions.length ? 'Selecione um atendente…' : 'Nenhum atendente'}
+            options={userOptions}
+            onPick={(id, label) => onChange({ user_id: id, user_label: label })} />
         </Field>
       )}
 
@@ -688,6 +787,91 @@ function NodeConfigForm({ theme, node, onChange, onDelete }) {
               style={{ padding: '6px 10px', borderRadius: 6 }} />
           </Field>
         </>
+      )}
+    </div>
+  );
+}
+
+// Configuração dos FILTROS do gatilho (estilo ManyChat): "dispara quando a tag
+// X é adicionada", "quando muda para a etapa Y", etc. Salvo em trigger_config e
+// aplicado no backend por matchTriggerFilters (services/WorkflowTrigger.js).
+function TriggerConfigForm({ theme, triggerType, config, onChange, resources }) {
+  const meta = TRIGGER_BY_VALUE[triggerType] || {};
+  const res = resources || { tags: [], queues: [], users: [], stages: [] };
+  const cfg = config || {};
+
+  const tagOptions = (res.tags || []).map((t) => ({ value: t.id, label: t.numeric_id ? `${t.name} — #${t.numeric_id}` : t.name }));
+  const queueOptions = (res.queues || []).map((q) => ({ value: q.id, label: q.name }));
+  const stageOptions = (res.stages || []).map((s) => ({ value: s.id, label: s.numeric_id ? `${s.etapa} — #${s.numeric_id}` : s.etapa, group: s.funil }));
+
+  return (
+    <div>
+      <div className="mb-2 d-flex align-items-center gap-2">
+        <i className={`bi ${meta.icon}`} style={{ color: meta.color }} />
+        <span style={{ fontWeight: 600 }} className={`header-text-${theme}`}>{meta.label || 'Gatilho'}</span>
+      </div>
+      <div className={`card-subtitle-${theme} mb-3`} style={{ fontSize: 12, opacity: 0.8 }}>
+        Defina <strong>quando</strong> este gatilho dispara. Em branco = qualquer.
+      </div>
+
+      {(triggerType === 'tag_added' || triggerType === 'tag_removed') && (
+        <Field theme={theme} label={triggerType === 'tag_added' ? 'Disparar quando adicionar a tag' : 'Disparar quando remover a tag'}>
+          <ResourceSelect theme={theme} value={cfg.tag_id} label={cfg.tag_label}
+            placeholder={tagOptions.length ? 'Qualquer tag' : 'Nenhuma tag cadastrada'} options={tagOptions}
+            onPick={(id, label) => onChange({ tag_id: id, tag_label: label })} />
+        </Field>
+      )}
+
+      {triggerType === 'kanban_stage_changed' && (
+        <>
+          <Field theme={theme} label="Etapa de origem (opcional)">
+            <ResourceSelect theme={theme} value={cfg.from_stage_id} label={cfg.from_label}
+              placeholder="Qualquer origem" options={stageOptions}
+              onPick={(id, label) => onChange({ from_stage_id: id, from_label: label })} />
+          </Field>
+          <Field theme={theme} label="Etapa de destino (opcional)">
+            <ResourceSelect theme={theme} value={cfg.to_stage_id} label={cfg.to_label}
+              placeholder="Qualquer destino" options={stageOptions}
+              onPick={(id, label) => onChange({ to_stage_id: id, to_label: label })} />
+          </Field>
+        </>
+      )}
+
+      {(triggerType === 'new_message' || triggerType === 'first_message') && (
+        <Field theme={theme} label="Fila (opcional)">
+          <ResourceSelect theme={theme} value={cfg.queue_id} label={cfg.queue_label}
+            placeholder={queueOptions.length ? 'Qualquer fila' : 'Nenhuma fila cadastrada'} options={queueOptions}
+            onPick={(id, label) => onChange({ queue_id: id, queue_label: label })} />
+        </Field>
+      )}
+
+      {triggerType === 'no_reply' && (
+        <Field theme={theme} label="Horas sem resposta do cliente">
+          <input type="number" min="1" className={`input-${theme} w-100`}
+            value={cfg.hours ?? 24} onChange={(e) => onChange({ hours: Number(e.target.value) })}
+            style={{ padding: '6px 10px', borderRadius: 6 }} />
+        </Field>
+      )}
+
+      {triggerType === 'lead_created' && (
+        <>
+          <Field theme={theme} label="Só quando o lead nascer com a tag (opcional)">
+            <ResourceSelect theme={theme} value={cfg.tag_id} label={cfg.tag_label}
+              placeholder={tagOptions.length ? 'Qualquer tag' : 'Nenhuma tag cadastrada'} options={tagOptions}
+              onPick={(id, label) => onChange({ tag_id: id, tag_label: label })} />
+          </Field>
+          <Field theme={theme} label="Só quando cair na etapa (opcional)">
+            <ResourceSelect theme={theme} value={cfg.stage_id} label={cfg.stage_label}
+              placeholder="Qualquer etapa" options={stageOptions}
+              onPick={(id, label) => onChange({ stage_id: id, stage_label: label })} />
+          </Field>
+        </>
+      )}
+
+      {triggerType === 'webhook' && (
+        <div className={`card-subtitle-${theme}`} style={{ fontSize: 12 }}>
+          Sem filtros: qualquer POST na URL do webhook dispara o fluxo.
+        </div>
       )}
     </div>
   );

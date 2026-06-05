@@ -2,8 +2,25 @@ const pool = require("../db/queries");
 const { v4: uuidv4 } = require("uuid");
 const { get } = require("../routes/ConnectionRoutes");
 const { getContactByNumber } = require("./ContactService");
+const { generateUniqueNumericId } = require("../utils/numericId");
+
+// Garante a coluna numeric_id (id público de 11 dígitos) numa tabela de funil
+// e faz backfill das etapas antigas. Padrão defensivo do projeto.
+const ensureStageColumns = async (sector, schema) => {
+  await pool.query(`ALTER TABLE ${schema}.kanban_${sector} ADD COLUMN IF NOT EXISTS numeric_id bigint`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS kanban_${sector}_numeric_id_idx ON ${schema}.kanban_${sector}(numeric_id)`);
+  const missing = await pool.query(`SELECT id FROM ${schema}.kanban_${sector} WHERE numeric_id IS NULL`);
+  for (const row of missing.rows) {
+    const id = await generateUniqueNumericId(async (candidate) => {
+      const r = await pool.query(`SELECT 1 FROM ${schema}.kanban_${sector} WHERE numeric_id = $1`, [candidate]);
+      return r.rowCount > 0;
+    });
+    await pool.query(`UPDATE ${schema}.kanban_${sector} SET numeric_id = $1 WHERE id = $2`, [id, row.id]);
+  }
+};
 
 const createKanbanStage = async (name, pos, color, sector, schema) => {
+  await ensureStageColumns(sector, schema);
   const stageExists = await pool.query(
     `SELECT * FROM ${schema}.kanban_${sector} WHERE etapa=$1`,
     [name]
@@ -11,9 +28,13 @@ const createKanbanStage = async (name, pos, color, sector, schema) => {
   if (stageExists.rowCount > 0) {
     return stageExists.rows[0];
   } else {
+    const numericId = await generateUniqueNumericId(async (candidate) => {
+      const r = await pool.query(`SELECT 1 FROM ${schema}.kanban_${sector} WHERE numeric_id = $1`, [candidate]);
+      return r.rowCount > 0;
+    });
     const result = await pool.query(
-      `INSERT INTO ${schema}.kanban_${sector} (id, etapa, pos, color) VALUES ($1, $2, $3, $4) RETURNING *`,
-      [uuidv4(), name, pos, color]
+      `INSERT INTO ${schema}.kanban_${sector} (id, etapa, pos, color, numeric_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [uuidv4(), name, pos, color, numericId]
     );
     return result.rows[0];
   }
@@ -160,11 +181,30 @@ const getContactsInKanbanStage = async (stage, schema) => {
 };
 
 const getKanbanStages = async(funil, schema)=>{
+  await ensureStageColumns(funil, schema);
   const stages = await pool.query(
-    `SELECT * FROM ${schema}.kanban_${funil} `  
+    `SELECT * FROM ${schema}.kanban_${funil} `
   )
   return stages.rows
 }
+
+// Une todas as etapas de todos os funis do schema (para dropdowns dinâmicos).
+const getAllStages = async (schema) => {
+  const funis = await getFunis(schema);
+  const all = [];
+  for (const funil of (funis.name || [])) {
+    try {
+      await ensureStageColumns(funil, schema);
+      const r = await pool.query(
+        `SELECT id, etapa, color, pos, numeric_id FROM ${schema}.kanban_${funil} ORDER BY pos`
+      );
+      for (const s of r.rows) all.push({ ...s, funil });
+    } catch (err) {
+      console.error(`getAllStages funil ${funil} falhou:`, err.message);
+    }
+  }
+  return all;
+};
 
 const getFunis = async (schema) => {
   try{
@@ -259,7 +299,8 @@ const createFunil = async (sector, schema) => {
       id uuid primary key,
       etapa text not null,
       pos int,
-      color text
+      color text,
+      numeric_id bigint
     )`
   )
 }
@@ -318,6 +359,8 @@ const insertContactInKanbanByStageId = async (stage_id, number, schema) => {
 
 module.exports = {
   createKanbanStage,
+  ensureStageColumns,
+  getAllStages,
   insertInKanbanStage,
   getChatsInKanbanStage,
   getContactsInKanbanStage,

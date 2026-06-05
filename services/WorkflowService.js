@@ -9,6 +9,7 @@ const TRIGGER_TYPES = [
   'tag_removed',
   'no_reply',
   'webhook',
+  'lead_created',
 ];
 
 const ACTION_TYPES = [
@@ -235,6 +236,32 @@ const listRunSteps = async (schema, run_id) => {
   return r.rows;
 };
 
+// Agrega os recursos do schema para popular os dropdowns do builder:
+// tags, filas, atendentes e etapas de kanban. Requires lazy p/ evitar ciclos.
+const getResources = async (schema) => {
+  const TagService = require('./TagService');
+  const QueueService = require('./QueueService');
+  const UserService = require('./UserService');
+  const KanbanService = require('./KanbanService');
+  const ConnectionService = require('./ConnectionService');
+
+  const [tags, queues, users, stages, connections] = await Promise.all([
+    TagService.getTags(schema).catch(() => []),
+    QueueService.getAllQueues(schema).catch(() => []),
+    UserService.getAllUsers(schema).catch(() => []),
+    KanbanService.getAllStages(schema).catch(() => []),
+    ConnectionService.getAllConnections(schema).catch(() => []),
+  ]);
+
+  return {
+    tags: (tags || []).map((t) => ({ id: t.id, name: t.name, color: t.color, numeric_id: t.numeric_id })),
+    queues: (queues || []).map((q) => ({ id: q.id, name: q.name, color: q.color })),
+    users: (users || []).map((u) => ({ id: u.id, name: u.name })),
+    stages: (stages || []).map((s) => ({ id: s.id, etapa: s.etapa, color: s.color, funil: s.funil, numeric_id: s.numeric_id })),
+    connections: (connections || []).map((c) => ({ id: c.id, name: c.name, number: c.number })),
+  };
+};
+
 module.exports = {
   TRIGGER_TYPES,
   ACTION_TYPES,
@@ -252,4 +279,5 @@ module.exports = {
   insertStep,
   listRecentRuns,
   listRunSteps,
+  getResources,
 };

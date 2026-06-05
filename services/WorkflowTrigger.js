@@ -43,6 +43,12 @@ const matchTriggerFilters = (workflow, payload) => {
       if (cfg.hours && Number(payload.hours_idle || 0) < Number(cfg.hours)) return false;
       return true;
     }
+    case 'lead_created': {
+      // permite filtrar por tag e/ou etapa com que o lead nasceu
+      if (cfg.tag_id && payload.tag_id !== cfg.tag_id) return false;
+      if (cfg.stage_id && payload.stage_id !== cfg.stage_id) return false;
+      return true;
+    }
     default:
       return true;
   }

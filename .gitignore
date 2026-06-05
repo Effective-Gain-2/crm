@@ -6,3 +6,7 @@ testes.js
 
 api_keys.js
 
+test-results/
+
+playwright-report/
+

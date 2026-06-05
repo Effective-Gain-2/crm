@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Modal } from 'react-bootstrap';
 import { api } from '../utils/axiosConfig';
 import { useToast } from '../contexts/ToastContext';
 import WorkflowEditorModal from './modalPages/Workflow_editor';
@@ -12,6 +13,7 @@ const TRIGGER_LABELS = {
   tag_removed: 'Tag removida',
   no_reply: 'Cliente sem resposta',
   webhook: 'Webhook externo',
+  lead_created: 'Lead criado (API)',
 };
 
 function Workflows({ theme }) {
@@ -21,6 +23,7 @@ function Workflows({ theme }) {
   const [showEditor, setShowEditor] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState('');
+  const [showLeadApi, setShowLeadApi] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -85,6 +88,9 @@ function Workflows({ theme }) {
             className={`input-${theme}`}
             style={{ padding: '6px 10px', borderRadius: 6, minWidth: 220 }}
           />
+          <button className={`btn btn-2-${theme}`} onClick={() => setShowLeadApi(true)} title="API para criar leads via webhook">
+            <i className="bi bi-cloud-arrow-up me-2" />API de Leads
+          </button>
           <button className={`btn btn-1-${theme}`} onClick={openNew}>
             <i className="bi bi-plus-lg me-2" />Novo workflow
           </button>
@@ -168,7 +174,100 @@ function Workflows({ theme }) {
           onSaved={() => { setShowEditor(false); load(); }}
         />
       )}
+
+      <LeadApiModal theme={theme} show={showLeadApi} onClose={() => setShowLeadApi(false)} />
     </div>
+  );
+}
+
+// Modal da API de Leads: mostra URL do webhook, a API key (única por schema,
+// regenerável — regenerar invalida a anterior) e o formato do body.
+function LeadApiModal({ theme, show, onClose }) {
+  const { showError, showSuccess } = useToast();
+  const [keyData, setKeyData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+
+  const userData = JSON.parse(localStorage.getItem('user') || '{}');
+  const schema = userData?.schema;
+  const base = process.env.REACT_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  const webhookUrl = `${base}/api/leads/webhook/${schema}`;
+
+  useEffect(() => {
+    if (!show) return;
+    setLoading(true);
+    api.get('/leads/api-key')
+      .then((r) => setKeyData(r.data?.data || null))
+      .catch(() => setKeyData(null))
+      .finally(() => setLoading(false));
+  }, [show]);
+
+  const regenerate = async () => {
+    if (keyData && !window.confirm('Gerar uma nova API key? A key atual deixará de funcionar imediatamente.')) return;
+    setRegenerating(true);
+    try {
+      const r = await api.post('/leads/api-key/regenerate', {});
+      setKeyData(r.data?.data || null);
+      showSuccess('Nova API key gerada');
+    } catch (err) {
+      showError('Falha ao gerar API key');
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const copy = (value) => { navigator.clipboard?.writeText(String(value)); showSuccess('Copiado'); };
+
+  const bodyExample = `{
+  "number": "5511999999999",   // obrigatório
+  "name": "João da Silva",      // opcional
+  "tag": "12345678901",          // opcional — id numérico da tag (tela de Tags)
+  "kanban": "98765432109"        // opcional — id numérico da etapa (editar etapa no Kanban)
+}`;
+
+  return (
+    <Modal show={show} onHide={onClose} centered size="lg">
+      <Modal.Header closeButton style={{ background: `var(--bg-color-${theme})` }}>
+        <Modal.Title className={`header-text-${theme}`} style={{ fontSize: '1.1rem' }}>
+          <i className="bi bi-cloud-arrow-up me-2" />API de Leads
+        </Modal.Title>
+      </Modal.Header>
+      <Modal.Body style={{ background: `var(--bg-color-${theme})` }} className={`card-subtitle-${theme}`}>
+        <p style={{ fontSize: 13 }}>
+          Crie leads de sistemas externos via <strong>POST</strong>. Todo lead criado dispara o gatilho
+          <strong> "Lead criado (API)"</strong> e, se vier com tag/kanban, também os gatilhos de tag e de etapa.
+        </p>
+
+        <label className={`d-block mb-1`} style={{ fontSize: 12, fontWeight: 600 }}>URL do webhook</label>
+        <div className="d-flex align-items-center gap-2 mb-3">
+          <code style={{ background: 'rgba(0,0,0,0.25)', padding: '6px 10px', borderRadius: 4, wordBreak: 'break-all', flex: 1 }}>{webhookUrl}</code>
+          <button className={`btn btn-sm btn-2-${theme}`} onClick={() => copy(webhookUrl)}><i className="bi bi-clipboard" /></button>
+        </div>
+
+        <label className={`d-block mb-1`} style={{ fontSize: 12, fontWeight: 600 }}>API key (header <code>x-lead-api-key</code>)</label>
+        <div className="d-flex align-items-center gap-2 mb-1">
+          <code style={{ background: 'rgba(0,0,0,0.25)', padding: '6px 10px', borderRadius: 4, wordBreak: 'break-all', flex: 1 }}>
+            {loading ? 'carregando…' : (keyData?.token || 'nenhuma key gerada')}
+          </code>
+          {keyData?.token && (
+            <button className={`btn btn-sm btn-2-${theme}`} onClick={() => copy(keyData.token)}><i className="bi bi-clipboard" /></button>
+          )}
+          <button className={`btn btn-sm btn-1-${theme}`} onClick={regenerate} disabled={regenerating}>
+            <i className="bi bi-arrow-repeat me-1" />{keyData ? 'Regenerar' : 'Gerar'}
+          </button>
+        </div>
+        <div style={{ fontSize: 11, opacity: 0.7 }} className="mb-3">
+          Regenerar invalida a key anterior. Guarde-a com segurança.
+        </div>
+
+        <label className={`d-block mb-1`} style={{ fontSize: 12, fontWeight: 600 }}>Body (JSON)</label>
+        <pre style={{ background: 'rgba(0,0,0,0.25)', padding: 10, borderRadius: 6, fontSize: 12, overflowX: 'auto' }}>{bodyExample}</pre>
+        <div style={{ fontSize: 12 }}>
+          Apenas <code>number</code> é obrigatório. <code>tag</code> e <code>kanban</code> aceitam o id numérico
+          (mostrado na tela de Tags e ao editar a etapa no Kanban) ou o uuid.
+        </div>
+      </Modal.Body>
+    </Modal>
   );
 }
 

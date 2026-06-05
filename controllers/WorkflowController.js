@@ -106,6 +106,18 @@ const listRunStepsController = async (req, res) => {
   }
 };
 
+// Recursos do schema (tags/filas/atendentes/etapas) p/ os dropdowns do builder.
+const getResourcesController = async (req, res) => {
+  try {
+    const schema = req.schema;
+    const data = await WorkflowService.getResources(schema);
+    res.status(200).json({ success: true, data });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Erro ao buscar recursos' });
+  }
+};
+
 // Endpoint público (sem JWT) acionado por sistemas externos via webhook.
 // URL: POST /api/workflow/hook/:schema/:token
 // O body inteiro vira context.payload para uso nos nós.
@@ -134,5 +146,6 @@ module.exports = {
   triggerManuallyController,
   listRunsController,
   listRunStepsController,
+  getResourcesController,
   publicWebhookController,
 };

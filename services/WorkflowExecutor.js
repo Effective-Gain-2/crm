@@ -40,14 +40,18 @@ const interpolate = (template, context) => {
 const actions = {
   async send_message(config, context, schema) {
     const chat = context.chat;
-    if (!chat) return { ok: false, error: 'sem chat no contexto' };
-    const conn = await searchConnById(chat.connection_id, schema);
+    const number = chat?.contact_phone || chat?.number || context.contact?.number;
+    if (!number) return { ok: false, error: 'sem número de destino no contexto' };
+    // Conexão escolhida no nó tem prioridade; senão usa a do chat. Necessário
+    // p/ leads criados via API (sem connection_id) — você define qual número envia.
+    const connId = config.connection_id || chat?.connection_id;
+    if (!connId) return { ok: false, error: 'nenhuma conexão definida (escolha a conexão no nó)' };
+    const conn = await searchConnById(connId, schema);
     if (!conn) return { ok: false, error: 'conexão não encontrada' };
     const text = interpolate(config.text || '', context);
     if (!text.trim()) return { ok: false, error: 'mensagem vazia após interpolar' };
-    const number = chat.contact_phone || chat.number;
     const result = await sendTextMessage(conn.name, text, number);
-    return { ok: true, output: { sent_to: number, text, key: result?.key || null } };
+    return { ok: true, output: { sent_to: number, via: conn.name, text, key: result?.key || null } };
   },
 
   async add_tag(config, context, schema) {

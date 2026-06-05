@@ -951,6 +951,23 @@ useEffect(() => {
                       </div>
                     </div>
 
+                    {editingEtapaId === etapa.id && (
+                      <div className="d-flex align-items-center gap-1 mb-2" style={{ fontSize: 11 }}>
+                        <span className={`card-subtitle-${theme}`}>ID:</span>
+                        <code style={{ fontFamily: 'monospace' }}>{etapa.numeric_id || '—'}</code>
+                        {etapa.numeric_id && (
+                          <button
+                            type="button"
+                            className={`btn btn-sm btn-2-${theme} py-0 px-1`}
+                            title="Copiar ID (use na API de leads / workflows)"
+                            onClick={() => navigator.clipboard?.writeText(String(etapa.numeric_id))}
+                          >
+                            <i className="bi bi-clipboard" style={{ fontSize: 11 }} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+
                     {/* Container para os leads com scroll */}
                     <div style={{ 
                       maxHeight: '580px', // Altura máxima para ~5 cards
