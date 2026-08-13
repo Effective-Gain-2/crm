@@ -231,6 +231,11 @@ const createCompany = async (company, schema) => {
             owner_id UUID REFERENCES ${schema}.users(id) ON DELETE SET NULL,
             status TEXT NOT NULL DEFAULT 'open',
             score INTEGER NOT NULL DEFAULT 0,
+            utm_source TEXT,
+            utm_medium TEXT,
+            utm_campaign TEXT,
+            ad_id TEXT,
+            campaign_name TEXT,
             created_at TIMESTAMP DEFAULT now(),
             updated_at TIMESTAMP DEFAULT now()
             );

@@ -71,7 +71,10 @@ const upsertContact = async (schema, number, name) => {
 const fetchLead = async (leadgenId) => {
     const url = `https://graph.facebook.com/${GRAPH_VERSION}/${leadgenId}`;
     const { data } = await axios.get(url, {
-        params: { access_token: PAGE_ACCESS_TOKEN, fields: 'field_data,created_time,ad_id,form_id' },
+        params: {
+            access_token: PAGE_ACCESS_TOKEN,
+            fields: 'field_data,created_time,ad_id,ad_name,form_id,campaign_id,campaign_name,platform',
+        },
     });
     return data;
 };
@@ -100,6 +103,11 @@ const processLead = async (leadgenId) => {
             title: name || phone || 'Lead Meta',
             source: LEADS_SOURCE,
             value: 0,
+            utm_source: lead.platform || 'meta',
+            utm_medium: 'cpc',
+            utm_campaign: lead.campaign_name || null,
+            ad_id: lead.ad_id || null,
+            campaign_name: lead.campaign_name || lead.ad_name || null,
         },
         LEADS_SCHEMA
     );

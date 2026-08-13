@@ -2,14 +2,18 @@ const pool = require('../db/queries');
 const { v4: uuidv4 } = require('uuid');
 
 // Cria uma oportunidade no pipeline.
-const createOpportunity = async ({ contact_number, funnel, stage_id, title, source, value, owner_id }, schema) => {
+const createOpportunity = async (
+    { contact_number, funnel, stage_id, title, source, value, owner_id, utm_source, utm_medium, utm_campaign, ad_id, campaign_name },
+    schema
+) => {
     const id = uuidv4();
     const result = await pool.query(
         `INSERT INTO ${schema}.opportunities
-            (id, contact_number, funnel, stage_id, title, source, value, owner_id)
-         VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 0), $8)
+            (id, contact_number, funnel, stage_id, title, source, value, owner_id, utm_source, utm_medium, utm_campaign, ad_id, campaign_name)
+         VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 0), $8, $9, $10, $11, $12, $13)
          RETURNING *`,
-        [id, contact_number || null, funnel, stage_id || null, title || null, source || null, value, owner_id || null]
+        [id, contact_number || null, funnel, stage_id || null, title || null, source || null, value, owner_id || null,
+         utm_source || null, utm_medium || null, utm_campaign || null, ad_id || null, campaign_name || null]
     );
     const opp = result.rows[0];
     try {

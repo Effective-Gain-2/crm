@@ -17,6 +17,7 @@
   import KanbanPage from './Kanban';
   import OpportunitiesPage from './Opportunities';
   import AiAgentPage from './AiAgent';
+  import AttributionPage from './Attribution';
   import DisparosPage from './Disparos';
   import WhatsappModal from './modalPages/Whatsapp';
   import Manutencao from './Manutencao';
@@ -470,6 +471,7 @@
         case 'kanban': return <KanbanPage theme={theme} />;
         case 'oportunidades': return <OpportunitiesPage theme={theme} />;
         case 'ai-agent': return <AiAgentPage theme={theme} />;
+        case 'atribuicao': return <AttributionPage theme={theme} />;
         case 'filas': return <FilaPage theme={theme} />;
         case 'usuarios': return <UsuariosPage theme={theme} />;
         case 'agenda': return <LembretesPage
@@ -578,6 +580,17 @@
               >
                 <i className="bi bi-robot"></i>
                 <span className="sidebar-label d-none">Agente de IA</span>
+              </button>
+              <button
+                id="atribuicao"
+                onClick={() => handlePageChange('atribuicao')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Atribuição"
+                className={`btn ${page === 'atribuicao' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-graph-up-arrow"></i>
+                <span className="sidebar-label d-none">Atribuição</span>
               </button>
               <button
                 id="filas"

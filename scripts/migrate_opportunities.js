@@ -39,6 +39,12 @@ async function migrate(schema) {
 
         // Lead scoring
         await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS score INTEGER NOT NULL DEFAULT 0;`);
+        // Atribuicao (Meta/Google Ads)
+        await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS utm_source TEXT;`);
+        await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS utm_medium TEXT;`);
+        await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS utm_campaign TEXT;`);
+        await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS ad_id TEXT;`);
+        await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS campaign_name TEXT;`);
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.lead_score_rules (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
