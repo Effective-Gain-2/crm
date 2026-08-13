@@ -17,6 +17,7 @@
     "animejs": "^3.2.2",
     "axios": "^1.8.4",
     "bootstrap": "^5.3.6",
+    "bootstrap-icons": "^1.11.3",
     "chart.js": "^4.5.0",
     "emoji-picker-react": "^4.13.2",
     "lucide-react": "^0.487.0",
