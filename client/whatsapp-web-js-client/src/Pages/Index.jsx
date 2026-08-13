@@ -15,6 +15,7 @@
   import UsuariosPage from './Usuarios';
   import FilaPage from './Filas';
   import KanbanPage from './Kanban';
+  import OpportunitiesPage from './Opportunities';
   import DisparosPage from './Disparos';
   import WhatsappModal from './modalPages/Whatsapp';
   import Manutencao from './Manutencao';
@@ -466,6 +467,7 @@
         case 'financeiro': return <FinanceiroPage theme={theme} />;
         case 'chats': return <ChatPage theme={theme} />;
         case 'kanban': return <KanbanPage theme={theme} />;
+        case 'oportunidades': return <OpportunitiesPage theme={theme} />;
         case 'filas': return <FilaPage theme={theme} />;
         case 'usuarios': return <UsuariosPage theme={theme} />;
         case 'agenda': return <LembretesPage
@@ -552,6 +554,17 @@
               >
                 <i className="bi bi-kanban"></i>
                 <span className="sidebar-label d-none">Kanban</span>
+              </button>
+              <button
+                id="oportunidades"
+                onClick={() => handlePageChange('oportunidades')}
+                data-bs-toggle="tooltip"
+                data-bs-placement="right"
+                data-bs-title="Oportunidades"
+                className={`btn ${page === 'oportunidades' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+              >
+                <i className="bi bi-bullseye"></i>
+                <span className="sidebar-label d-none">Oportunidades</span>
               </button>
               <button
                 id="filas"
