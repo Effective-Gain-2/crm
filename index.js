@@ -97,7 +97,7 @@ const allowedOrigins = [
     ];
     
 
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    if (allowedOrigins.indexOf(origin) !== -1 || /\.easypanel\.host$/.test(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -116,6 +116,7 @@ const io = socketIo(server, {
       'https://landing-page-front.8rxpnw.easypanel.host',
       'https://eg-crm.effectivegain.com',
       'https://crm.effectivegain.com',
+      'https://eg-os-crm-frontend.cownkm.easypanel.host',
       'https://landing-page-teste.8rxpnw.easypanel.host/',
       'https://ilhadogovernador.effectivegain.com/',
       'https://ilhadogovernador.effectivegain.com',
@@ -147,6 +148,7 @@ const socketIoServer = socketIo(socketServer, {
       "https://landing-page-front.8rxpnw.easypanel.host",
       "https://eg-crm.effectivegain.com",
       "https://crm.effectivegain.com",
+      "https://eg-os-crm-frontend.cownkm.easypanel.host",
       "https://ilhadogovernador.effectivegain.com",
       "https://barreiras.effectivegain.com",
       "https://campo-grande.effectivegain.com",
