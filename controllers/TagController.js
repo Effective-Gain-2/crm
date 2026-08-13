@@ -1,5 +1,4 @@
 const TagService = require('../services/TagService');
-const io = SocketServer.io
 
 
 
@@ -64,7 +63,7 @@ const updateTagsController = async (req, res) => {
     }else{
       await TagService.addTagToChat(chat_id, tag_id, schema)
     }
-  io.to(`schema_${schema}`).emit('tagUpdated', { chat_id, tag, checked, schema });
+  global.socketIoServer?.to(`schema_${schema}`).emit('tagUpdated', { chat_id, tag, checked, schema });
   
 } catch (error) {
   console.error(error)
