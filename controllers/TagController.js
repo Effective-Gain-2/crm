@@ -1,4 +1,3 @@
-const SocketServer = require("../server");
 const TagService = require('../services/TagService');
 const io = SocketServer.io
 

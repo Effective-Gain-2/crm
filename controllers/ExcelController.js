@@ -1,29 +1,30 @@
 const XLSX = require('xlsx');
-const { processExcelFile } = require('../services/ExcelReader');
+const fs = require('fs');
 const { getInformationFromExcel } = require('../services/ExcelReader');
 
 exports.uploadExcel = async (req, res) => {
   const { sector, schema } = req.body;
   try {
-    const filePath = req.file.path;
-    const workbook = XLSX.readFile(filePath);
+    if (!req.file?.path) {
+      return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+    }
+    // Lê O ARQUIVO ENVIADO (antes: pegava o primeiro .xlsx da pasta uploads —
+    // arquivo errado em uploads simultâneos, e .csv/.xls eram ignorados em silêncio)
+    const workbook = XLSX.readFile(req.file.path);
     const sheetName = workbook.SheetNames[0];
-    const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
+    const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-    const rows = data.slice(1);
-    const contatos = rows
-      .map(row => ({
-        nome: row[0]?.toString() || '',
-        numero: row[1]?.toString() || '',
-        etapa: row[2]?.toString() || ''
-      }))
-      .filter(contato => contato.nome && contato.numero && contato.etapa);
+    const summary = await getInformationFromExcel(data, sector, schema);
 
-    await processExcelFile(sector, schema);
-
-    res.status(200).json({success:true, message: 'Arquivo enviado e processado com sucesso!', file: req.file.filename });
+    fs.unlink(req.file.path, () => {});
+    res.status(200).json({
+      success: true,
+      message: `Importação concluída: ${summary.imported} contato(s); ${summary.skipped} linha(s) ignorada(s).`,
+      ...summary,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Erro ao salvar ou processar arquivo.' });
+    if (req.file?.path) fs.unlink(req.file.path, () => {});
+    res.status(500).json({ error: 'Erro ao processar o arquivo.' });
   }
 };

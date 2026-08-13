@@ -221,8 +221,9 @@
     if (!socketInstance) return;
 
     const handleLembrete = (lembrete) => {
-      console.log('Lembrete recebido via socket:', lembrete);
-      // showToast(lembrete); // Comentado para evitar toasts automáticos
+      // Alerta REAL: entra na pilha de notificações (toast persistente + som)
+      setReminderAlerts(prev => [...prev.filter(l => l.id !== lembrete.id), lembrete]);
+      try { reminderAudioRef.current?.play?.(); } catch (e) { /* autoplay bloqueado */ }
     };
 
     const handleLembreteCriado = (data) => {
@@ -463,6 +464,31 @@
     //     };
 
 
+    // ---- Alertas de lembrete (toast persistente + som + abrir conversa) ----
+    const [reminderAlerts, setReminderAlerts] = useState([]);
+    const reminderAudioRef = useRef(null);
+
+    const dismissReminder = (id) => setReminderAlerts(prev => prev.filter(l => l.id !== id));
+
+    const concludeReminder = async (lembrete) => {
+      try {
+        await axios.patch(`${url}/lembretes/${lembrete.id}/status`, { status: 'done', schema }, { withCredentials: true });
+      } catch (e) { console.error(e); }
+      dismissReminder(lembrete.id);
+    };
+
+    const snoozeReminder = async (lembrete) => {
+      try {
+        await axios.patch(`${url}/lembretes/${lembrete.id}/snooze`, { minutes: 30, schema }, { withCredentials: true });
+      } catch (e) { console.error(e); }
+      dismissReminder(lembrete.id);
+    };
+
+    const openReminderConversation = (lembrete) => {
+      dismissReminder(lembrete.id);
+      handlePageChange('chats');
+    };
+
     // ---- Papéis (gating do menu; a autoridade é o servidor) ----
     const ROLE_LEVEL = { operacional: 1, user: 1, lider: 2, master: 3, admin: 3, tecnico: 4 };
     const canSee = (min) => (ROLE_LEVEL[(role || '').toLowerCase()] || 1) >= (ROLE_LEVEL[min] || 99);
@@ -564,17 +590,19 @@
                 <i className="bi bi-speedometer2"></i>
                 <span className="sidebar-label d-none">Dashboard</span>
               </button>
-              <button
+              {canSee('master') && (
+<button
                 id="financeiro"
                 onClick={() => handlePageChange('financeiro')}
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
                 data-bs-title="Financeiro"
-                className={`btn ${page === 'financeiro' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex d-none flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
+                className={`btn ${page === 'financeiro' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
                 <i className="bi bi-cash-stack"></i>
                 <span className="sidebar-label d-none">Financeiro</span>
               </button>
+)}
               <hr className={`hr-${theme} mx-auto my-0 d-none`} style={{ width: '50%' }} />
               <button
                 id="chats"
@@ -700,17 +728,19 @@
                 <span className="sidebar-label d-none">Lembretes</span>
               </button>
               <hr className={`hr-${theme} mx-auto my-0`} style={{ width: '50%' }} />
-              <button
+              {canSee('lider') && (
+<button
                 id="relatorios"
                 onClick={() => handlePageChange('relatorios')}
                 data-bs-toggle="tooltip"
                 data-bs-placement="right"
                 data-bs-title="Relatórios"
-                className={`btn ${page === 'relatorios' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''} d-none`}
+                className={`btn ${page === 'relatorios' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''}`}
               >
                 <i className="bi bi-bar-chart-line"></i>
                 <span className="sidebar-label d-none">Relatórios</span>
               </button>
+)}
               <button
                 id="insights"
                 onClick={() => handlePageChange('insights')}
@@ -734,17 +764,6 @@
                 <i className="bi bi-question-circle"></i>
                 <span className="sidebar-label d-none">Ajuda</span>
               </button>
-  <button
-    id="chatinterno"
-    onClick={() => handlePageChange('ChatInterno')}
-    data-bs-toggle="tooltip"
-    data-bs-placement="right"
-    data-bs-title="Chat Interno"
-    className={`btn ${page === 'ChatInterno' ? `btn-1-${theme}` : `btn-2-${theme}`} d-flex flex-row align-items-center justify-content-center gap-2 ${isSidebarExpanded ? 'w-75' : ''} d-none`}
-  >
-    <i className="bi bi-chat-left-text"></i>
-    <span className="sidebar-label d-none">Chat Interno</span>
-  </button>
             
 
             </div>
@@ -820,6 +839,40 @@
           show={showWhatsappModal}
           onHide={() => setShowWhatsappModal(false)}
         />
+        {/* Alertas de lembrete (persistem até ação do usuário) */}
+        <audio ref={reminderAudioRef} src="data:audio/wav;base64,UklGRl4EAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YToEAACAgICAgICAgICAgICAgP+A/4D/gP+A/4D/gICAgICAgICAgICAgID/gP+A/4D/gP+A/4CAgICAgICAgICAgICA/4D/gP+A/4D/gP+AgICAgICAgICAgICAgP+A/4D/gP+A/4D/gA==" />
+        <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 2000, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 360 }}>
+          {reminderAlerts.map((lembrete) => (
+            <div key={lembrete.id} className={`card shadow-lg border-warning`} style={{ borderLeft: '4px solid #ffc107' }}>
+              <div className="card-body p-3">
+                <div className="d-flex align-items-start justify-content-between gap-2">
+                  <div className="d-flex align-items-center gap-2">
+                    <i className={`bi ${lembrete.icone || 'bi-bell-fill'} text-warning fs-5`}></i>
+                    <strong className="text-truncate">{lembrete.lembrete_name}</strong>
+                  </div>
+                  <button type="button" className="btn-close" onClick={() => dismissReminder(lembrete.id)}></button>
+                </div>
+                {lembrete.message && <div className="small text-muted mt-1">{lembrete.message}</div>}
+                {lembrete.contact_number && (
+                  <div className="small mt-1"><i className="bi bi-person me-1"></i>{lembrete.contact_number}</div>
+                )}
+                <div className="d-flex gap-2 mt-2 flex-wrap">
+                  {(lembrete.contact_number || lembrete.chat_id) && (
+                    <button className="btn btn-sm btn-primary" onClick={() => openReminderConversation(lembrete)}>
+                      <i className="bi bi-chat-dots me-1"></i>Abrir conversa
+                    </button>
+                  )}
+                  <button className="btn btn-sm btn-outline-success" onClick={() => concludeReminder(lembrete)}>
+                    <i className="bi bi-check-lg me-1"></i>Concluir
+                  </button>
+                  <button className="btn btn-sm btn-outline-secondary" onClick={() => snoozeReminder(lembrete)}>
+                    <i className="bi bi-alarm me-1"></i>+30 min
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
         <CustomValuesModal
           show={showCustomValuesModal}
           onHide={() => setShowCustomValuesModal(false)}

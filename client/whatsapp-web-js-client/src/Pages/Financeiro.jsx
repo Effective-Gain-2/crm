@@ -1,3 +1,4 @@
+import axios from 'axios';
 import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
 import DespesaModal from './modalPages/DespesaModal';
@@ -152,12 +153,7 @@ function Financeiro({ theme }) {
         
         // Quando o endpoint estiver disponível, usar:
         /*
-        const response = await fetch(`${process.env.REACT_APP_URL}/expenses/${despesaId}?schema=${schema}`, {
-          method: 'DELETE',
-          headers: { 
-            'Content-Type': 'application/json'
-          }
-        });
+        const response = await axios.delete(`${process.env.REACT_APP_URL}/expenses/${despesaId}?schema=${schema}`, { withCredentials: true });
         
         if (response.ok) {
           setDespesas(prev => prev.filter(d => d.id !== despesaId));
@@ -427,12 +423,10 @@ function Financeiro({ theme }) {
       const url = `${process.env.REACT_APP_URL}/receita?schema=${schema}`;
       console.log('URL de carregamento:', url);
       
-      const response = await fetch(url);
-      
-      console.log('Resposta do carregamento:', response.status, response.statusText);
-      
-      if (response.ok) {
-        const result = await response.json();
+      const response = await axios.get(url, { withCredentials: true });
+
+      if (response.status < 400) {
+        const result = response.data;
         console.log('Resultado do carregamento:', result);
         if (result.success && result.data) {
           // Mapear campos do banco para o frontend
@@ -452,9 +446,7 @@ function Financeiro({ theme }) {
           console.error('Resposta da API não tem sucesso:', result);
         }
       } else {
-        console.error('Erro ao carregar receitas:', response.status, response.statusText);
-        const errorText = await response.text();
-        console.error('Texto do erro:', errorText);
+        console.error('Erro ao carregar receitas:', response.status);
       }
     } catch (error) {
       console.error('Erro ao carregar receitas:', error);
@@ -483,28 +475,20 @@ function Financeiro({ theme }) {
       
       console.log('Tentando salvar receita:', novaReceita);
       
-      const response = await fetch(`${process.env.REACT_APP_URL}/receita`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const response = await axios.post(`${process.env.REACT_APP_URL}/receita`, {
           descricao: novaReceita.descricao, // Será mapeado para 'nome' no banco
           valor: novaReceita.valorTotal, // Será mapeado para 'valor_receita' no banco
           itens: itensValidos, // Incluir itens na requisição
           schema: schema
-        })
-      });
-      
+        }, { withCredentials: true });
+
       console.log('Status da resposta:', response.status);
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Erro da API:', errorText);
-        throw new Error(`Erro na API: ${response.status} - ${errorText}`);
+      if (response.status >= 400) {
+        throw new Error(`Erro na API: ${response.status}`);
       }
       
-      const result = await response.json();
+      const result = response.data;
       console.log('Resposta da API:', result);
       
       if (result.success && result.data) {
@@ -576,17 +560,9 @@ function Financeiro({ theme }) {
         const url = `${process.env.REACT_APP_URL}/receita/${receitaId}?schema=${schema}`;
         console.log('URL final:', url);
         
-        const response = await fetch(url, {
-          method: 'DELETE',
-          headers: { 
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        console.log('Resposta da exclusão:', response.status, response.statusText);
-        console.log('Headers da resposta:', response.headers);
-        
-        if (response.ok) {
+        const response = await axios.delete(url, { withCredentials: true });
+
+        if (response.status < 400) {
           // Remover do estado local apenas se a exclusão foi bem-sucedida
           setReceitas(prev => prev.filter(r => r.id !== receitaId));
           // Mostrar mensagem de sucesso
@@ -596,7 +572,7 @@ function Financeiro({ theme }) {
             carregarReceitas();
           }, 1000);
         } else {
-          const errorData = await response.json();
+          const errorData = response.data;
           console.error('Erro da API:', errorData);
           showError(`Erro ao excluir receita: ${errorData.error || 'Tente novamente.'}`);
         }

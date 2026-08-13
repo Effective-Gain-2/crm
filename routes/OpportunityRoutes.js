@@ -12,6 +12,7 @@ const {
     createScoreRuleController,
     deleteScoreRuleController,
     recomputeScoresController,
+    importLeadsController,
 } = require('../controllers/OpportunityController');
 
 const router = express.Router();
@@ -26,6 +27,7 @@ router.get('/score-rules/:schema', listScoreRulesController);
 router.post('/score-rules', createScoreRuleController);
 router.delete('/score-rules/:id/:schema', deleteScoreRuleController);
 router.post('/recompute-scores', recomputeScoresController);
+router.post('/import', require('../middlewares/requireRole').requireRole('master'), importLeadsController);
 
 router.get('/:id/:schema', getOpportunityByIdController);
 router.put('/move-stage', moveOpportunityStageController);

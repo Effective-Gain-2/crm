@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { socket } from '../socket';
+import LembreteRapido from './modalPages/LembreteRapido';
 
 const url = process.env.REACT_APP_URL;
 
@@ -26,6 +27,7 @@ export default function Opportunities({ theme }) {
   const [form, setForm] = useState({ title: '', contact_number: '', source: '', value: '', stage_id: '' });
 
   const [showRules, setShowRules] = useState(false);
+  const [lembreteAlvo, setLembreteAlvo] = useState(null);
   const [rules, setRules] = useState([]);
   const [ruleForm, setRuleForm] = useState({ name: '', field: 'source', operator: 'equals', value: '', points: 10 });
 
@@ -293,6 +295,15 @@ export default function Opportunities({ theme }) {
                         <small className="text-muted text-truncate">{o.owner_name}</small>
                       </div>
                     )}
+                    <div className="d-flex justify-content-end mt-1">
+                      <button
+                        className="btn btn-sm btn-outline-warning py-0 px-1"
+                        title="Criar lembrete de retorno"
+                        onClick={(e) => { e.stopPropagation(); setLembreteAlvo(o); }}
+                      >
+                        <i className="bi bi-bell"></i>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -337,6 +348,17 @@ export default function Opportunities({ theme }) {
             </form>
           </div>
         </div>
+      )}
+
+      {lembreteAlvo && (
+        <LembreteRapido
+          theme={theme}
+          show={!!lembreteAlvo}
+          onHide={() => setLembreteAlvo(null)}
+          contactNumber={lembreteAlvo.contact_number}
+          contactName={lembreteAlvo.contact_name || lembreteAlvo.title}
+          opportunityId={lembreteAlvo.id}
+        />
       )}
 
       {/* Modal regras de pontuação (lead scoring) */}

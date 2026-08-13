@@ -8,19 +8,17 @@ function KanbanExcluirEtapaModal({ show, onHide, onConfirm, etapa, funil, theme 
 
   const handleDeleteEtapa = async () => {
     try {
-      await axios.delete(`${url}/kanban/delete-stage`,
-        {
-      data: {
-        etapa_id: etapa.id,
-        sector: funil,
-        schema: schema
-      }
-    },
-        {
-      withCredentials: true
-    })
+      await axios.delete(`${url}/kanban/delete-stage`, {
+        data: {
+          etapa_id: etapa.id,
+          sector: funil,
+          schema: schema
+        },
+        withCredentials: true
+      });
+      if (onConfirm) onConfirm();
     } catch (error) {
-      console.error(error)
+      console.error(error);
     }
   }
 
@@ -38,8 +36,8 @@ function KanbanExcluirEtapaModal({ show, onHide, onConfirm, etapa, funil, theme 
             <p className={`mb-0 header-text-${theme}`}>Tem certeza que deseja excluir a etapa <b>{etapa?.etapa}</b>?<br/>Esta ação é <span style={{ color: 'var(--error-color)' }}>irreversível</span>.</p>
           </div>
           <div className="modal-footer d-flex justify-content-end">
-            <button type="button" className={`btn btn-2-${theme}`} onClick={handleDeleteEtapa()}>Cancelar</button>
-            <button type="button" className="btn delete-btn" onClick={onConfirm}>Excluir</button>
+            <button type="button" className={`btn btn-2-${theme}`} onClick={onHide}>Cancelar</button>
+            <button type="button" className="btn delete-btn" onClick={() => handleDeleteEtapa()}>Excluir</button>
           </div>
         </div>
       </div>

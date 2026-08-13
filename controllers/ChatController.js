@@ -391,14 +391,22 @@ const getScheduledMessagesController = async (req, res) => {
 const scheduleMessageController = async (req, res) => {
     try {
       const {chat_id, instance, message, contact_phone, timestamp, user, schema} = req.body
-      const connection =await searchConnById(instance, schema)
-      await scheduleMessage(chat_id, connection, message, contact_phone, timestamp, user, schema);
+      const connection = await searchConnById(instance, schema)
+      if (!connection) {
+        return res.status(404).json({ success: false, error: 'Conexão não encontrada' })
+      }
+      const saved = await scheduleMessage(chat_id, connection, message, contact_phone, timestamp, user, schema);
+      if (!saved) {
+        return res.status(400).json({ success: false, error: 'Data de agendamento inválida (deve ser futura)' })
+      }
       res.status(200).json({
         success:true,
         message: 'Mensagem agendada com sucesso',
+        scheduled: saved,
       })
     } catch (error) {
       console.error(error)
+      res.status(500).json({ success: false, error: 'Erro ao agendar mensagem' })
     }
   }
 

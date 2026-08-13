@@ -7,6 +7,7 @@ const {
     updateOpportunity,
     deleteOpportunity,
     getForecastByFunnel,
+    importLeads,
 } = require('../services/OpportunityService');
 const {
     listRules,
@@ -162,7 +163,23 @@ const recomputeScoresController = async (req, res) => {
     }
 };
 
+// POST /opportunity/import — carga de histórico (master/técnico)
+const importLeadsController = async (req, res) => {
+    try {
+        const { funnel, stages, leads } = req.body;
+        if (!Array.isArray(leads) || leads.length === 0) {
+            return res.status(400).json({ error: 'leads é obrigatório' });
+        }
+        const result = await importLeads({ funnel, stages, leads }, req.auth.schema);
+        res.status(200).json({ success: true, ...result });
+    } catch (error) {
+        console.error('Erro no import de leads:', error);
+        res.status(500).json({ error: 'Erro no import de leads' });
+    }
+};
+
 module.exports = {
+    importLeadsController,
     createOpportunityController,
     getOpportunitiesByFunnelController,
     getOpportunitiesByStageController,

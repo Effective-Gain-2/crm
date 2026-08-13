@@ -1,37 +1,15 @@
-const fs = require('fs');
-const path = require('path');
 const xlsx = require('xlsx');
 const pool = require("../db/queries")
-const multer = require('multer');
 const { insertValueCustomField } = require('./ContactService');
 const { insertInKanbanStage } = require('./KanbanService');
 
-const folderPath = path.join(__dirname, '..', 'uploads');
-
-function processExcelFile(sector, schema) {
-  const files = fs.readdirSync(folderPath).filter(file => file.endsWith('.xlsx'));
-
-  if (files.length === 0) {
-    console.log('Nenhum arquivo .xlsx encontrado.');
-    return [];
-  }
-
-  const filePath = path.join(folderPath, files[0]); 
-  const workbook = xlsx.readFile(filePath);
-  const sheetName = workbook.SheetNames[0]; 
-  const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
-
-  getInformationFromExcel(data, sector, schema) 
-  
-  fs.unlinkSync(filePath);
-  return data;
-}
-
 const getInformationFromExcel = async (data, sector, schema) => {
+  let imported = 0, skipped = 0;
   for (const row of data) {
     let numero = row.numero?.toString();
     if (!row.nome) {
       console.warn('Linha ignorada: nome ausente.', row);
+      skipped++;
       continue;
     }
     const nomeSeparado = row.nome.split(' ');
@@ -43,6 +21,7 @@ const getInformationFromExcel = async (data, sector, schema) => {
 
     if (!numero || !nome) {
       console.warn('Linha ignorada: número ou nome ausente.', row);
+      skipped++;
       continue;
     }
     if (!numero.startsWith('55')) {
@@ -57,7 +36,12 @@ const getInformationFromExcel = async (data, sector, schema) => {
       );
       for (const [key, value] of Object.entries(row)) {
         if (key !== 'numero' && key !== 'nome' && key !== 'etapa') {
-          await insertValueCustomField(key, numero, value, schema);
+          try {
+            await insertValueCustomField(key, numero, value, schema);
+          } catch (e) {
+            // Campo personalizado inexistente não impede o contato de entrar na etapa
+            console.warn(`Campo personalizado ignorado ("${key}"): ${e.message}`);
+          }
         }
       }
       if (etapa) {
@@ -66,13 +50,15 @@ const getInformationFromExcel = async (data, sector, schema) => {
           console.warn(`Linha ignorada: etapa "${etapa}" não encontrada no funil "${sector}".`, row);
         }
       }
+      imported++;
     } catch (error) {
       console.error(`Erro ao processar linha: ${JSON.stringify(row)}`, error);
+      skipped++;
     }
   }
+  return { imported, skipped };
 };
 
 module.exports = {
-  processExcelFile,
   getInformationFromExcel
 };

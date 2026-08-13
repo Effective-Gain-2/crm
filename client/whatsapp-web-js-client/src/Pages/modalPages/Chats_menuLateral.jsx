@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import LembreteRapido from './LembreteRapido';
 import favicon from '../assets/favicon_25.png';
 
 const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
+  const [showLembrete, setShowLembrete] = React.useState(false);
   const [queueData, setQueueData] = useState(null);
   const [userData, setUserData] = useState(null);
   const [connectionData, setConnectionData] = useState(null);
@@ -195,6 +197,9 @@ const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
         </div>
         <div className='d-flex justify-content-center flex-column align-items-center w-100'>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%'}}>
+            <button className={`btn btn-1-${theme}`} onClick={() => setShowLembrete(true)}>
+              <i className="bi bi-bell me-2"></i>Criar lembrete de retorno
+            </button>
             <button className={`btn btn-2-${theme} d-none`}>Agendar Templates</button>
             <button className={`btn btn-2-${theme} d-none`}>Trocar Tags</button>
             <button className={`btn btn-2-${theme} d-none`}>Trocar Kanban</button>
@@ -202,6 +207,16 @@ const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
             </div>
         </div>
       </div>
+      {showLembrete && (
+        <LembreteRapido
+          theme={theme}
+          show={showLembrete}
+          onHide={() => setShowLembrete(false)}
+          contactNumber={selectedChat?.contact_phone}
+          contactName={selectedChat?.contact_name}
+          chatId={selectedChat?.id}
+        />
+      )}
     </div>
   );
 };

@@ -10,7 +10,7 @@ const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
 const APP_SECRET = process.env.META_APP_SECRET;
 const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
 const LEADS_SCHEMA = process.env.META_LEADS_SCHEMA;                 // ex.: effective_gain
-const LEADS_FUNNEL = process.env.META_LEADS_FUNNEL || 'Vendas';     // nome do funil (opportunities.funnel)
+const LEADS_FUNNEL = (process.env.META_LEADS_FUNNEL || 'vendas').toLowerCase();     // nome do funil (opportunities.funnel)
 const LEADS_SECTOR = (process.env.META_LEADS_SECTOR                 // sufixo da tabela kanban_<sector>
     || LEADS_FUNNEL.charAt(0).toLowerCase() + LEADS_FUNNEL.slice(1));
 const LEADS_STAGE = process.env.META_LEADS_STAGE || 'Novo Lead';    // etapa alvo (por nome)

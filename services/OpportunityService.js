@@ -12,7 +12,7 @@ const createOpportunity = async (
             (id, contact_number, funnel, stage_id, title, source, value, owner_id, utm_source, utm_medium, utm_campaign, ad_id, campaign_name)
          VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 0), $8, $9, $10, $11, $12, $13)
          RETURNING *`,
-        [id, contact_number || null, funnel, stage_id || null, title || null, source || null, value, owner_id || null,
+        [id, contact_number || null, (funnel || '').toLowerCase(), stage_id || null, title || null, source || null, value, owner_id || null,
          utm_source || null, utm_medium || null, utm_campaign || null, ad_id || null, campaign_name || null]
     );
     const opp = result.rows[0];
@@ -30,7 +30,7 @@ const getOpportunitiesByFunnel = async (funnel, schema) => {
            FROM ${schema}.opportunities o
            LEFT JOIN ${schema}.contacts c ON c.number = o.contact_number
            LEFT JOIN ${schema}.users u ON u.id = o.owner_id
-          WHERE o.funnel = $1
+          WHERE lower(o.funnel) = lower($1)
           ORDER BY o.updated_at DESC`,
         [funnel]
     );
@@ -121,14 +121,85 @@ const getForecastByFunnel = async (funnel, schema) => {
                 COUNT(*)::int AS count,
                 COALESCE(SUM(value), 0) AS total_value
            FROM ${schema}.opportunities
-          WHERE funnel = $1 AND status = 'open'
+          WHERE lower(funnel) = lower($1) AND status = 'open'
           GROUP BY stage_id`,
         [funnel]
     );
     return result.rows;
 };
 
+// Importação em massa (histórico de outra plataforma) — idempotente por (title, contact_number)
+const importLeads = async ({ funnel, stages, leads }, schema) => {
+    const poolq = pool;
+    const sector = (funnel || 'vendas').toLowerCase();
+
+    // 1) Funil + etapas na ordem informada
+    await poolq.query(`CREATE TABLE IF NOT EXISTS ${schema}.kanban_${sector}(
+        id uuid primary key, etapa text not null, pos int, color text)`);
+    const stageIds = {};
+    for (let i = 0; i < (stages || []).length; i++) {
+        const nome = stages[i].name;
+        const cor = stages[i].color || '#6c757d';
+        const found = await poolq.query(`SELECT id FROM ${schema}.kanban_${sector} WHERE etapa = $1`, [nome]);
+        if (found.rows[0]) {
+            stageIds[nome] = found.rows[0].id;
+            await poolq.query(`UPDATE ${schema}.kanban_${sector} SET pos = $1 WHERE id = $2`, [i, found.rows[0].id]);
+        } else {
+            const ins = await poolq.query(
+                `INSERT INTO ${schema}.kanban_${sector} (id, etapa, pos, color) VALUES (gen_random_uuid(), $1, $2, $3) RETURNING id`,
+                [nome, i, cor]
+            );
+            stageIds[nome] = ins.rows[0].id;
+        }
+    }
+
+    // 2) Leads
+    let imported = 0, skipped = 0;
+    for (const lead of (leads || [])) {
+        try {
+            const phone = (lead.phone || '').replace(/\D/g, '') || null;
+            const stageId = stageIds[lead.stage] || null;
+
+            if (phone) {
+                await poolq.query(
+                    `INSERT INTO ${schema}.contacts (number, contact_name) VALUES ($1, $2)
+                     ON CONFLICT (number) DO UPDATE SET contact_name = COALESCE(NULLIF(EXCLUDED.contact_name, ''), ${schema}.contacts.contact_name)`,
+                    [phone, lead.contact_name || lead.title || '']
+                );
+                if (stageId) {
+                    await poolq.query(`DELETE FROM ${schema}.contacts_stage WHERE contact_number = $1`, [phone]);
+                    await poolq.query(
+                        `INSERT INTO ${schema}.contacts_stage (contact_number, stage) VALUES ($1, $2)
+                         ON CONFLICT DO NOTHING`, [phone, stageId]
+                    );
+                }
+            }
+
+            // idempotência: não duplica oportunidade com mesmo título+contato
+            const dup = await poolq.query(
+                `SELECT 1 FROM ${schema}.opportunities WHERE title = $1 AND contact_number IS NOT DISTINCT FROM $2 LIMIT 1`,
+                [lead.title || lead.contact_name || phone || 'Lead', phone]
+            );
+            if (dup.rows[0]) { skipped++; continue; }
+
+            await poolq.query(
+                `INSERT INTO ${schema}.opportunities
+                    (contact_number, funnel, stage_id, title, source, value, status, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, COALESCE($6, 0), COALESCE($7, 'open'),
+                         COALESCE($8::timestamp, now()), COALESCE($9::timestamp, now()))`,
+                [phone, sector, stageId, lead.title || lead.contact_name || phone || 'Lead',
+                 lead.source || null, lead.value, lead.status, lead.created_at || null, lead.updated_at || null]
+            );
+            imported++;
+        } catch (e) {
+            skipped++;
+        }
+    }
+    return { imported, skipped, stages: Object.keys(stageIds).length };
+};
+
 module.exports = {
+    importLeads,
     createOpportunity,
     getOpportunitiesByFunnel,
     getOpportunitiesByStage,

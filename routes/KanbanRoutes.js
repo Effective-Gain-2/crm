@@ -1,5 +1,5 @@
 const express = require('express');
-const { createKanbanStageController, createMessageForBlastController, getFunisController, getKanbanStagesController, getChatsInKanbanController, changeKanbanStageController, updateStageNameController, createFunilController, deleteEtapaController, getCustomFieldsController, transferAllChatsToStage, deleteFunilController, getContactsInKanbanStageController, transferAllContactsToStage, changeKanbanPreferenceController, getKanbanPreferenceController } = require('../controllers/KanbanController');
+const { changeContactFunnelController, createKanbanStageController, createMessageForBlastController, getFunisController, getKanbanStagesController, getChatsInKanbanController, changeKanbanStageController, updateStageNameController, createFunilController, deleteEtapaController, getCustomFieldsController, transferAllChatsToStage, deleteFunilController, getContactsInKanbanStageController, transferAllContactsToStage, changeKanbanPreferenceController, getKanbanPreferenceController } = require('../controllers/KanbanController');
 const router = express.Router();
 
 router.post('/create-kanban', createKanbanStageController);
@@ -9,6 +9,7 @@ router.get('/get-stages/:funil/:schema', getKanbanStagesController)
 router.get('/get-cards/:sector/:schema', getChatsInKanbanController)
 router.get('/get-custom-fields/:schema', getCustomFieldsController)
 router.put('/change-stage', changeKanbanStageController)
+router.put('/change-funil', changeContactFunnelController)
 router.put('/update-stage-name', updateStageNameController)
 router.put('/transfer-all-chats', transferAllChatsToStage)
 router.put('/transfer-all-contacts', transferAllContactsToStage);

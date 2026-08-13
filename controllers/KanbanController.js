@@ -1,5 +1,4 @@
 const e = require("express");
-const SocketServer = require("../server");
 const { createKanbanStage, getFunis, getKanbanStages, getChatsInKanban, changeKanbanStage, updateStageName, updateStageIndex, createFunil, deleteEtapa, getCustomFields, getChatsInKanbanStage, deleteFunil, getContactsInKanbanStage } = require("../services/KanbanService");
 const { createMessageForBlast } = require("../services/MessageBlast");
 const { changeKanbanPreference, getKanbanPreference } = require("../services/ContactService");
@@ -21,7 +20,7 @@ const createMessageForBlastController = async (req, res) => {
     try {
         const { messageValue, sector, campaingId } = req.body;
         const schema = req.body.schema || 'effective_gain';
-        const result = await createMessageForBlast(messageValue, sector, campaingId, schema);
+        const result = await createMessageForBlast(null, messageValue, sector, campaingId, schema, null);
         
         res.status(201).json(result);
     } catch (err) {
@@ -101,7 +100,10 @@ const updateStageNameController = async (req, res) => {
     } catch (error) {
         console.error(error)
     }finally{
-        updateStageIndex(etapa_id, index, sector, schema)
+        // Só atualiza pos quando informado (antes: rename inline zerava a ordenação)
+        if (index !== undefined && index !== null) {
+            await updateStageIndex(etapa_id, index, sector, schema)
+        }
     }
 }
 const createFunilController = async (req, res) => {
@@ -150,6 +152,21 @@ const deleteEtapaController = async (req, res) => {
 
     } catch (error) {
         console.error(error)
+    }
+}
+const changeContactFunnelController = async (req, res) => {
+    try {
+        const { contact_number, to_sector, to_stage_id } = req.body;
+        const schema = req.auth.schema;
+        if (!contact_number || !to_sector) {
+            return res.status(400).json({ error: 'contact_number e to_sector são obrigatórios' });
+        }
+        const { changeContactFunnel } = require('../services/KanbanService');
+        const result = await changeContactFunnel(contact_number, to_sector, to_stage_id, schema);
+        res.status(200).json({ success: true, result });
+    } catch (error) {
+        console.error('Erro ao mover contato de funil:', error.message);
+        res.status(400).json({ error: error.message });
     }
 }
 const getCustomFieldsController = async (req, res) => {
@@ -227,6 +244,7 @@ const getKanbanPreferenceController = async (req, res) => {
     }
 };
 module.exports = {
+    changeContactFunnelController,
     createKanbanStageController,
     createMessageForBlastController,
     getFunisController,

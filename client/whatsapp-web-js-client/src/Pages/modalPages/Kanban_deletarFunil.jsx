@@ -42,8 +42,9 @@ function KanbanDeletarFunilModal({ show, onHide, funil, theme }) {
 
   const handleDelete = async () => {
     if (!canDelete) return;
-    
-    if (isAdmin && !password) {
+
+    // Senha da conta é SEMPRE exigida (o servidor valida papel via token)
+    if (!password) {
       setShowError(true);
       return;
     }
@@ -52,9 +53,7 @@ function KanbanDeletarFunilModal({ show, onHide, funil, theme }) {
     try {
       const response = await axios.delete(`${url}/kanban/delete-funil/${funil}/${schema}`, {
         data: {
-          password: isAdmin ? password : null,
-          userRole: userData?.role,
-          email: userData.email
+          password
         },
         headers: {
           'user-data': JSON.stringify({

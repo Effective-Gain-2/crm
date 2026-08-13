@@ -10,6 +10,7 @@ import axios from 'axios';
 import { socket } from '../socket';
 import ChatPage from './Chats';
 import ImportarContatosModal from './modalPages/Kanban_importarContatos';
+import LembreteRapido from './modalPages/LembreteRapido';
 import { Menu } from '@headlessui/react';
 import useUserPreferences from '../hooks/useUserPreferences';
 
@@ -404,10 +405,13 @@ function KanbanPage({ theme }) {
           ) }
         : f
     ));
+    const etapaAtual = etapas.find(e => e.id === editingEtapaId);
     const response = await axios.put(`${url}/kanban/update-stage-name`,{
       etapa_id:editingEtapaId,
       etapa_nome:editingEtapaNome,
       sector: funilSelecionado,
+      index: etapaAtual?.pos ?? etapas.findIndex(e => e.id === editingEtapaId),
+      color: etapaAtual?.color,
       schema: schema
     },
         {
@@ -424,6 +428,7 @@ function KanbanPage({ theme }) {
     setEditingEtapaId(null);
     setEditingEtapaNome('');
   };
+  const [lembreteAlvo, setLembreteAlvo] = useState(null);
   const [showExcluirEtapaModal, setShowExcluirEtapaModal] = useState(false);
   const [etapaParaExcluir, setEtapaParaExcluir] = useState(null);
 
@@ -433,11 +438,8 @@ function KanbanPage({ theme }) {
   };
 
   const handleConfirmarExcluirEtapa = () => {
-    setFunis(funis => funis.map(f =>
-      f.id === funilSelecionado
-        ? { ...f, etapas: f.etapas.filter(e => e.id !== etapaParaExcluir.id) }
-        : f
-    ));
+    // A exclusão real acontece no modal (API); aqui só sincroniza a tela
+    setEtapas(prev => prev.filter(e => e.id !== etapaParaExcluir?.id));
     setShowExcluirEtapaModal(false);
     setEtapaParaExcluir(null);
   };
@@ -913,6 +915,13 @@ useEffect(() => {
                           <div className="d-flex justify-content-between align-items-center mb-2">
                             <span className={`fw-bold header-text-${theme} me-1`} style={{ fontSize: '0.8rem' }}>{lead.contact_name}</span>
                             <div className="d-flex gap-1">
+                              <button
+                                className="btn btn-sm p-0 px-1"
+                                title="Criar lembrete de retorno"
+                                onClick={(e) => { e.stopPropagation(); setLembreteAlvo(lead); }}
+                              >
+                                <i className={`bi bi-bell header-text-${theme}`} style={{ fontSize: '0.8rem' }}></i>
+                              </button>
                               {/* Dropdown de gerenciamento de tags */}
                               {/* <DropdownButton icon="tags" theme={theme}>
                                 <div>
@@ -1000,14 +1009,14 @@ useEffect(() => {
                                           onClick={async () => {
                                             try {
                                               await axios.put(`${url}/kanban/change-funil`, {
-                                                chat_id: lead.id,
-                                                funil: funil,
+                                                contact_number: lead.number,
+                                                to_sector: funil,
                                                 schema
                                               },
         {
       withCredentials: true
     });
-                                              setCards(cards => cards.filter(c => c.id !== lead.id));
+                                              setCards(cards => cards.filter(c => c.number !== lead.number));
                                               socketInstance.emit('leadMoved', {
                                                 chat_id: lead.id,
                                                 funil: funil,
@@ -1086,6 +1095,15 @@ useEffect(() => {
         funil={funilSelecionado}
         theme={theme}
       />
+      {lembreteAlvo && (
+        <LembreteRapido
+          theme={theme}
+          show={!!lembreteAlvo}
+          onHide={() => setLembreteAlvo(null)}
+          contactNumber={lembreteAlvo.number}
+          contactName={lembreteAlvo.contact_name}
+        />
+      )}
       <ImportarContatosModal
         theme={theme}
         show={showImportarContatosModal}

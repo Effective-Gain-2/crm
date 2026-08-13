@@ -1,8 +1,5 @@
 const pool = require("../db/queries");
 const { v4: uuidv4 } = require("uuid");
-const { get } = require("../routes/ConnectionRoutes");
-const SocketServer = require("../server");
-const { getContactByNumber } = require("./ContactService");
 
 const createKanbanStage = async (name, pos, color, sector, schema) => {
   const stageExists = await pool.query(
@@ -132,7 +129,7 @@ const getContactsInKanbanStage = async (stage, schema) => {
 
 const getKanbanStages = async(funil, schema)=>{
   const stages = await pool.query(
-    `SELECT * FROM ${schema}.kanban_${funil} `  
+    `SELECT * FROM ${schema}.kanban_${funil} ORDER BY pos ASC NULLS LAST, etapa ASC`  
   )
   return stages.rows
 }
@@ -143,7 +140,7 @@ const getFunis = async (schema) => {
       `SELECT tablename FROM pg_tables WHERE schemaname=$1 and tablename LIKE 'kanban_%'`,[schema]
     )
     const funis = kanbans.rows.map(item => {
-    return item.tablename.split('_')[1]; 
+    return item.tablename.replace(/^kanban_/, ''); 
     });
     return {
       name: funis
@@ -236,6 +233,33 @@ const deleteEtapa = async (etapa_id, sector, schema) => {
   await pool.query(`DELETE FROM ${schema}.contacts_stage WHERE stage = $1`, [etapa_id]).catch(() => {});
   await pool.query(`UPDATE ${schema}.opportunities SET stage_id = NULL WHERE stage_id = $1`, [etapa_id]).catch(() => {});
 }
+// Move um CONTATO para outro funil (primeira etapa por padrão)
+const changeContactFunnel = async (contact_number, to_sector, to_stage_id, schema) => {
+  // etapa destino: informada ou primeira do funil de destino
+  let target = to_stage_id;
+  if (!target) {
+    const first = await pool.query(
+      `SELECT id FROM ${schema}.kanban_${to_sector} ORDER BY pos ASC NULLS LAST LIMIT 1`
+    );
+    if (!first.rows[0]) throw new Error('Funil de destino sem etapas');
+    target = first.rows[0].id;
+  }
+  // remove o contato de qualquer etapa atual e insere na nova
+  await pool.query(`DELETE FROM ${schema}.contacts_stage WHERE contact_number = $1`, [contact_number]);
+  await pool.query(
+    `INSERT INTO ${schema}.contacts_stage (contact_number, stage) VALUES ($1, $2)
+     ON CONFLICT (contact_number, stage) DO NOTHING`,
+    [contact_number, target]
+  );
+  // sincroniza oportunidade aberta do contato
+  await pool.query(
+    `UPDATE ${schema}.opportunities SET funnel = lower($1), stage_id = $2, updated_at = now()
+      WHERE contact_number = $3 AND status = 'open'`,
+    [to_sector, target, contact_number]
+  ).catch(() => {});
+  return { contact_number, stage: target };
+};
+
 const getCustomFields = async (schema) => {
   const result = await pool.query(
     `SELECT * FROM ${schema}.custom_fields`
@@ -244,6 +268,7 @@ const getCustomFields = async (schema) => {
 }
 
 module.exports = {
+  changeContactFunnel,
   createKanbanStage,
   insertInKanbanStage,
   getChatsInKanbanStage,

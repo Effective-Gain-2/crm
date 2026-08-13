@@ -1,93 +1,76 @@
-# EG CRM — Runbook de subida + link com Evolution API
+# EG CRM — Runbook de operação (v2 — identidade global + multi-empresa)
 
-Domínios (Easypanel projeto `eg-os`):
-- Frontend: `https://crm.effectivegain.com`        (crm-frontend, porta 3000)
-- API:      `https://crm-api.effectivegain.com`    (crm-backend, porta 3002)
-- Socket:   `https://crm-socket.effectivegain.com` (crm-backend, porta 3333)
+Servidor: Easypanel projeto `eg-os` em `31.97.172.123` (painel.effectivegain.com)
+Serviços: `crm-backend` (3002 API + 3333 socket) · `crm-frontend` (3000) · `crm-db` (Postgres 16) · `crm-redis`
+Evolution: projeto `evotest` → `https://evo.effectivegain.com` (v2.3.2)
 
-Infra já provisionada: `crm-db` (Postgres 16), `crm-redis`, `crm-backend`, `crm-frontend`.
+## Domínios
+- Oficial (requer DNS → 31.97.172.123): `crm.effectivegain.com`, `crm-api.effectivegain.com`, `crm-socket.effectivegain.com`
+- Preview (sempre funciona): `https://eg-os-crm-frontend.cownkm.easypanel.host` (front) e `https://eg-os-crm-backend.cownkm.easypanel.host` (API+socket)
+- O cookie de sessão se adapta ao domínio automaticamente (COOKIE_DOMAIN só é usado em *.effectivegain.com).
 
----
+## Identidade e papéis (v2)
+- Conta única global (`effective_gain.user_accounts`) + acesso por empresa (`user_companies`) com papel POR empresa.
+- Papéis: `tecnico` (plataforma, todas as empresas), `master` (tudo da empresa), `lider` (filas que lidera — `queues.superuser`), `operacional` (próprios atendimentos).
+- Login em 2 etapas quando a conta tem 2+ empresas (ou técnico): seletor de empresa.
+- Troca de empresa: menu do topo (ou tela /schemas para técnico) — emite novo token no servidor.
 
-## Como o CRM se conecta ao Evolution (arquitetura)
+## Variáveis de ambiente (crm-backend)
+| Var | Valor |
+|---|---|
+| postgres_* / REDIS_* | hosts internos (eg-os_crm-db / eg-os_crm-redis) |
+| JWT_SECRET | obrigatório |
+| JWT_REFRESH_SECRET | recomendado (default: JWT_SECRET + '.refresh') |
+| SESSION_SECRET | recomendado |
+| NODE_ENV / COOKIE_DOMAIN | production / .effectivegain.com |
+| BACKEND_URL | URL pública da API (webhook Evolution aponta pra cá) |
+| EVOLUTION_SERVER_URL | https://evo.effectivegain.com (sem barra final) |
+| EVOLUTION_API_KEY | AUTHENTICATION_API_KEY do serviço evotest/evolution-api |
+| OPENAI_KEY | opcional — fallback global (cada empresa configura a própria na tela do Agente) |
+| RECAPTCHA_SECRET | opcional — ativa validação server-side |
+| META_* | opcional — fallback legado (cada empresa configura na tela do Agente) |
 
-O **CRM provisiona a instância no Evolution sozinho**. Não é preciso criar instância nem
-webhook manualmente no Evolution. Fluxo:
+Frontend (build-time): `REACT_APP_URL`, `REACT_APP_SOCKET_URL`, `REACT_APP_RECAPTCHA_SITE_KEY`.
 
-1. Usuário abre o CRM → menu Conexões/WhatsApp → "Nova conexão" (informa nome + número).
-2. Frontend chama `POST /evo/instance` no backend.
-3. Backend chama `POST {EVOLUTION_SERVER_URL}/instance/create` com:
-   - `integration: WHATSAPP-BAILEYS`, `qrcode: true`, `groupsIgnore: true`
-   - `webhook.url = {BACKEND_URL}/webhook/chat`, `events: [MESSAGES_UPSERT]`, `base64: true`
-4. Evolution devolve o QR code → usuário escaneia no WhatsApp.
-5. Mensagens recebidas → Evolution faz `POST {BACKEND_URL}/webhook/chat` → CRM grava e emite no socket.
-6. Envio de mensagem/mídia/áudio → CRM chama `{EVOLUTION_SERVER_URL}/message/sendText|sendMedia|sendWhatsAppAudio/{instanceId}`.
+## Migrações / bootstrap (console do crm-backend)
+```bash
+node scripts/migrate_all.js                 # shape completo em todos os tenants (idempotente)
+node scripts/migrate_identity.js            # usuários por-schema → contas globais (idempotente)
+# técnico da plataforma (senha via env do comando):
+ADMIN_EMAIL='info@effectivegain.com' ADMIN_PW='<senha>' node scripts/bootstrap_tecnico.js
+# usuários de teste p/ simulação:
+TARGET_SCHEMA=<schema> TEC_PW=... MASTER_PW=... LIDER_PW=... OPER_PW=... node scripts/bootstrap_test_users.js
+```
 
-**Requisitos para o link funcionar:**
-- Evolution API **v2** (formato do payload acima é v2).
-- `EVOLUTION_SERVER_URL` = URL base do Evolution, **sem barra no final** (ex.: `https://evolution.effectivegain.com`).
-- `EVOLUTION_API_KEY` = a **global apikey** do servidor Evolution (env `AUTHENTICATION_API_KEY` no Evolution).
-- `BACKEND_URL` = `https://crm-api.effectivegain.com` — precisa estar **público e no ar** e alcançável
-  pelo servidor Evolution ANTES de criar a primeira instância (é para lá que o webhook aponta).
+## WhatsApp (Evolution v2)
+1. Login como master/técnico → botão WhatsApp → Nova Conexão (nome + número 12-13 dígitos).
+2. Instância criada como `<schema>__<nome>` (única globalmente; webhook resolve a empresa em O(1)).
+3. QR na tela; badge muda para **Conectado** em tempo real (evento CONNECTION_UPDATE). Botão "QR expirou?" renova sem recriar.
+4. Eventos assinados: MESSAGES_UPSERT + CONNECTION_UPDATE + QRCODE_UPDATED. Webhook valida header `authorization` = EVOLUTION_API_KEY.
 
----
+## Distribuição automática de leads
+- Fila com `distribution = true` → mensagens novas são atribuídas round-robin **apenas entre membros ONLINE** da fila (operacional/líder). Sem ninguém online → chat vai para Espera; botão "Redistribuir" na tela de Chats.
 
-## Passo a passo
+## Chaves de API por cliente (custo por empresa)
+- Tela Agente de IA → "Chave de API OpenAI (desta empresa)" (write-only) + uso do mês (respostas/tokens).
+- Meta Lead Ads por empresa: callback `https://<api>/meta-leads/<schema>` + chaves na mesma tela (meta_*).
 
-### 1. Preencher secrets no crm-backend (Easypanel → crm-backend → Environment)
-Obrigatórios para WhatsApp:
-- `EVOLUTION_SERVER_URL` = URL base do seu Evolution (sem barra no final)
-- `EVOLUTION_API_KEY`   = global apikey do Evolution
-- `BACKEND_URL`         = `https://crm-api.effectivegain.com`  (já setado — confirmar)
+## Import de histórico (leads de outra plataforma)
+`POST /opportunity/import` (master/técnico) `{ funnel, stages: [{name,color}...], leads: [{title, contact_name, phone, stage, value, source, status, created_at}] }` — idempotente; cria funil/etapas/contatos/etapas do contato/oportunidades.
 
-Opcionais (recursos que só ligam quando preenchidos — NÃO travam o core):
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (login Google + Google Calendar)
-- `OPENAI_KEY` (recursos de IA)
+## Lembretes de retorno
+- Botão 🔔 no card do Kanban, no card de Oportunidade e no menu lateral do Chat — lembrete vinculado ao contato.
+- No horário: toast persistente + som + "Abrir conversa" / "Concluir" / "+30 min". Recorrência diária/semanal/mensal.
+- Jobs re-hidratados do banco no boot (Redis volátil não perde lembretes).
 
-Frontend (Easypanel → crm-frontend → Build/Environment), opcional:
-- `REACT_APP_RECAPTCHA_SITE_KEY` (só se o login usar reCAPTCHA)
+## Deploy
+Push na `main` → gatilhos:
+- backend: `http://31.97.172.123:3000/api/deploy/6b4ea8a13e62dbfd773660d50cd6855dcc88bb968ecafc1b`
+- frontend: `http://31.97.172.123:3000/api/deploy/e1f3c4f141dc619bea2f86462dadcdd52e1013cc9cbe2957`
 
-### 2. Deploy do backend
-- Confirmar env de banco/redis apontando para os hosts internos (`eg-os_crm-db`, `eg-os_crm-redis`).
-- Clicar **Implantar** no `crm-backend`.
-- Validar log: deve aparecer `Servidor rodando na porta 3002 🚀`, `Socket rodando na porta 3333`
-  e `PostgreSQL conectado com sucesso`.
-- Testar: `GET https://crm-api.effectivegain.com/company/companies` deve responder (JSON, mesmo que vazio/erro de auth — o importante é responder).
-
-### 3. Deploy do frontend
-- Garantir install `npm install --legacy-peer-deps` e build `npm run build`.
-- Env de BUILD já apontando para `crm-api` e `crm-socket`.
-- Clicar **Implantar** no `crm-frontend`.
-- Abrir `https://crm.effectivegain.com` → tela de login deve carregar sem erro de CORS no console.
-
-### 4. Bootstrap do tenant-mestre (`effective_gain`) — FAZER UMA VEZ
-⚠️ A primeira empresa PRECISA ter schema `effective_gain` (há FK hardcoded `effective_gain.users`).
-- Criar via endpoint `POST https://crm-api.effectivegain.com/company/company`
-  com o payload de empresa + super-admin e `schema: "effective_gain"`.
-  (Confirmar o formato exato do body em `controllers/CompanyController.js` antes de enviar.)
-- Isso cria o schema `effective_gain` + todas as tabelas + o usuário super-admin.
-- Se o login falhar por senha em texto puro, rodar uma vez dentro do container do backend:
-  `node hashPasswords.js effective_gain`
-
-### 5. Conectar o WhatsApp (o "link" com o Evolution)
-- Logar no CRM (`crm.effectivegain.com`) com o super-admin.
-- Menu **Conexões / WhatsApp** → **Nova conexão** → informar nome da instância + número.
-- O CRM cria a instância no Evolution e mostra o **QR code**.
-- Escanear com o WhatsApp do número → status muda para conectado.
-- Enviar uma mensagem de teste para o número → ela deve aparecer no CRM (prova de que o
-  webhook `MESSAGES_UPSERT` está chegando em `/webhook/chat`).
-
----
-
-## Pendências de código (precisam de commit + push na branch main p/ Easypanel rebuildar)
-1. **CORS** — ✅ já corrigido localmente (adicionado `https://crm.effectivegain.com` em 3 listas do `index.js`).
-   Falta `commit + push` para o Easypanel pegar no próximo deploy.
-2. **Google OAuth redirect** — `index.js` linhas ~45 e ~60 usam `http://localhost:3002/auth/redirect`
-   e `/auth/google` fixos. Só afeta login Google/Calendar; trocar para o domínio do backend quando for usar.
-
-## Troubleshooting rápido
-- **CORS bloqueado no browser** → domínio do front não está na allowlist do `index.js` (rebuild após push).
-- **QR não aparece / erro ao criar instância** → `EVOLUTION_SERVER_URL`/`EVOLUTION_API_KEY` errados ou Evolution v1.
-- **Mensagens não chegam no CRM** → `BACKEND_URL` não público ou Evolution não alcança `/webhook/chat`.
-- **App cai ao criar empresa** → primeiro schema não é `effective_gain` (FK hardcoded).
-- **Login falha** → senha em texto puro: `node hashPasswords.js <schema>`.
+## Troubleshooting
+- 401 em tudo → cookie de sessão ausente/expirado (relogar); ver COOKIE_DOMAIN vs domínio usado.
+- Socket desconectado (sem realtime) → sessão expirada; o handshake exige JWT.
+- QR não aparece → EVOLUTION_* vazios ou BACKEND_URL vazio (o create agora recusa e explica).
+- Mensagens não chegam → conferir webhook na Evolution e header authorization.
+- "Schema não permitido" → empresa não registrada em effective_gain.companies.

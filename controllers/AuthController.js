@@ -18,14 +18,21 @@ const PREAUTH_TTL = '5m';
 
 const isProd = () => process.env.NODE_ENV === 'production';
 
-const cookieOpts = (maxAgeMs) => ({
-    maxAge: maxAgeMs,
-    httpOnly: true,
-    secure: isProd(),
-    sameSite: isProd() ? 'none' : 'strict',
-    path: '/',
-    domain: isProd() ? process.env.COOKIE_DOMAIN : undefined,
-});
+// COOKIE_DOMAIN (.effectivegain.com) so vale quando o front esta no dominio oficial.
+// Em dominios de preview (*.easypanel.host) o navegador REJEITARIA o cookie com domain
+// de outro site — entao omitimos o domain (cookie host-only) e o login funciona.
+const cookieOpts = (req, maxAgeMs) => {
+    const origin = req.headers?.origin || '';
+    const useDomain = isProd() && process.env.COOKIE_DOMAIN && origin.includes('effectivegain.com');
+    return {
+        maxAge: maxAgeMs,
+        httpOnly: true,
+        secure: isProd(),
+        sameSite: isProd() ? 'none' : 'strict',
+        path: '/',
+        domain: useDomain ? process.env.COOKIE_DOMAIN : undefined,
+    };
+};
 
 const sessionPayload = (account, session) => ({
     account_id: account.id,
@@ -36,12 +43,12 @@ const sessionPayload = (account, session) => ({
     is_tecnico: !!account.is_tecnico,
 });
 
-const issueSession = (res, account, session) => {
+const issueSession = (req, res, account, session) => {
     const payload = sessionPayload(account, session);
     const token = jwt.sign({ ...payload, typ: 'access' }, ACCESS_SECRET(), { expiresIn: ACCESS_TTL });
     const refreshToken = jwt.sign({ ...payload, typ: 'refresh' }, REFRESH_SECRET(), { expiresIn: REFRESH_TTL });
-    res.cookie('token', token, cookieOpts(15 * 60 * 1000));
-    res.cookie('refreshToken', refreshToken, cookieOpts(7 * 24 * 60 * 60 * 1000));
+    res.cookie('token', token, cookieOpts(req, 15 * 60 * 1000));
+    res.cookie('refreshToken', refreshToken, cookieOpts(req, 7 * 24 * 60 * 60 * 1000));
     res.clearCookie('preAuthToken', { path: '/' });
 };
 
@@ -129,7 +136,7 @@ const loginController = async (req, res) => {
         // Técnico ou multi-empresa → etapa de seleção
         if (account.is_tecnico || companies.length > 1) {
             const preAuth = jwt.sign({ account_id: account.id, typ: 'preauth' }, ACCESS_SECRET(), { expiresIn: PREAUTH_TTL });
-            res.cookie('preAuthToken', preAuth, cookieOpts(5 * 60 * 1000));
+            res.cookie('preAuthToken', preAuth, cookieOpts(req, 5 * 60 * 1000));
             return res.status(200).json({
                 success: true,
                 needsSelection: true,
@@ -142,7 +149,7 @@ const loginController = async (req, res) => {
         const session = await resolveCompanySession(account, only.id);
         if (!session) return res.status(403).json({ success: false, error: 'Acesso à empresa indisponível' });
 
-        issueSession(res, account, session);
+        issueSession(req, res, account, session);
         changeOnline(session.local_user_id, session.schema);
         return res.status(200).json({
             success: true,
@@ -187,7 +194,7 @@ const selectCompanyController = async (req, res) => {
         const session = await resolveCompanySession(account, company_id);
         if (!session) return res.status(403).json({ success: false, error: 'Sem acesso a esta empresa' });
 
-        issueSession(res, account, session);
+        issueSession(req, res, account, session);
         changeOnline(session.local_user_id, session.schema);
         return res.status(200).json({
             success: true,
@@ -222,7 +229,7 @@ const refreshTokenController = async (req, res) => {
         const session = await resolveCompanySession(account, decoded.company_id);
         if (!session) return res.status(403).json({ success: false, error: 'Acesso revogado' });
 
-        issueSession(res, account, session);
+        issueSession(req, res, account, session);
         return res.status(200).json({ success: true });
     } catch (error) {
         console.error('Erro no refresh:', error);

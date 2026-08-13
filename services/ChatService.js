@@ -284,10 +284,15 @@ const setUserChat = async (chatId, schema) => {
       [chatId]
     );
     const queueId = chatDb.rows[0].queue_id;
+    // Chat sem fila não tem distribuição — vai para a espera
+    if (!queueId) {
+      await putChatInWaiting(chatId, schema);
+      return;
+    }
     const isDistributionOn = await pool.query(
       `SELECT * FROM ${schema}.queues WHERE id=$1 `, [queueId]
     )
-    if (isDistributionOn.rows[0].distribution === true) {
+    if (isDistributionOn.rows[0]?.distribution === true) {
       const onlineUsers = await getOnlineUsers(schema);
       if(onlineUsers.length === 0) {
         await putChatInWaiting(chatId, schema);
@@ -298,8 +303,10 @@ const setUserChat = async (chatId, schema) => {
         [queueId]
       );
       const userIdsInQueue = queueUsersQuery.rows.map(row => row.user_id);
+      // Atendentes elegíveis: operacional e líder (legado 'user') — ONLINE e membros da fila
+      const ATENDE = new Set(['user', 'operacional', 'lider']);
       const eligibleUsers = onlineUsers.filter(user =>
-        user.permission === 'user' && userIdsInQueue.includes(user.id)
+        ATENDE.has((user.permission || '').toLowerCase()) && userIdsInQueue.includes(user.id)
       );
       if (eligibleUsers.length === 0){
         await putChatInWaiting(chatId, schema);
@@ -626,8 +633,17 @@ const scheduleMessage = async (chat_id, connection, message, contact_phone, time
     const chat = await getChatById(chat_id, connection.id, schema)
 
     const messageDB = new Message(uuid4(), message, true, chat_id, timestamp )
+    const rowId = uuid4();
 
+    // 1º PERSISTE (se falhar, nada é enfileirado e o erro sobe até o usuário)
+    const result = await pool.query(`
+      INSERT INTO ${schema}.scheduled_message(id, message, chat_id, scheduled_date, bull_job_id) VALUES ($1, $2, $3, $4, $5) RETURNING *
+      `, [rowId, message, chat_id, timestamp, null]
+    )
+
+    // 2º ENFILEIRA com o id da linha (o worker precisa dele p/ limpar após o envio)
     const job = await messageQueue.add('sendMessage',{
+      id: rowId,
       instance: connection.name,
       chat_id: chat_id,
       message: message,
@@ -636,10 +652,7 @@ const scheduleMessage = async (chat_id, connection, message, contact_phone, time
       schema:schema
     }, {delay: delay});
 
-    const result = await pool.query(`
-      INSERT INTO ${schema}.scheduled_message(id, message, chat_id, scheduled_date, bull_job_id) VALUES ($1, $2, $3, $4, $5) RETURNING *
-      `, [uuid4(), message, chat_id, timestamp, job.id]
-    )
+    await pool.query(`UPDATE ${schema}.scheduled_message SET bull_job_id=$1 WHERE id=$2`, [String(job.id), rowId]);
 
     await createLembrete(
       `Mensagem agendada para ${chat.contact_name}`,
@@ -650,12 +663,12 @@ const scheduleMessage = async (chat_id, connection, message, contact_phone, time
       chat.assigned_user || user,
       schema,
     )
-    
-    
+
     return result.rows[0]
 
   }catch(error){
-    console.error(error)
+    console.error('Erro ao agendar mensagem:', error)
+    throw error   // o controller responde erro real (antes: "sucesso" sem persistir)
   }
 }
 

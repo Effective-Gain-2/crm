@@ -1,17 +1,74 @@
-const { createLembrete, getLembretes, updateLembretes, deleteLembrete } = require("../services/LembreteService")
+const { createLembrete, getLembretes, updateLembretes, deleteLembrete, setLembreteStatus, snoozeLembrete, getLembretesByContact, getLembretesByOpportunity } = require("../services/LembreteService")
 const { getPreferencesByUser } = require('../services/UserPreferencesService');
 const { google } = require('googleapis');
 
 const createLembreteController = async (req, res) => {
-    const {lembrete_name, tag, message, date, icone, user_id, schema, filas} = req.body
-
+    const {lembrete_name, tag, message, date, icone, filas, contact_number, chat_id, opportunity_id, recurrence} = req.body
+    const schema = req.auth.schema;
+    // Alvo do lembrete: operacional só cria para si; líder para a equipe; master/técnico livre
+    let user_id = req.body.user_id || req.auth.local_user_id;
     try {
-        const result = await createLembrete(lembrete_name, tag, message, date, icone, user_id, schema, filas)
+        if (user_id !== req.auth.local_user_id) {
+            if (req.auth.role === 'operacional') {
+                user_id = req.auth.local_user_id;
+            } else if (req.auth.role === 'lider') {
+                const { getTeamUserIds } = require('../services/QueueService');
+                const team = await getTeamUserIds(req.auth.local_user_id, schema);
+                if (!team.includes(user_id)) user_id = req.auth.local_user_id;
+            }
+        }
+        const result = await createLembrete(lembrete_name, tag, message, date, icone, user_id, schema, filas, null,
+            { contact_number, chat_id, opportunity_id, recurrence })
         res.status(201).json(result);
 
     } catch (error) {
         console.error(error)
         res.status(500).json({ error: 'Erro ao criar lembrete' });
+    }
+}
+
+const setLembreteStatusController = async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    try {
+        if (!['done', 'pending'].includes(status)) return res.status(400).json({ error: 'status inválido' });
+        const result = await setLembreteStatus(id, status, req.auth.schema);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ error: 'Erro ao atualizar status do lembrete' });
+    }
+}
+
+const snoozeLembreteController = async (req, res) => {
+    const { id } = req.params;
+    const { minutes } = req.body;
+    try {
+        const result = await snoozeLembrete(id, minutes, req.auth.schema);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ error: 'Erro ao adiar lembrete' });
+    }
+}
+
+const getLembretesByContactController = async (req, res) => {
+    try {
+        const result = await getLembretesByContact(req.params.number, req.auth.schema);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ error: 'Erro ao buscar lembretes do contato' });
+    }
+}
+
+const getLembretesByOpportunityController = async (req, res) => {
+    try {
+        const result = await getLembretesByOpportunity(req.params.id, req.auth.schema);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ error: 'Erro ao buscar lembretes da oportunidade' });
     }
 }
 
@@ -74,6 +131,10 @@ const deleteLembreteController = async (req, res) => {
 }
 
 module.exports = {
+    setLembreteStatusController,
+    snoozeLembreteController,
+    getLembretesByContactController,
+    getLembretesByOpportunityController,
     createLembreteController,
     getLembretesController,
     updateLembretesController,
