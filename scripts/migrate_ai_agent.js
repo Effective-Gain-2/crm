@@ -45,6 +45,17 @@ async function migrate(schema) {
             );
         `);
 
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ${schema}.ai_agent_documents (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            filename TEXT NOT NULL,
+            mime TEXT,
+            content_text TEXT,
+            char_count INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT now()
+            );
+        `);
+
         console.log(`✓ Infra do Agente de IA criada/garantida no schema '${schema}'`);
     } catch (error) {
         console.error('Erro na migração:', error.message);

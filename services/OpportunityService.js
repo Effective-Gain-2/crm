@@ -11,7 +11,12 @@ const createOpportunity = async ({ contact_number, funnel, stage_id, title, sour
          RETURNING *`,
         [id, contact_number || null, funnel, stage_id || null, title || null, source || null, value, owner_id || null]
     );
-    return result.rows[0];
+    const opp = result.rows[0];
+    try {
+        const { recomputeOpportunity } = require('./LeadScoreService');
+        opp.score = await recomputeOpportunity(schema, opp);
+    } catch (e) { /* scoring é opcional */ }
+    return opp;
 };
 
 // Lista oportunidades de um funil, com nome do contato e do proprietário (para o Kanban).
@@ -63,7 +68,12 @@ const moveOpportunityStage = async (id, stage_id, schema) => {
           RETURNING *`,
         [stage_id, id]
     );
-    return result.rows[0];
+    const opp = result.rows[0];
+    try {
+        const { recomputeOpportunity } = require('./LeadScoreService');
+        opp.score = await recomputeOpportunity(schema, opp);
+    } catch (e) { /* scoring é opcional */ }
+    return opp;
 };
 
 // Atualiza campos editáveis da oportunidade (value, source, owner, title, status, stage).
@@ -87,7 +97,12 @@ const updateOpportunity = async (id, fields, schema) => {
           RETURNING *`,
         values
     );
-    return result.rows[0];
+    const opp = result.rows[0];
+    try {
+        const { recomputeOpportunity } = require('./LeadScoreService');
+        opp.score = await recomputeOpportunity(schema, opp);
+    } catch (e) { /* scoring é opcional */ }
+    return opp;
 };
 
 const deleteOpportunity = async (id, schema) => {

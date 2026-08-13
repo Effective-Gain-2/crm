@@ -37,7 +37,22 @@ async function migrate(schema) {
             `CREATE INDEX IF NOT EXISTS idx_${schema}_opp_funnel_stage ON ${schema}.opportunities (funnel, stage_id);`
         );
 
-        console.log(`✓ Tabela opportunities criada/garantida no schema '${schema}'`);
+        // Lead scoring
+        await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS score INTEGER NOT NULL DEFAULT 0;`);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ${schema}.lead_score_rules (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name TEXT NOT NULL,
+            field TEXT NOT NULL,
+            operator TEXT NOT NULL,
+            value TEXT,
+            points INTEGER NOT NULL DEFAULT 0,
+            active BOOLEAN NOT NULL DEFAULT true,
+            created_at TIMESTAMP DEFAULT now()
+            );
+        `);
+
+        console.log(`✓ Tabela opportunities + lead scoring criadas/garantidas no schema '${schema}'`);
     } catch (error) {
         console.error('Erro na migração:', error.message);
     } finally {

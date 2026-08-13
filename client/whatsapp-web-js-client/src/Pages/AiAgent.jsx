@@ -28,6 +28,8 @@ export default function AiAgent({ theme }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
+  const [documents, setDocuments] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   const load = useCallback(() => {
     if (!schema) return;
@@ -41,11 +43,49 @@ export default function AiAgent({ theme }) {
       .finally(() => setLoading(false));
   }, [schema]);
 
+  const loadDocs = useCallback(() => {
+    if (!schema) return;
+    axios
+      .get(`${url}/ai-agent/documents/${schema}`, { withCredentials: true })
+      .then((res) => setDocuments(Array.isArray(res.data?.documents) ? res.data.documents : []))
+      .catch((e) => console.error('Erro ao listar documentos:', e));
+  }, [schema]);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadDocs();
+  }, [load, loadDocs]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const uploadDoc = async (file) => {
+    if (!file || !schema) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('schema', schema);
+      await axios.post(`${url}/ai-agent/documents`, fd, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      loadDocs();
+    } catch (e) {
+      console.error('Erro ao enviar documento:', e);
+      setSavedMsg('Erro ao enviar documento.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const deleteDoc = async (id) => {
+    try {
+      await axios.delete(`${url}/ai-agent/documents/${id}/${schema}`, { withCredentials: true });
+      setDocuments((d) => d.filter((x) => x.id !== id));
+    } catch (e) {
+      console.error('Erro ao excluir documento:', e);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -162,6 +202,53 @@ export default function AiAgent({ theme }) {
             placeholder="Informações do produto/serviço, preços, perguntas frequentes, políticas… O agente responde com base neste conteúdo."
           />
           <small className="text-muted">O agente é instruído a não inventar informações fora desta base.</small>
+        </div>
+
+        {/* Documentos da base de conhecimento */}
+        <div className="col-12">
+          <label className="form-label fw-semibold">Documentos</label>
+          <div className="card">
+            <div className="card-body">
+              <div className="d-flex align-items-center gap-2 mb-3 flex-wrap">
+                <label className="btn btn-outline-primary btn-sm mb-0">
+                  <i className="bi bi-upload me-1"></i>
+                  {uploading ? 'Enviando…' : 'Enviar documento'}
+                  <input
+                    type="file"
+                    hidden
+                    accept=".txt,.md,.csv,.json,.log,.html,.htm,.pdf,.docx"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) uploadDoc(e.target.files[0]);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                <small className="text-muted">PDF, DOCX, TXT, MD, CSV, JSON, HTML (até 15 MB)</small>
+              </div>
+
+              {documents.length === 0 ? (
+                <div className="text-muted small">Nenhum documento. O texto extraído é usado pelo agente nas respostas.</div>
+              ) : (
+                <ul className="list-group list-group-flush">
+                  {documents.map((d) => (
+                    <li key={d.id} className="list-group-item d-flex align-items-center justify-content-between px-0">
+                      <div className="d-flex align-items-center gap-2 text-truncate">
+                        <i className="bi bi-file-earmark-text text-primary"></i>
+                        <span className="text-truncate">{d.filename}</span>
+                        <span className="badge bg-secondary-subtle text-secondary-emphasis">
+                          {(d.char_count || 0).toLocaleString('pt-BR')} chars
+                        </span>
+                      </div>
+                      <button className="btn btn-sm btn-outline-danger" onClick={() => deleteDoc(d.id)} title="Excluir">
+                        <i className="bi bi-trash"></i>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Parâmetros do piloto automático */}

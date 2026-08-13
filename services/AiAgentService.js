@@ -77,15 +77,89 @@ const hibernateOnHumanSend = async (schema, number) => {
     }
 };
 
-const buildSystemPrompt = (config) => {
+const buildSystemPrompt = (config, docsText = '') => {
     const parts = [];
     parts.push(
         `Você é ${config.name || 'um assistente virtual'}${config.business_name ? ` da empresa ${config.business_name}` : ''}.`
     );
     if (config.persona) parts.push(config.persona);
     parts.push('Responda de forma cordial, objetiva e em português brasileiro, no tom de um atendimento por WhatsApp. Não invente informações que não estejam na base de conhecimento; quando não souber, ofereça encaminhar para um atendente humano.');
-    if (config.knowledge_base) parts.push(`\nBase de conhecimento:\n${config.knowledge_base}`);
+    const kb = [config.knowledge_base, docsText].filter(Boolean).join('\n\n');
+    if (kb) parts.push(`\nBase de conhecimento:\n${kb}`);
     return parts.join('\n\n');
+};
+
+// ---- Documentos da base de conhecimento ----
+const KB_MAX_CHARS = 12000;
+
+const extractText = async (buffer, filename, mime) => {
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    const textLike = ['txt', 'md', 'markdown', 'csv', 'json', 'log', 'html', 'htm'];
+    if (textLike.includes(ext) || (mime || '').startsWith('text/')) {
+        let t = buffer.toString('utf8');
+        if (ext === 'html' || ext === 'htm') t = t.replace(/<[^>]+>/g, ' ');
+        return t;
+    }
+    if (ext === 'pdf' || mime === 'application/pdf') {
+        try {
+            const pdfParse = require('pdf-parse');
+            const data = await pdfParse(buffer);
+            return data.text || '';
+        } catch (e) {
+            console.error('AiAgent: falha ao extrair PDF:', e.message);
+            return '';
+        }
+    }
+    if (ext === 'docx') {
+        try {
+            const mammoth = require('mammoth');
+            const res = await mammoth.extractRawText({ buffer });
+            return res.value || '';
+        } catch (e) {
+            console.error('AiAgent: falha ao extrair DOCX (mammoth ausente?):', e.message);
+            return '';
+        }
+    }
+    return '';
+};
+
+const addDocument = async (schema, filename, mime, buffer) => {
+    const content = (await extractText(buffer, filename, mime)) || '';
+    const res = await pool.query(
+        `INSERT INTO ${schema}.ai_agent_documents (filename, mime, content_text, char_count)
+         VALUES ($1, $2, $3, $4) RETURNING id, filename, mime, char_count, created_at`,
+        [filename, mime || null, content, content.length]
+    );
+    return res.rows[0];
+};
+
+const listDocuments = async (schema) => {
+    const res = await pool.query(
+        `SELECT id, filename, mime, char_count, created_at FROM ${schema}.ai_agent_documents ORDER BY created_at DESC`
+    );
+    return res.rows;
+};
+
+const deleteDocument = async (schema, id) => {
+    await pool.query(`DELETE FROM ${schema}.ai_agent_documents WHERE id = $1`, [id]);
+    return { id };
+};
+
+const getDocumentsText = async (schema) => {
+    try {
+        const res = await pool.query(
+            `SELECT filename, content_text FROM ${schema}.ai_agent_documents WHERE content_text IS NOT NULL AND content_text <> '' ORDER BY created_at ASC`
+        );
+        let out = '';
+        for (const row of res.rows) {
+            if (out.length >= KB_MAX_CHARS) break;
+            const chunk = `# ${row.filename}\n${row.content_text}`;
+            out += (out ? '\n\n' : '') + chunk.slice(0, KB_MAX_CHARS - out.length);
+        }
+        return out;
+    } catch (e) {
+        return '';
+    }
 };
 
 // Núcleo: decide e responde a uma mensagem recebida (piloto automático).
@@ -105,7 +179,8 @@ const handleIncoming = async (schema, chat, number, instanceName, userText) => {
 
         if (Number(config.wait_seconds) > 0) await sleep(Number(config.wait_seconds) * 1000);
 
-        const reply = await generateConversationalReply(buildSystemPrompt(config), [], userText);
+        const docsText = await getDocumentsText(schema);
+        const reply = await generateConversationalReply(buildSystemPrompt(config, docsText), [], userText);
         if (!reply) return;
 
         await sendTextMessage(instanceName, reply, contactNumber);
@@ -124,4 +199,8 @@ module.exports = {
     hibernateOnHumanSend,
     handleIncoming,
     buildSystemPrompt,
+    addDocument,
+    listDocuments,
+    deleteDocument,
+    getDocumentsText,
 };

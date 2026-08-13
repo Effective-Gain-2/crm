@@ -8,6 +8,10 @@ const {
     updateOpportunityController,
     deleteOpportunityController,
     getForecastController,
+    listScoreRulesController,
+    createScoreRuleController,
+    deleteScoreRuleController,
+    recomputeScoresController,
 } = require('../controllers/OpportunityController');
 
 const router = express.Router();
@@ -16,6 +20,13 @@ router.post('/create', createOpportunityController);
 router.get('/by-funnel/:funnel/:schema', getOpportunitiesByFunnelController);
 router.get('/by-stage/:stage_id/:schema', getOpportunitiesByStageController);
 router.get('/forecast/:funnel/:schema', getForecastController);
+
+// Lead scoring — ANTES do catch-all /:id/:schema
+router.get('/score-rules/:schema', listScoreRulesController);
+router.post('/score-rules', createScoreRuleController);
+router.delete('/score-rules/:id/:schema', deleteScoreRuleController);
+router.post('/recompute-scores', recomputeScoresController);
+
 router.get('/:id/:schema', getOpportunityByIdController);
 router.put('/move-stage', moveOpportunityStageController);
 router.put('/update', updateOpportunityController);

@@ -1,9 +1,22 @@
 const express = require('express');
-const { getConfigController, updateConfigController } = require('../controllers/AiAgentController');
+const multer = require('multer');
+const {
+    getConfigController,
+    updateConfigController,
+    uploadDocumentController,
+    listDocumentsController,
+    deleteDocumentController,
+} = require('../controllers/AiAgentController');
 
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 const router = express.Router();
 
 router.get('/config/:schema', getConfigController);
 router.put('/config', updateConfigController);
+
+// Base de conhecimento — documentos
+router.post('/documents', upload.single('file'), uploadDocumentController);
+router.get('/documents/:schema', listDocumentsController);
+router.delete('/documents/:id/:schema', deleteDocumentController);
 
 module.exports = router;

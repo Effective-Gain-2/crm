@@ -8,6 +8,12 @@ const {
     deleteOpportunity,
     getForecastByFunnel,
 } = require('../services/OpportunityService');
+const {
+    listRules,
+    createRule,
+    deleteRule,
+    recomputeAll,
+} = require('../services/LeadScoreService');
 
 const createOpportunityController = async (req, res) => {
     try {
@@ -107,6 +113,55 @@ const getForecastController = async (req, res) => {
     }
 };
 
+// ---- Lead scoring ----
+const listScoreRulesController = async (req, res) => {
+    try {
+        const { schema } = req.params;
+        const rules = await listRules(schema);
+        res.status(200).json({ rules });
+    } catch (error) {
+        console.error('Erro ao listar regras de score:', error);
+        res.status(500).json({ error: 'Erro ao listar regras de score' });
+    }
+};
+
+const createScoreRuleController = async (req, res) => {
+    try {
+        const { schema, ...rule } = req.body;
+        if (!schema || !rule.name || !rule.field || !rule.operator) {
+            return res.status(400).json({ error: 'schema, name, field e operator são obrigatórios' });
+        }
+        const created = await createRule(schema, rule);
+        res.status(201).json({ rule: created });
+    } catch (error) {
+        console.error('Erro ao criar regra de score:', error);
+        res.status(500).json({ error: 'Erro ao criar regra de score' });
+    }
+};
+
+const deleteScoreRuleController = async (req, res) => {
+    try {
+        const { id, schema } = req.params;
+        await deleteRule(schema, id);
+        res.status(200).json({ deleted: true, id });
+    } catch (error) {
+        console.error('Erro ao excluir regra de score:', error);
+        res.status(500).json({ error: 'Erro ao excluir regra de score' });
+    }
+};
+
+const recomputeScoresController = async (req, res) => {
+    try {
+        const { schema } = req.body;
+        if (!schema) return res.status(400).json({ error: 'schema é obrigatório' });
+        const result = await recomputeAll(schema);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Erro ao recalcular scores:', error);
+        res.status(500).json({ error: 'Erro ao recalcular scores' });
+    }
+};
+
 module.exports = {
     createOpportunityController,
     getOpportunitiesByFunnelController,
@@ -116,4 +171,8 @@ module.exports = {
     updateOpportunityController,
     deleteOpportunityController,
     getForecastController,
+    listScoreRulesController,
+    createScoreRuleController,
+    deleteScoreRuleController,
+    recomputeScoresController,
 };

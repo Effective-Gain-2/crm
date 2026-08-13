@@ -230,11 +230,25 @@ const createCompany = async (company, schema) => {
             value NUMERIC(12,2) NOT NULL DEFAULT 0,
             owner_id UUID REFERENCES ${schema}.users(id) ON DELETE SET NULL,
             status TEXT NOT NULL DEFAULT 'open',
+            score INTEGER NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT now(),
             updated_at TIMESTAMP DEFAULT now()
             );
         `)
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_${schema}_opp_funnel_stage ON ${schema}.opportunities (funnel, stage_id);`)
+        // Regras de lead scoring (pontuacao por atributo da oportunidade)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ${schema}.lead_score_rules (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name TEXT NOT NULL,
+            field TEXT NOT NULL,
+            operator TEXT NOT NULL,
+            value TEXT,
+            points INTEGER NOT NULL DEFAULT 0,
+            active BOOLEAN NOT NULL DEFAULT true,
+            created_at TIMESTAMP DEFAULT now()
+            );
+        `)
         // Agente de IA (config por tenant — 1 linha "principal")
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.ai_agent_config (
@@ -259,6 +273,17 @@ const createCompany = async (company, schema) => {
             msg_count INTEGER NOT NULL DEFAULT 0,
             hibernate_until TIMESTAMP,
             updated_at TIMESTAMP DEFAULT now()
+            );
+        `)
+        // Documentos da base de conhecimento do agente (texto extraido)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ${schema}.ai_agent_documents (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            filename TEXT NOT NULL,
+            mime TEXT,
+            content_text TEXT,
+            char_count INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT now()
             );
         `)
         await pool.query(`
