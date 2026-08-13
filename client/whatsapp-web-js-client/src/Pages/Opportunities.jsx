@@ -74,7 +74,7 @@ export default function Opportunities({ theme }) {
     fetchOportunidades();
   }, [fetchOportunidades]);
 
-  // Realtime: outra pessoa moveu uma oportunidade
+  // Realtime: mover ou criar (ex.: lead do Meta) uma oportunidade
   useEffect(() => {
     const handleMoved = (data) => {
       if (data.schema !== schema || !data.opportunity) return;
@@ -82,9 +82,20 @@ export default function Opportunities({ theme }) {
         prev.map((o) => (o.id === data.opportunity.id ? { ...o, ...data.opportunity } : o))
       );
     };
+    const handleCreated = (data) => {
+      if (data.schema !== schema || !data.opportunity) return;
+      if (data.opportunity.funnel && data.opportunity.funnel !== funilSelecionado) return;
+      setOportunidades((prev) =>
+        prev.some((o) => o.id === data.opportunity.id) ? prev : [data.opportunity, ...prev]
+      );
+    };
     socketInstance.on('opportunityMoved', handleMoved);
-    return () => socketInstance.off('opportunityMoved', handleMoved);
-  }, [schema, socketInstance]);
+    socketInstance.on('opportunityCreated', handleCreated);
+    return () => {
+      socketInstance.off('opportunityMoved', handleMoved);
+      socketInstance.off('opportunityCreated', handleCreated);
+    };
+  }, [schema, socketInstance, funilSelecionado]);
 
   // ---- Drag & drop (HTML5 nativo, mesmo padrão do Kanban) ----
   const onDrop = async (stageId) => {

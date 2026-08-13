@@ -25,6 +25,7 @@ const vendorRoutes = require('./routes/VendorRoutes');
 const expensesRoutes = require('./routes/ExpensesRoutes');
 const receitaRoutes = require('./routes/ReceitaRouter');
 const opportunityRoutes = require('./routes/OpportunityRoutes');
+const metaLeadsRoutes = require('./routes/MetaLeadsRoutes');
 
 const { setGlobalSocket } = require('./services/LembreteService');
 const quickMessagesRoutes = require('./routes/QuickMessagesRoutes');
@@ -267,7 +268,7 @@ socketIoServer.on('connection', async(socket) => {
 
 app.use(cors(corsOptions));
 app.use(cookieParser());
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '50mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use('/webhook', webhook((msg) => io.emit('message', msg)));
@@ -294,6 +295,7 @@ app.use('/vendor', vendorRoutes);
 app.use('/expenses', expensesRoutes);
 app.use('/receita', receitaRoutes);
 app.use('/opportunity', opportunityRoutes);
+app.use('/meta-leads', metaLeadsRoutes);
 
 const axios = require('axios');
 const fs = require('fs');

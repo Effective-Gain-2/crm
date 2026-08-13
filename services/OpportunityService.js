@@ -17,7 +17,7 @@ const createOpportunity = async ({ contact_number, funnel, stage_id, title, sour
 // Lista oportunidades de um funil, com nome do contato e do proprietário (para o Kanban).
 const getOpportunitiesByFunnel = async (funnel, schema) => {
     const result = await pool.query(
-        `SELECT o.*, c.name AS contact_name, u.name AS owner_name
+        `SELECT o.*, c.contact_name AS contact_name, u.name AS owner_name
            FROM ${schema}.opportunities o
            LEFT JOIN ${schema}.contacts c ON c.number = o.contact_number
            LEFT JOIN ${schema}.users u ON u.id = o.owner_id
@@ -31,7 +31,7 @@ const getOpportunitiesByFunnel = async (funnel, schema) => {
 // Lista oportunidades de uma etapa específica.
 const getOpportunitiesByStage = async (stage_id, schema) => {
     const result = await pool.query(
-        `SELECT o.*, c.name AS contact_name, u.name AS owner_name
+        `SELECT o.*, c.contact_name AS contact_name, u.name AS owner_name
            FROM ${schema}.opportunities o
            LEFT JOIN ${schema}.contacts c ON c.number = o.contact_number
            LEFT JOIN ${schema}.users u ON u.id = o.owner_id
@@ -44,7 +44,7 @@ const getOpportunitiesByStage = async (stage_id, schema) => {
 
 const getOpportunityById = async (id, schema) => {
     const result = await pool.query(
-        `SELECT o.*, c.name AS contact_name, u.name AS owner_name
+        `SELECT o.*, c.contact_name AS contact_name, u.name AS owner_name
            FROM ${schema}.opportunities o
            LEFT JOIN ${schema}.contacts c ON c.number = o.contact_number
            LEFT JOIN ${schema}.users u ON u.id = o.owner_id
