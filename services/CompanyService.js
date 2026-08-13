@@ -42,7 +42,8 @@ const createCompany = async (company, schema) => {
               contact_phone text,
               etapa_id uuid,
               updated_time bigint,
-              unreadmessages boolean
+              unreadmessages boolean,
+              isboton boolean DEFAULT true
             );
           `);
         await pool.query(`CREATE TABLE IF NOT EXISTS ${schema}.queues(
@@ -234,6 +235,32 @@ const createCompany = async (company, schema) => {
             );
         `)
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_${schema}_opp_funnel_stage ON ${schema}.opportunities (funnel, stage_id);`)
+        // Agente de IA (config por tenant — 1 linha "principal")
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ${schema}.ai_agent_config (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name TEXT DEFAULT 'Agente',
+            status TEXT NOT NULL DEFAULT 'disabled',
+            persona TEXT,
+            business_name TEXT,
+            knowledge_base TEXT,
+            wait_seconds INTEGER NOT NULL DEFAULT 0,
+            max_messages INTEGER NOT NULL DEFAULT 10,
+            reactivate_seconds INTEGER NOT NULL DEFAULT 0,
+            is_principal BOOLEAN NOT NULL DEFAULT true,
+            created_at TIMESTAMP DEFAULT now(),
+            updated_at TIMESTAMP DEFAULT now()
+            );
+        `)
+        // Estado por conversa (contagem de mensagens do bot + hibernacao no handoff)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ${schema}.ai_agent_sessions (
+            contact_number TEXT PRIMARY KEY,
+            msg_count INTEGER NOT NULL DEFAULT 0,
+            hibernate_until TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT now()
+            );
+        `)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.chat_contact (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -418,7 +445,8 @@ const updateSchema = async (schema) => {
               contact_phone text,
               etapa_id uuid,
               updated_time bigint,
-              unreadmessages boolean
+              unreadmessages boolean,
+              isboton boolean DEFAULT true
             );
           `);
         

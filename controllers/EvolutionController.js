@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const { createInstance, fetchInstanceEvo, sendTextMessage } = require('../requests/evolution');
+const { hibernateOnHumanSend } = require('../services/AiAgentService');
 const Connections = require('../entities/Connection');
 const { createConnection, fetchInstance, searchConnById } = require('../services/ConnectionService');
 const { saveMessage } = require('../services/MessageService');
@@ -96,6 +97,11 @@ const sendTextMessageController = async (req, res) => {
         }
 
         await saveMessage(chatId, message, schema, user_id);
+
+        // Handoff: humano assumiu -> hibernar o agente de IA para este contato.
+        hibernateOnHumanSend(schema, payload.number).catch((e) =>
+            console.error('AiAgent hibernate erro:', e.message)
+        );
 
         res.status(200).json({ result });
     } catch (error) {

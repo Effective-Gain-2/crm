@@ -12,6 +12,7 @@ const { saveMessage } = require('../services/MessageService');
 const pool = require('../db/queries');
 const { getCurrentTimestamp } = require('../services/getCurrentTimestamp');
 const { getBase64FromMediaMessage, sendTextMessage } = require('../requests/evolution');
+const aiAgent = require('../services/AiAgentService');
 const express = require('express');
 const createRedisConnection = require('../config/Redis');
 const { Queue, Worker } = require('bullmq');
@@ -417,6 +418,13 @@ module.exports = (broadcastMessage) => {
         }
       
         await chatQueue.add('message', payload, { removeOnComplete: true });
+
+        // Agente de IA (piloto automático) — responde apenas a mensagens do cliente.
+        if (result.data.key.fromMe === false) {
+          aiAgent
+            .handleIncoming(schema, baseChat, num, result.instance, messageBody)
+            .catch((err) => console.error('AiAgent hook erro:', err.message));
+        }
 
       }
       if (!chat || !result.instance) {

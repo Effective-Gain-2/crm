@@ -26,6 +26,7 @@ const expensesRoutes = require('./routes/ExpensesRoutes');
 const receitaRoutes = require('./routes/ReceitaRouter');
 const opportunityRoutes = require('./routes/OpportunityRoutes');
 const metaLeadsRoutes = require('./routes/MetaLeadsRoutes');
+const aiAgentRoutes = require('./routes/AiAgentRoutes');
 
 const { setGlobalSocket } = require('./services/LembreteService');
 const quickMessagesRoutes = require('./routes/QuickMessagesRoutes');
@@ -296,6 +297,7 @@ app.use('/expenses', expensesRoutes);
 app.use('/receita', receitaRoutes);
 app.use('/opportunity', opportunityRoutes);
 app.use('/meta-leads', metaLeadsRoutes);
+app.use('/ai-agent', aiAgentRoutes);
 
 const axios = require('axios');
 const fs = require('fs');
