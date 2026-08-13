@@ -35,22 +35,26 @@ const worker = new Worker(
 const createChat = async (chat, instance, message, etapa, io) => {
   let schema;
 
-  const geralSchema = await pool.query(
-    `SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast', 'public')`
-  );
-  const schemaNames = geralSchema.rows.map(row => row.schema_name);
+  // O(1): instâncias novas são "<schema>__<nome>"
+  if (typeof instance === 'string' && instance.includes('__')) {
+    const { isValidSchema } = require('../utils/validateSchema');
+    const prefix = instance.split('__')[0];
+    if (await isValidSchema(prefix)) schema = prefix;
+  }
 
-  for (const schemas of schemaNames) {
-    try {
-      const result = await pool.query(
-        `SELECT * FROM ${schemas}.connections WHERE name=$1`, [instance]
-      );
-      if (result.rows.length > 0) {
-        schema = schemas;
-        break;
-      }
-    } catch (error) {
-      console.error("Erro ao buscar conexão:", error.message);
+  // Fallback legado: varre as empresas REGISTRADAS (não mais information_schema)
+  if (!schema) {
+    const companies = await pool.query(`SELECT schema_name FROM effective_gain.companies`);
+    for (const row of companies.rows) {
+      try {
+        const result = await pool.query(
+          `SELECT 1 FROM ${row.schema_name}.connections WHERE name=$1 LIMIT 1`, [instance]
+        );
+        if (result.rows.length > 0) {
+          schema = row.schema_name;
+          break;
+        }
+      } catch (error) { /* schema sem tabela */ }
     }
   }
 

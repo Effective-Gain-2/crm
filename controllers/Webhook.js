@@ -17,6 +17,8 @@ const express = require('express');
 const createRedisConnection = require('../config/Redis');
 const { Queue, Worker } = require('bullmq');
 const { getQueueById } = require('../services/QueueService');
+const { setConnectionStatusByName } = require('../services/ConnectionService');
+const { isValidSchema } = require('../utils/validateSchema');
 
 // Função para emitir chats para as filas específicas
 const emitChatsToQueues = async (serverTest, schema, chat, baseChat) => {
@@ -122,6 +124,32 @@ const updateChatStatusFromDisparo = async (chatId, schema) => {
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
+// Resolve o schema a partir do nome da instância Evolution.
+// Instâncias novas: "<schema>__<nome>" → O(1). Legado: varre connections por empresa registrada.
+const resolveSchemaByInstance = async (instanceName) => {
+  if (typeof instanceName === 'string' && instanceName.includes('__')) {
+    const prefix = instanceName.split('__')[0];
+    if (await isValidSchema(prefix)) return prefix;
+  }
+  const companies = await pool.query(`SELECT schema_name FROM effective_gain.companies`);
+  for (const row of companies.rows) {
+    try {
+      const found = await pool.query(
+        `SELECT 1 FROM ${row.schema_name}.connections WHERE name = $1 LIMIT 1`, [instanceName]
+      );
+      if (found.rowCount > 0) return row.schema_name;
+    } catch (e) { /* schema sem tabela */ }
+  }
+  return null;
+};
+
+const mapConnectionState = (state) => {
+  if (state === 'open') return 'connected';
+  if (state === 'connecting') return 'connecting';
+  return 'disconnected';
+};
+
+
 module.exports = (broadcastMessage) => {
   const app = express.Router();
   
@@ -147,6 +175,29 @@ module.exports = (broadcastMessage) => {
 
   app.post('/chat', async (req, res) => {
     const result = req.body;
+
+    // ---- Eventos de status de conexão (não têm remoteJid) ----
+    const eventName = (result?.event || '').toLowerCase();
+    if (eventName === 'connection.update' || eventName === 'qrcode.updated') {
+      try {
+        const instanceName = result.instance;
+        const schema = await resolveSchemaByInstance(instanceName);
+        if (schema) {
+          if (eventName === 'connection.update') {
+            const status = mapConnectionState(result?.data?.state);
+            await setConnectionStatusByName(instanceName, status, schema);
+            serverTest.io?.to(`schema_${schema}`).emit('connectionStatus', { connection_name: instanceName, status });
+          } else {
+            const base64 = result?.data?.qrcode?.base64 || result?.data?.base64 || null;
+            serverTest.io?.to(`schema_${schema}`).emit('qrcodeUpdated', { connection_name: instanceName, base64 });
+          }
+        }
+      } catch (e) {
+        console.error('Erro no evento de conexão:', e.message);
+      }
+      return res.sendStatus(200);
+    }
+
     if (!result?.data?.key?.remoteJid) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
@@ -181,7 +232,7 @@ module.exports = (broadcastMessage) => {
       let audioBase64 = null;
       let imageBase64 = null;
       
-      const createChats = await createChat(chat, result.instance, result.data.message.conversation, null, null);
+      const createChats = await createChat(chat, result.instance, result.data.message?.conversation, null, null);
       const chatDb = await getChatService(createChats.chat.id, createChats.chat.connection_id, createChats.schema);
       const schema = createChats.schema
 
@@ -462,9 +513,9 @@ module.exports = (broadcastMessage) => {
         schema: schema
       };
 
-      const queueById = await getQueueById(chatDb.queue_id, schema);
+      const queueById = chatDb.queue_id ? await getQueueById(chatDb.queue_id, schema) : [];
 
-      if(queueById[0].is_webhook_on === true && queueById[0].webhook_url !== null){
+      if(queueById[0] && queueById[0].is_webhook_on === true && queueById[0].webhook_url !== null){
         try {
           await axios.post(queueById[0].webhook_url, data)
         } catch (error) {
@@ -476,7 +527,9 @@ module.exports = (broadcastMessage) => {
       res.status(200).json({ result });
 
   } catch (error) {
-    console.error('Erro ao enviar para o próximo webhook:', error);
+    console.error('Erro ao processar webhook:', error);
+    // Responde SEMPRE — sem isso a Evolution fica em timeout/retry infinito
+    if (!res.headersSent) res.sendStatus(200);
   }
   });
 

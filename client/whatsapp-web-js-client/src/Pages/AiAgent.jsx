@@ -30,6 +30,9 @@ export default function AiAgent({ theme }) {
   const [savedMsg, setSavedMsg] = useState('');
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [integrations, setIntegrations] = useState({ keys: [], usage: null, has_env_fallback: false });
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [savingKey, setSavingKey] = useState(false);
 
   const load = useCallback(() => {
     if (!schema) return;
@@ -51,10 +54,36 @@ export default function AiAgent({ theme }) {
       .catch((e) => console.error('Erro ao listar documentos:', e));
   }, [schema]);
 
+  const loadIntegrations = useCallback(() => {
+    if (!schema) return;
+    axios
+      .get(`${url}/ai-agent/integrations/${schema}`, { withCredentials: true })
+      .then((res) => setIntegrations(res.data || { keys: [], usage: null }))
+      .catch((e) => console.error('Erro ao carregar integrações:', e));
+  }, [schema]);
+
   useEffect(() => {
     load();
     loadDocs();
-  }, [load, loadDocs]);
+    loadIntegrations();
+  }, [load, loadDocs, loadIntegrations]);
+
+  const saveApiKey = async () => {
+    if (!apiKeyInput.trim()) return;
+    setSavingKey(true);
+    try {
+      await axios.put(`${url}/ai-agent/integrations`, { key: 'openai_api_key', value: apiKeyInput.trim() }, { withCredentials: true });
+      setApiKeyInput('');
+      loadIntegrations();
+      setSavedMsg('Chave de API salva com sucesso.');
+      setTimeout(() => setSavedMsg(''), 3000);
+    } catch (e) {
+      console.error('Erro ao salvar chave:', e);
+      setSavedMsg('Erro ao salvar a chave de API.');
+    } finally {
+      setSavingKey(false);
+    }
+  };
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -246,6 +275,62 @@ export default function AiAgent({ theme }) {
                     </li>
                   ))}
                 </ul>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Chave de API da empresa (controle de custo por cliente) */}
+        <div className="col-12">
+          <label className="form-label fw-semibold">Chave de API OpenAI (desta empresa)</label>
+          <div className="card">
+            <div className="card-body">
+              {(() => {
+                const hasKey = integrations.keys?.some((k) => k.key === 'openai_api_key');
+                return (
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    {hasKey ? (
+                      <span className="badge bg-success-subtle text-success-emphasis"><i className="bi bi-key-fill me-1"></i>Chave configurada</span>
+                    ) : integrations.has_env_fallback ? (
+                      <span className="badge bg-warning-subtle text-warning-emphasis"><i className="bi bi-exclamation-triangle me-1"></i>Usando chave global (custo não separado)</span>
+                    ) : (
+                      <span className="badge bg-danger-subtle text-danger-emphasis"><i className="bi bi-x-circle me-1"></i>Sem chave — agente inativo</span>
+                    )}
+                  </div>
+                );
+              })()}
+              <div className="d-flex gap-2 flex-wrap">
+                <input
+                  type="password"
+                  className="form-control"
+                  style={{ maxWidth: 420 }}
+                  placeholder="sk-… (cada empresa usa a própria chave; o valor nunca é reexibido)"
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  autoComplete="new-password"
+                />
+                <button className="btn btn-outline-primary" onClick={saveApiKey} disabled={savingKey || !apiKeyInput.trim()}>
+                  {savingKey ? 'Salvando…' : 'Salvar chave'}
+                </button>
+              </div>
+              <small className="text-muted d-block mt-2">
+                O custo de automação desta empresa é cobrado na conta OpenAI dela.
+              </small>
+              {integrations.usage && (
+                <div className="d-flex gap-4 mt-3 flex-wrap">
+                  <div>
+                    <div className="text-muted small">Respostas do agente no mês</div>
+                    <div className="fs-5 fw-bold">{integrations.usage.calls}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted small">Tokens de entrada</div>
+                    <div className="fs-5 fw-bold">{(integrations.usage.prompt_tokens || 0).toLocaleString('pt-BR')}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted small">Tokens de saída</div>
+                    <div className="fs-5 fw-bold">{(integrations.usage.completion_tokens || 0).toLocaleString('pt-BR')}</div>
+                  </div>
+                </div>
               )}
             </div>
           </div>

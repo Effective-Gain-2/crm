@@ -1,40 +1,64 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal } from 'react-bootstrap';
 import WhatsappNovoContatoModal from './Whatsapp_novoContato';
 import WhatsappDeleteModal from './Whatsapp_delete';
 import WhatsappFilasModal from './Whatsapp_filas';
+import { socket } from '../../socket';
 
 import axios from 'axios';
+
+// Badge de status real da conexão (alimentado pelo webhook CONNECTION_UPDATE da Evolution)
+const StatusBadge = ({ status }) => {
+  const map = {
+    connected: { cls: 'bg-success-subtle text-success-emphasis', icon: 'bi-check-circle-fill', label: 'Conectado' },
+    connecting: { cls: 'bg-warning-subtle text-warning-emphasis', icon: 'bi-arrow-repeat', label: 'Conectando' },
+    disconnected: { cls: 'bg-danger-subtle text-danger-emphasis', icon: 'bi-x-circle-fill', label: 'Desconectado' },
+  };
+  const s = map[status] || map.disconnected;
+  return (
+    <span className={`badge ${s.cls}`}>
+      <i className={`bi ${s.icon} me-1`}></i>{s.label}
+    </span>
+  );
+};
 
 function WhatsappModal({ theme, show, onHide }) {
   const [contatos, setContatos] = useState([]);
   const [selectedContato, setSelectedContato] = useState(null);
-  const [filas, setFilas] = useState([]);
   const [showNovoContatoModal, setShowNovoContatoModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUsuariosModal, setShowUsuariosModal] = useState(false);
+  const [socketInstance] = useState(() => socket());
 
-  const userData = JSON.parse(localStorage.getItem('user')); 
-  const schema = userData?.schema
   const url = process.env.REACT_APP_URL;
 
-  useEffect(() => {
-    const handleConns = async()=>{
-      try{
-        const response = await axios.get(`${url}/connection/get-all-connections/${schema}`,
-        {
-      withCredentials: true
-    })
-        setContatos(Array.isArray([response.data])?response.data:[response.data]);
-      }catch(error){
-        console.error(error)
-      }
+  const loadConns = useCallback(async () => {
+    try {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const response = await axios.get(`${url}/connection/get-all-connections/${userData?.schema}`, { withCredentials: true });
+      const list = Array.isArray(response.data) ? response.data : (response.data?.connections || response.data || []);
+      setContatos(Array.isArray(list) ? list : []);
+    } catch (error) {
+      console.error(error);
     }
-    handleConns()
-  }, []);
+  }, [url]);
 
-  const handleNovoContato = (novoContato) => {
-    setContatos([...contatos, { ...novoContato, id: Date.now(), status: 'conectado' }]);
+  useEffect(() => {
+    if (show) loadConns();
+  }, [show, loadConns]);
+
+  // Status em tempo real
+  useEffect(() => {
+    const handleStatus = ({ connection_name, status }) => {
+      setContatos(prev => prev.map(c => (c.name === connection_name ? { ...c, status } : c)));
+    };
+    socketInstance.on('connectionStatus', handleStatus);
+    return () => socketInstance.off('connectionStatus', handleStatus);
+  }, [socketInstance]);
+
+  const handleNovoContato = () => {
+    // Recarrega do servidor (o estado real vem do backend — nada de status fake)
+    loadConns();
     setShowNovoContatoModal(false);
   };
 
@@ -54,25 +78,25 @@ function WhatsappModal({ theme, show, onHide }) {
     setShowUsuariosModal(true);
   };
 
-  const handleQueueChange = (contatoId, novaFilaId, novaFila) => {
-    // Atualizar o contato na lista com a nova fila
-    setContatos(prevContatos => 
-      prevContatos.map(contato => 
-        contato.id === contatoId 
+  const handleQueueChange = (contatoId, novaFilaId) => {
+    setContatos(prevContatos =>
+      prevContatos.map(contato =>
+        contato.id === contatoId
           ? { ...contato, queue_id: novaFilaId }
           : contato
       )
     );
   };
 
-
+  // Exibe o nome sem o prefixo técnico do schema
+  const displayName = (name) => (name || '').includes('__') ? name.split('__').slice(1).join('__') : name;
 
   return (
     <>
-      <Modal 
-        show={show} 
-        onHide={onHide} 
-        size="lg" 
+      <Modal
+        show={show}
+        onHide={onHide}
+        size="lg"
         centered
         backdrop="static"
         style={{ zIndex: 1050 }}
@@ -80,7 +104,7 @@ function WhatsappModal({ theme, show, onHide }) {
         <Modal.Header closeButton style={{ backgroundColor: `var(--bg-color-${theme})` }}>
           <div className="d-flex align-items-center gap-3">
             <i className={`bi bi-whatsapp header-text-${theme}`}></i>
-            <h5 className={`modal-title header-text-${theme} mb-0`}>Gerenciar Contatos WhatsApp</h5>
+            <h5 className={`modal-title header-text-${theme} mb-0`}>Conexões WhatsApp</h5>
           </div>
         </Modal.Header>
 
@@ -91,7 +115,7 @@ function WhatsappModal({ theme, show, onHide }) {
               className={`btn btn-1-${theme}`}
               onClick={() => setShowNovoContatoModal(true)}
             >
-              <i className="bi bi-plus-lg me-2"></i> Novo Contato
+              <i className="bi bi-plus-lg me-2"></i> Nova Conexão
             </button>
           </div>
 
@@ -101,41 +125,28 @@ function WhatsappModal({ theme, show, onHide }) {
                 <tr>
                   <th className={`text-start px-3 py-2 header-text-${theme}`}>Nome</th>
                   <th className={`text-start px-3 py-2 header-text-${theme}`}>Telefone</th>
+                  <th className={`text-start px-3 py-2 header-text-${theme}`}>Status</th>
                   <th className={`text-start px-3 py-2 header-text-${theme}`}>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {contatos.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="text-center px-3 py-2">
-                      <span className={`card-subtitle-${theme}`}>Nenhum contato cadastrado.</span>
+                    <td colSpan="4" className="text-center px-3 py-2">
+                      <span className={`card-subtitle-${theme}`}>Nenhuma conexão cadastrada.</span>
                     </td>
                   </tr>
                 ) : (
                   contatos.map((contato) => (
                     <tr key={contato.id}>
-                      <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.name}</td>
+                      <td className={`px-3 py-2 card-subtitle-${theme}`}>{displayName(contato.name)}</td>
                       <td className={`px-3 py-2 card-subtitle-${theme}`}>{contato.number}</td>
+                      <td className="px-3 py-2"><StatusBadge status={contato.status} /></td>
                       <td className="px-3 py-2">
                         <div className="d-flex flex-wrap gap-2">
                           <button
                             type="button"
                             className={`btn btn-sm btn-2-${theme}`}
-                            data-bs-toggle="tooltip"
-                            data-bs-placement="top"
-                            title="Editar"
-                            onClick={() => {
-                              setSelectedContato(contato);
-                              setShowNovoContatoModal(true);
-                            }}
-                          >
-                            <i className="bi bi-pencil-fill"></i>
-                          </button>
-                          <button
-                            type="button"
-                            className={`btn btn-sm btn-2-${theme}`}
-                            data-bs-toggle="tooltip"
-                            data-bs-placement="top"
                             title="Filas"
                             onClick={() => handleVerFilas(contato)}
                           >
@@ -145,8 +156,6 @@ function WhatsappModal({ theme, show, onHide }) {
                           <button
                             type="button"
                             className="btn btn-sm delete-btn"
-                            data-bs-toggle="tooltip"
-                            data-bs-placement="top"
                             title="Excluir"
                             onClick={() => {
                               setSelectedContato(contato);
@@ -174,48 +183,48 @@ function WhatsappModal({ theme, show, onHide }) {
 
       {showNovoContatoModal && (
         <div style={{ zIndex: 1060 }}>
-          <WhatsappNovoContatoModal 
-            theme={theme} 
+          <WhatsappNovoContatoModal
+            theme={theme}
             show={showNovoContatoModal}
             onHide={() => {
               setShowNovoContatoModal(false);
               setSelectedContato(null);
+              loadConns();
             }}
-            onSave={handleNovoContato} 
+            onSave={handleNovoContato}
           />
         </div>
       )}
-      
+
       {showDeleteModal && selectedContato && (
         <div style={{ zIndex: 1060 }}>
-          <WhatsappDeleteModal 
-            theme={theme} 
+          <WhatsappDeleteModal
+            theme={theme}
             show={showDeleteModal}
             onHide={() => {
               setShowDeleteModal(false);
               setSelectedContato(null);
             }}
-            contato={selectedContato} 
-            onDelete={handleDelete} 
+            contato={selectedContato}
+            onDelete={handleDelete}
           />
         </div>
       )}
-      
+
       {showUsuariosModal && selectedContato && (
         <div style={{ zIndex: 1060 }}>
-          <WhatsappFilasModal 
-            theme={theme} 
+          <WhatsappFilasModal
+            theme={theme}
             show={showUsuariosModal}
             onHide={() => {
               setShowUsuariosModal(false);
               setSelectedContato(null);
             }}
-            contato={selectedContato} 
+            contato={selectedContato}
             onQueueChange={handleQueueChange}
           />
         </div>
       )}
-      
 
     </>
   );

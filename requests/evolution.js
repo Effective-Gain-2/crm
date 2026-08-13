@@ -2,6 +2,15 @@ require('dotenv').config();
 const axios = require('axios'); 
 
 const createInstance = async ({ instanceName, number }) => {
+  // Guard: sem BACKEND_URL o webhook seria registrado como "undefined/webhook/chat" —
+  // a instância nasceria surda (nenhuma mensagem chega) de forma silenciosa e irreversível.
+  if (!process.env.BACKEND_URL) {
+    throw new Error('BACKEND_URL não configurado — configure antes de criar conexões WhatsApp');
+  }
+  if (!process.env.EVOLUTION_SERVER_URL || !process.env.EVOLUTION_API_KEY) {
+    throw new Error('EVOLUTION_SERVER_URL/EVOLUTION_API_KEY não configurados');
+  }
+
   const payload = {
     instanceName,
     number,
@@ -15,7 +24,8 @@ const createInstance = async ({ instanceName, number }) => {
       headers: {
       authorization: process.env.EVOLUTION_API_KEY,
       },
-    events:['MESSAGES_UPSERT']
+    // CONNECTION_UPDATE/QRCODE_UPDATED alimentam o status de conexão em tempo real
+    events:['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED']
     },
   };
 
@@ -28,13 +38,38 @@ const createInstance = async ({ instanceName, number }) => {
     body: JSON.stringify(payload)
   };
 
-  try {
-    const response = await fetch(`${process.env.EVOLUTION_SERVER_URL}/instance/create`, options);
-    const result = await response.json();
-    return result;
-  } catch (err) {
-    console.error('Erro ao criar instância:', err);
+  const response = await fetch(`${process.env.EVOLUTION_SERVER_URL}/instance/create`, options);
+  const result = await response.json();
+  if (!response.ok || !result?.instance?.instanceId) {
+    // Propaga a causa real (instância duplicada, apikey inválida, v1 etc.)
+    const msg = result?.response?.message || result?.message || result?.error || `Evolution respondeu ${response.status}`;
+    throw new Error(Array.isArray(msg) ? msg.join('; ') : String(msg));
   }
+  return result;
+};
+
+// QR novo / reconexão de uma instância existente (GET /instance/connect)
+const connectInstance = async (instanceName) => {
+  const response = await fetch(`${process.env.EVOLUTION_SERVER_URL}/instance/connect/${encodeURIComponent(instanceName)}`, {
+    method: 'GET',
+    headers: { apikey: process.env.EVOLUTION_API_KEY },
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    const msg = result?.response?.message || result?.message || `Evolution respondeu ${response.status}`;
+    throw new Error(Array.isArray(msg) ? msg.join('; ') : String(msg));
+  }
+  return result; // { base64, code, ... } ou estado da conexão
+};
+
+// Estado atual da conexão (GET /instance/connectionState)
+const getConnectionState = async (instanceName) => {
+  const response = await fetch(`${process.env.EVOLUTION_SERVER_URL}/instance/connectionState/${encodeURIComponent(instanceName)}`, {
+    method: 'GET',
+    headers: { apikey: process.env.EVOLUTION_API_KEY },
+  });
+  const result = await response.json();
+  return result?.instance?.state || result?.state || 'unknown';
 };
 const fetchInstanceEvo = async(instanceName)=>{
   const options = {
@@ -54,11 +89,15 @@ const fetchInstanceEvo = async(instanceName)=>{
   }
 
 }
-const sendTextMessage = async(instanceId, text, number)=>{
+const sendTextMessage = async(instanceId, text, number, replyToId)=>{
   const payload = {
     text,
     number
   };
+  // Citação (Evolution v2): responde a uma mensagem específica
+  if (replyToId) {
+    payload.quoted = { key: { id: replyToId } };
+  }
   const options = {
     method: 'POST',
     headers: {
@@ -198,20 +237,17 @@ const sendAudioToWhatsApp = async (number, audioBase64, instanceId) => {
     throw error;
   }
 };
-const deleteInstance=async (instanceName) => {
+const deleteInstance = async (instanceName) => {
   try {
     const result = await axios.delete(`${process.env.EVOLUTION_SERVER_URL}/instance/delete/${instanceName}`,
-      {
-        headers:{
-          apikey: process.env.EVOLUTION_API_KEY
-        }
-      }
-    )
-    return result
+      { headers: { apikey: process.env.EVOLUTION_API_KEY } }
+    );
+    return { ok: true, result };
   } catch (error) {
-    // console.error(error)
+    // Não engolir: se a Evolution mantiver a instância viva, o webhook continua chegando
+    console.error(`Erro ao deletar instância ${instanceName} na Evolution:`, error.response?.data || error.message);
+    return { ok: false, error: error.response?.data || error.message };
   }
-  
 }
 
 const sendMediaForBlast = async (instanceId, text, image, number) => {
@@ -246,6 +282,8 @@ const sendMediaForBlast = async (instanceId, text, image, number) => {
 
 module.exports = {
   createInstance,
+  connectInstance,
+  getConnectionState,
   fetchInstanceEvo,
   sendTextMessage,
   searchContact,

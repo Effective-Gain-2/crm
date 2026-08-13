@@ -179,12 +179,27 @@ const handleIncoming = async (schema, chat, number, instanceName, userText) => {
 
         if (Number(config.wait_seconds) > 0) await sleep(Number(config.wait_seconds) * 1000);
 
-        const docsText = await getDocumentsText(schema);
-        const reply = await generateConversationalReply(buildSystemPrompt(config, docsText), [], userText);
-        if (!reply) return;
+        // Chave de API POR EMPRESA (controle de custo por cliente); fallback env; sem chave → não responde
+        const { getOpenAiKey, logAiUsage } = require('./IntegrationService');
+        const keyInfo = await getOpenAiKey(schema);
+        if (!keyInfo) {
+            console.warn(`AiAgent: empresa ${schema} sem chave OpenAI — agente inativo.`);
+            return;
+        }
 
-        await sendTextMessage(instanceName, reply, contactNumber);
+        const docsText = await getDocumentsText(schema);
+        const result = await generateConversationalReply(buildSystemPrompt(config, docsText), [], userText, keyInfo.key);
+        if (!result?.text) return;
+
+        await sendTextMessage(instanceName, result.text, contactNumber);
         await incrementSession(schema, contactNumber);
+        // Medição de custo por empresa
+        logAiUsage(schema, {
+            model: result.model,
+            prompt_tokens: result.usage?.prompt_tokens,
+            completion_tokens: result.usage?.completion_tokens,
+            contact_number: contactNumber,
+        });
         // A resposta enviada volta pela Evolution (fromMe=true) e é persistida/emitida pelo /webhook/chat.
         console.log(`AiAgent: respondeu ${contactNumber} no schema ${schema}`);
     } catch (error) {

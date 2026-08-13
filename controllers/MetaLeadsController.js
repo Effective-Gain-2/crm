@@ -2,6 +2,8 @@ const axios = require('axios');
 const crypto = require('crypto');
 const pool = require('../db/queries');
 const { createOpportunity } = require('../services/OpportunityService');
+const { getSetting } = require('../services/IntegrationService');
+const { isValidSchema } = require('../utils/validateSchema');
 
 // Config via ambiente (piloto single-tenant; mapeamento por página pode virar tabela depois).
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
@@ -29,11 +31,17 @@ const pickField = (fieldData, keys) => {
 const onlyDigits = (s) => (s ? String(s).replace(/\D/g, '') : '');
 
 // GET — verificação do webhook (Meta envia hub.challenge).
-const verifyWebhook = (req, res) => {
+// Suporta callback por empresa (/meta-leads/:schema) com verify token do tenant.
+const verifyWebhook = async (req, res) => {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
-    if (mode === 'subscribe' && token && token === VERIFY_TOKEN) {
+    let expected = VERIFY_TOKEN;
+    const schema = req.params.schema;
+    if (schema && await isValidSchema(schema)) {
+        expected = (await getSetting(schema, 'meta_verify_token')) || VERIFY_TOKEN;
+    }
+    if (mode === 'subscribe' && token && expected && token === expected) {
         return res.status(200).send(challenge);
     }
     return res.sendStatus(403);
@@ -68,33 +76,36 @@ const upsertContact = async (schema, number, name) => {
 };
 
 // Busca os dados do lead na Graph API a partir do leadgen_id.
-const fetchLead = async (leadgenId) => {
+const fetchLead = async (leadgenId, pageToken) => {
     const url = `https://graph.facebook.com/${GRAPH_VERSION}/${leadgenId}`;
     const { data } = await axios.get(url, {
         params: {
-            access_token: PAGE_ACCESS_TOKEN,
+            access_token: pageToken,
             fields: 'field_data,created_time,ad_id,ad_name,form_id,campaign_id,campaign_name,platform',
         },
     });
     return data;
 };
 
-const processLead = async (leadgenId) => {
-    if (!LEADS_SCHEMA) {
-        console.warn('Meta leads: META_LEADS_SCHEMA não configurado — lead ignorado.');
+const processLead = async (leadgenId, targetSchema) => {
+    const schema = targetSchema || LEADS_SCHEMA;
+    if (!schema) {
+        console.warn('Meta leads: schema alvo não definido — lead ignorado.');
         return;
     }
-    if (!PAGE_ACCESS_TOKEN) {
-        console.warn('Meta leads: META_PAGE_ACCESS_TOKEN não configurado — não é possível buscar o lead.');
+    // Chave de API POR EMPRESA (fallback env para instalação legada)
+    const pageToken = (await getSetting(schema, 'meta_page_access_token')) || PAGE_ACCESS_TOKEN;
+    if (!pageToken) {
+        console.warn(`Meta leads: empresa ${schema} sem meta_page_access_token — não é possível buscar o lead.`);
         return;
     }
-    const lead = await fetchLead(leadgenId);
+    const lead = await fetchLead(leadgenId, pageToken);
     const name = pickField(lead.field_data, NAME_KEYS);
     const phone = onlyDigits(pickField(lead.field_data, PHONE_KEYS));
 
-    if (phone) await upsertContact(LEADS_SCHEMA, phone, name);
+    if (phone) await upsertContact(schema, phone, name);
 
-    const stageId = await resolveStageId(LEADS_SCHEMA, LEADS_SECTOR, LEADS_STAGE);
+    const stageId = await resolveStageId(schema, LEADS_SECTOR, LEADS_STAGE);
     const opportunity = await createOpportunity(
         {
             contact_number: phone || null,
@@ -109,11 +120,11 @@ const processLead = async (leadgenId) => {
             ad_id: lead.ad_id || null,
             campaign_name: lead.campaign_name || lead.ad_name || null,
         },
-        LEADS_SCHEMA
+        schema
     );
 
     if (global.socketIoServer) {
-        global.socketIoServer.emit('opportunityCreated', { schema: LEADS_SCHEMA, opportunity });
+        global.socketIoServer.to(`schema_${schema}`).emit('opportunityCreated', { schema, opportunity });
     }
     console.log(`Meta leads: oportunidade criada (${opportunity.id}) para lead ${leadgenId}`);
 };
@@ -122,15 +133,17 @@ const processLead = async (leadgenId) => {
 const receiveWebhook = async (req, res) => {
     // Valida assinatura quando APP_SECRET configurado E rawBody disponível
     // (sem rawBody a validação daria falso-negativo, então é ignorada com aviso).
-    if (APP_SECRET && req.rawBody) {
+    const schemaParam = req.params.schema && await isValidSchema(req.params.schema) ? req.params.schema : null;
+    const appSecret = (schemaParam ? await getSetting(schemaParam, 'meta_app_secret') : null) || APP_SECRET;
+    if (appSecret && req.rawBody) {
         const signature = req.headers['x-hub-signature-256'];
         const expected =
-            'sha256=' + crypto.createHmac('sha256', APP_SECRET).update(req.rawBody).digest('hex');
+            'sha256=' + crypto.createHmac('sha256', appSecret).update(req.rawBody).digest('hex');
         if (!signature || signature !== expected) {
             console.warn('Meta leads: assinatura inválida.');
             return res.sendStatus(401);
         }
-    } else if (APP_SECRET) {
+    } else if (appSecret) {
         console.warn('Meta leads: APP_SECRET setado mas rawBody indisponível — validação de assinatura ignorada.');
     }
 
@@ -142,7 +155,7 @@ const receiveWebhook = async (req, res) => {
         for (const entry of entries) {
             for (const change of entry.changes || []) {
                 if (change.field === 'leadgen' && change.value?.leadgen_id) {
-                    await processLead(change.value.leadgen_id);
+                    await processLead(change.value.leadgen_id, schemaParam);
                 }
             }
         }

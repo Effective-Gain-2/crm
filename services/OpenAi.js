@@ -63,21 +63,28 @@ const getRun = async(thread)=>{
 // Gera resposta conversacional para o Agente de IA (piloto automático).
 // systemPrompt: persona + contexto do negócio + base de conhecimento.
 // history: [{ role: 'user'|'assistant', content }], userText: mensagem recebida.
-const generateConversationalReply = async (systemPrompt, history = [], userText = '') => {
+// apiKey: chave DA EMPRESA (controle de custo por cliente) — obrigatória.
+// Retorna { text, usage, model } ou null.
+const generateConversationalReply = async (systemPrompt, history = [], userText = '', apiKey = null) => {
     try {
+        if (!apiKey) return null;
+        const client = new OpenAI({ apiKey });
+        const model = process.env.OPENAI_AGENT_MODEL || 'gpt-4o-mini';
         const messages = [
             { role: 'system', content: systemPrompt },
             ...history.slice(-10),
         ];
         if (userText) messages.push({ role: 'user', content: userText });
 
-        const completion = await openai.chat.completions.create({
-            model: process.env.OPENAI_AGENT_MODEL || 'gpt-4o-mini',
+        const completion = await client.chat.completions.create({
+            model,
             messages,
             temperature: 0.6,
             max_tokens: 500,
         });
-        return completion.choices?.[0]?.message?.content?.trim() || null;
+        const text = completion.choices?.[0]?.message?.content?.trim() || null;
+        if (!text) return null;
+        return { text, usage: completion.usage || {}, model };
     } catch (error) {
         console.error('Erro ao gerar resposta do agente:', error.message);
         return null;

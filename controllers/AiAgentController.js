@@ -63,10 +63,58 @@ const deleteDocumentController = async (req, res) => {
     }
 };
 
+// ---- Chaves de API por cliente (write-only) + uso de IA ----
+const { setSetting, deleteSetting, listSettingKeys, getAiUsageSummary } = require('../services/IntegrationService');
+
+const ALLOWED_KEYS = ['openai_api_key', 'meta_page_access_token', 'meta_verify_token', 'meta_app_secret'];
+
+const getIntegrationsController = async (req, res) => {
+    try {
+        const schema = req.auth.schema;
+        const keys = await listSettingKeys(schema);
+        const usage = await getAiUsageSummary(schema);
+        const hasEnvFallback = !!process.env.OPENAI_KEY;
+        res.status(200).json({ keys, usage, has_env_fallback: hasEnvFallback });
+    } catch (error) {
+        console.error('Erro ao listar integrações:', error);
+        res.status(500).json({ error: 'Erro ao listar integrações' });
+    }
+};
+
+const setIntegrationController = async (req, res) => {
+    try {
+        const schema = req.auth.schema;
+        const { key, value } = req.body;
+        if (!ALLOWED_KEYS.includes(key)) return res.status(400).json({ error: 'Chave não suportada' });
+        if (!value) return res.status(400).json({ error: 'Valor obrigatório' });
+        await setSetting(schema, key, value, req.auth.account_id);
+        res.status(200).json({ success: true, key });
+    } catch (error) {
+        console.error('Erro ao salvar integração:', error);
+        res.status(500).json({ error: 'Erro ao salvar integração' });
+    }
+};
+
+const deleteIntegrationController = async (req, res) => {
+    try {
+        const schema = req.auth.schema;
+        const { key } = req.params;
+        if (!ALLOWED_KEYS.includes(key)) return res.status(400).json({ error: 'Chave não suportada' });
+        await deleteSetting(schema, key);
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Erro ao remover integração:', error);
+        res.status(500).json({ error: 'Erro ao remover integração' });
+    }
+};
+
 module.exports = {
     getConfigController,
     updateConfigController,
     uploadDocumentController,
     listDocumentsController,
     deleteDocumentController,
+    getIntegrationsController,
+    setIntegrationController,
+    deleteIntegrationController,
 };

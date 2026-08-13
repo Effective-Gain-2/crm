@@ -1146,13 +1146,15 @@ useEffect(() => {
         text: newMessage,
         chatId: selectedChat.id,
         schema: schema,
-        user_id: userData.id
+        user_id: userData.id,
+        replyTo: replyMessage?.id || null
       },
     {
       withCredentials: true
     });
-  
+
       setNewMessage('');
+      setReplyMessage(null);
     } catch (error) {
       console.error('Erro ao enviar a mensagem:', error);
       showError('Erro ao enviar mensagem. Tente novamente.');

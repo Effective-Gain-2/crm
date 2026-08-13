@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { createInstanceController, fetchInstanceController, sendTextMessageController } = require('../controllers/EvolutionController');
+const { createInstanceController, getQrController, sendTextMessageController } = require('../controllers/EvolutionController');
 
-router.post('/instance', createInstanceController)
-router.get('/fetchInstances', fetchInstanceController)
-router.post('/sendText', sendTextMessageController)
+router.post('/instance', createInstanceController);
+router.get('/qr/:connectionId', getQrController);
+router.post('/sendText', sendTextMessageController);
 
-module.exports = router
+module.exports = router;

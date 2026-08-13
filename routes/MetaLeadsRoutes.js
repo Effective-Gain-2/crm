@@ -3,9 +3,11 @@ const { verifyWebhook, receiveWebhook } = require('../controllers/MetaLeadsContr
 
 const router = express.Router();
 
-// GET  /meta-leads  -> verificação do webhook (hub.challenge)
+// GET  /meta-leads[/:schema]  -> verificação do webhook (hub.challenge)
 router.get('/', verifyWebhook);
-// POST /meta-leads  -> recebe leadgen e cria a oportunidade
+router.get('/:schema', verifyWebhook);
+// POST /meta-leads[/:schema] -> recebe leadgen e cria a oportunidade na empresa
 router.post('/', receiveWebhook);
+router.post('/:schema', receiveWebhook);
 
 module.exports = router;
