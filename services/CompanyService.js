@@ -217,6 +217,23 @@ const createCompany = async (company, schema) => {
             color TEXT NOT NULL
             );
         `)
+        // Oportunidades (pipeline de vendas — Fonte/Valor/Proprietário por card)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ${schema}.opportunities (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            contact_number TEXT REFERENCES ${schema}.contacts(number) ON DELETE CASCADE,
+            funnel TEXT NOT NULL,
+            stage_id UUID,
+            title TEXT,
+            source TEXT,
+            value NUMERIC(12,2) NOT NULL DEFAULT 0,
+            owner_id UUID REFERENCES ${schema}.users(id) ON DELETE SET NULL,
+            status TEXT NOT NULL DEFAULT 'open',
+            created_at TIMESTAMP DEFAULT now(),
+            updated_at TIMESTAMP DEFAULT now()
+            );
+        `)
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_${schema}_opp_funnel_stage ON ${schema}.opportunities (funnel, stage_id);`)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${schema}.chat_contact (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

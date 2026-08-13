@@ -24,6 +24,7 @@ const categoryRoutes = require('./routes/CategoryRoute');
 const vendorRoutes = require('./routes/VendorRoutes');
 const expensesRoutes = require('./routes/ExpensesRoutes');
 const receitaRoutes = require('./routes/ReceitaRouter');
+const opportunityRoutes = require('./routes/OpportunityRoutes');
 
 const { setGlobalSocket } = require('./services/LembreteService');
 const quickMessagesRoutes = require('./routes/QuickMessagesRoutes');
@@ -292,6 +293,7 @@ app.use('/category', categoryRoutes);
 app.use('/vendor', vendorRoutes);
 app.use('/expenses', expensesRoutes);
 app.use('/receita', receitaRoutes);
+app.use('/opportunity', opportunityRoutes);
 
 const axios = require('axios');
 const fs = require('fs');
