@@ -30,9 +30,10 @@ router.get('/:schema/:chatId', verifyToken, getChatDataController);
 router.post('/setChat', verifyToken, setUserChatController);
 router.post('/getMessages', verifyToken, getMessagesController);
 router.post('/setQueue', verifyToken, updateQueueController);
-router.post('/sendAudio', uploadAudio.single('audio'), verifyToken, sendAudioController);
+const { enforceSchema } = require('../middlewares/enforceSchema');
+router.post('/sendAudio', uploadAudio.single('audio'), verifyToken, enforceSchema, sendAudioController);
 router.post('/chat/processReceivedAudio', verifyToken, processReceivedAudio);
-router.post('/sendImage', uploadImage.single('image'), verifyToken, sendImageController); 
+router.post('/sendImage', uploadImage.single('image'), verifyToken, enforceSchema, sendImageController);
 router.post('/setAsRead', verifyToken, setMessageAsReadController)
 router.post('/close', verifyToken, closeChatContoller)
 router.post('/setUser', verifyToken, setSpecificUserController)

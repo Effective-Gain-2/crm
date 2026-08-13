@@ -1,6 +1,14 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const jwt = require('jsonwebtoken');
+const cookieLib = require('cookie');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const passport = require('passport');
+const googleStrategy = require('passport-google-oauth20').Strategy;
+
 const userRoutes = require('./routes/UserRoutes');
 const companyRoutes = require('./routes/CompanyRoutes');
 const queueRoutes = require('./routes/QueueRoutes');
@@ -11,13 +19,12 @@ const contactRoutes = require('./routes/ContactRoute');
 const kanbanRoutes = require('./routes/KanbanRoutes');
 const webhook = require('./controllers/Webhook');
 const filesRoutes = require('./routes/FilesRoutes');
-const campaingRoutes = require('./routes/CampaingRoutes')
-const tagRoutes = require('./routes/TagRoutes')
-const bodyParser = require('body-parser');
+const campaingRoutes = require('./routes/CampaingRoutes');
+const tagRoutes = require('./routes/TagRoutes');
 const excelRoutes = require('./routes/ExcelRoutes');
 const lembreteRoutes = require('./routes/LembretesRoutes');
 const preferenceRoutes = require('./routes/UserPreferencesRoutes');
-const passportRoutes = require('./routes/PassportRoutes')
+const passportRoutes = require('./routes/PassportRoutes');
 const googleCalendarRoutes = require('./routes/GoogleCalendarRoutes');
 const reportRoutes = require('./routes/ReportRoutes');
 const categoryRoutes = require('./routes/CategoryRoute');
@@ -28,358 +35,236 @@ const opportunityRoutes = require('./routes/OpportunityRoutes');
 const metaLeadsRoutes = require('./routes/MetaLeadsRoutes');
 const aiAgentRoutes = require('./routes/AiAgentRoutes');
 const attributionRoutes = require('./routes/AttributionRoutes');
+const quickMessagesRoutes = require('./routes/QuickMessagesRoutes');
 
 const { setGlobalSocket } = require('./services/LembreteService');
-const quickMessagesRoutes = require('./routes/QuickMessagesRoutes');
-const { google } = require('googleapis');
-
-const passport = require('passport')
-const session = require('express-session')
-const googleStrategy = require('passport-google-oauth20').Strategy
-
-
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
+const { changeOnline, changeOffline } = require('./services/UserService');
+const { auth, ACCESS_SECRET } = require('./middlewares/auth');
+const { enforceSchema } = require('./middlewares/enforceSchema');
+const { requireRole, requireTecnico } = require('./middlewares/requireRole');
+const { bindAuthParams } = require('./middlewares/schemaParams');
 
 const app = express();
 
-const oauth2Client  = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  'http://localhost:3002/auth/redirect'
-)
-
+// ---- Sessão (usada apenas pelo Passport/Google) ----
 app.use(session({
-  secret: 'secret',
+  secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'dev-session-secret',
   resave: false,
-  saveUninitialized: true
-}))
-app.use(passport.initialize())
+  saveUninitialized: false,
+}));
+app.use(passport.initialize());
 app.use(passport.session());
 
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(new googleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: `${process.env.BACKEND_URL || 'http://localhost:3002'}/auth/google`,
+  }, (accessToken, refreshToken, profile, done) => done(null, profile)));
+  passport.serializeUser((user, done) => done(null, user));
+  passport.deserializeUser((user, done) => done(null, user));
+}
 
-passport.use(new googleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: 'http://localhost:3002/auth/google'  
-},(accessToken, refreshToken, profile, done)=>{
-  return done(null, profile)
-}))
-
-passport.serializeUser((user, done)=>{
-  done(null, user)
-})
-passport.deserializeUser((user, done)=>done(null, user))
-
-// const userHeartbeats = new Map();
-
-
+// ---- CORS ----
+const allowedOrigins = [
+  'http://localhost:3001',
+  'http://localhost:3000',
+  'http://localhost:3002',
+  'https://eg-crm.effectivegain.com',
+  'https://crm.effectivegain.com',
+  'https://ilhadogovernador.effectivegain.com',
+  'https://barreiras.effectivegain.com',
+  'https://campo-grande.effectivegain.com',
+  'https://porto-alegre.effectivegain.com',
+];
+const originAllowed = (origin) => !origin || allowedOrigins.includes(origin) || /\.easypanel\.host$/.test(origin);
 
 const corsOptions = {
-  origin: function (origin, callback) {
-
-    // Permitir requests sem origin (como mobile apps ou Postman)
-    if (!origin) return callback(null, true);
-    
-const allowedOrigins = [
-      'http://localhost:3001',
-      'http://localhost:3000',
-      'https://landing-page-front.8rxpnw.easypanel.host',
-      'https://eg-crm.effectivegain.com',
-      'https://crm.effectivegain.com',
-      'https://ilhadogovernador.effectivegain.com',
-      'https://barreiras.effectivegain.com',
-      'https://campo-grande.effectivegain.com',
-      'https://porto-alegre.effectivegain.com',
-      'https://ilha-backend.9znbc3.easypanel.host',
-      'http://localhost:3002',
-      'http://localhost:3002/'
-    ];
-    
-
-    if (allowedOrigins.indexOf(origin) !== -1 || /\.easypanel\.host$/.test(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'DELETE', 'PUT'],
-  credentials: true
+  origin: (origin, callback) => originAllowed(origin) ? callback(null, true) : callback(new Error('Not allowed by CORS')),
+  methods: ['GET', 'POST', 'DELETE', 'PUT', 'PATCH'],
+  credentials: true,
 };
 
-const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: ['http://localhost:3001',
-      'http://localhost:3000',
-      'http://localhost:3002',
-      'https://landing-page-front.8rxpnw.easypanel.host',
-      'https://eg-crm.effectivegain.com',
-      'https://crm.effectivegain.com',
-      'https://eg-os-crm-frontend.cownkm.easypanel.host',
-      'https://landing-page-teste.8rxpnw.easypanel.host/',
-      'https://ilhadogovernador.effectivegain.com/',
-      'https://ilhadogovernador.effectivegain.com',
-      'https://barreiras.effectivegain.com',
-      'https://barreiras.effectivegain.com/',
-      'https://campo-grande.effectivegain.com/',
-      'https://campo-grande.effectivegain.com',
-      'https://porto-alegre.effectivegain.com',
-      'https://porto-alegre.effectivegain.com/',
-      'https://ilha-backend.9znbc3.easypanel.host'
+const socketCors = {
+  origin: (origin, callback) => originAllowed(origin) ? callback(null, true) : callback(new Error('Not allowed by CORS')),
+  methods: ['GET', 'POST'],
+  credentials: true,
+};
 
-    ], 
-    methods: ['GET', 'POST', 'DELETE', 'PUT'],
-  },
-  transports: ['websocket', 'polling'],
-  allowEIO3: true
-});
+// ---- Servidores HTTP + Socket.io ----
+const server = http.createServer(app);
+const io = socketIo(server, { cors: socketCors, transports: ['websocket', 'polling'], allowEIO3: true });
 
 const socketServer = http.createServer();
-const socketIoServer = socketIo(socketServer, {
-  cors: {
-    origin: [
-      "http://localhost:3001",
-      'http://localhost:3000',
-      'http://localhost:3002',
-      
-      "chrome-extension://ophmdkgfcjapomjdpfobjfbihojchbko",
-      "https://landing-page-teste.8rxpnw.easypanel.host",
-      "https://landing-page-front.8rxpnw.easypanel.host",
-      "https://eg-crm.effectivegain.com",
-      "https://crm.effectivegain.com",
-      "https://eg-os-crm-frontend.cownkm.easypanel.host",
-      "https://ilhadogovernador.effectivegain.com",
-      "https://barreiras.effectivegain.com",
-      "https://campo-grande.effectivegain.com",
-      "https://porto-alegre.effectivegain.com",
-      "https://ilha-backend.9znbc3.easypanel.host"
-    ],
-    methods: ["GET", "POST", "DELETE", "PUT"],
-    allowedHeaders: ["Content-Type"],
-    credentials: true
-  }
-});
+const socketIoServer = socketIo(socketServer, { cors: socketCors });
 
 global.socketIoServer = socketIoServer;
 
-io.on('connection', async (socket) => {
-  socket.on('join', (userId) => {
-    socket.join(`user_${userId}`);
-  });
+// ---- Autenticação do Socket.io (handshake via cookie JWT) ----
+// Sem token válido a conexão é recusada — impede escutar eventos de outra empresa.
+const socketAuth = (socket, next) => {
+  try {
+    const cookies = cookieLib.parse(socket.handshake.headers?.cookie || '');
+    const token = cookies.token;
+    if (!token) return next(new Error('unauthorized'));
+    const decoded = jwt.verify(token, ACCESS_SECRET());
+    if (decoded.typ !== 'access' || !decoded.schema) return next(new Error('unauthorized'));
+    socket.auth = {
+      account_id: decoded.account_id,
+      local_user_id: decoded.local_user_id,
+      schema: decoded.schema,
+      role: decoded.role,
+    };
+    next();
+  } catch (e) {
+    next(new Error('unauthorized'));
+  }
+};
 
-  socket.on('disconnect', async () => {
-  });
+// Sala permitida para o socket: a do próprio schema, a do próprio usuário, ou filas (UUID)
+const roomAllowed = (socket, room) => {
+  if (typeof room !== 'string') return false;
+  if (room === `schema_${socket.auth.schema}`) return true;
+  if (room === `user_${socket.auth.local_user_id}`) return true;
+  if (/^fila_[0-9a-f-]{36}$/i.test(room)) return true;
+  return false;
+};
 
+io.use(socketAuth);
+socketIoServer.use(socketAuth);
+
+io.on('connection', (socket) => {
+  socket.join(`schema_${socket.auth.schema}`);
+  socket.join(`user_${socket.auth.local_user_id}`);
+  socket.on('join', (room) => {
+    const target = typeof room === 'string' && !room.startsWith('user_') && !room.startsWith('schema_') && !room.startsWith('fila_')
+      ? `user_${room}` : room;
+    if (roomAllowed(socket, target)) socket.join(target);
+  });
   socket.on('contatosImportados', (data) => {
-    socket.broadcast.emit('contatosImportados', data);
+    socket.broadcast.to(`schema_${socket.auth.schema}`).emit('contatosImportados', data);
   });
 });
 
-socketIoServer.on('connection', async(socket) => {
-  socket.on('user_login', async (data) => {
-    try {
-      const { userId, schema } = data;
-      // const { changeOnline } = require('./services/UserService');
-      // await changeOnline(userId, schema);
-      socket.userId = userId;
-      socket.schema = schema;
-      await changeOnline(userId, schema);
+socketIoServer.on('connection', (socket) => {
+  socket.join(`schema_${socket.auth.schema}`);
+  socket.join(`user_${socket.auth.local_user_id}`);
 
-      // userHeartbeats.set(`${userId}_${schema}`, Date.now());
-      
+  socket.on('user_login', async () => {
+    try {
+      await changeOnline(socket.auth.local_user_id, socket.auth.schema);
     } catch (error) {
-      console.error('Erro ao conectar usuário:', error);
+      console.error('Erro ao marcar online:', error.message);
     }
   });
 
   socket.on('join', (room) => {
-    socket.join(room);
-    
-    if (room && typeof room === 'string' && room.length > 10) {
-      socket.join(`user_${room}`);
+    const target = typeof room === 'string' && !room.startsWith('user_') && !room.startsWith('schema_') && !room.startsWith('fila_')
+      ? `user_${room}` : room;
+    if (roomAllowed(socket, target)) socket.join(target);
+  });
+
+  socket.on('leave', (roomId) => socket.leave(roomId));
+
+  socket.on('disconnect', async () => {
+    try {
+      await changeOffline(socket.auth.local_user_id, socket.auth.schema);
+    } catch (error) {
+      console.error('Erro ao marcar offline:', error.message);
     }
   });
 
-  socket.on('leave', (roomId) => {
-    socket.leave(roomId);
-  });
-
-  socket.on('disconnect', async (data) => {
-    if (socket.userId && socket.schema) {
-      try {
-        await changeOffline(socket.userId, socket.schema);
-        console.log(socket.userId, socket.schema);
-        // const { changeOffline } = require('./services/UserService');
-        // await changeOffline(socket.userId, socket.schema);
-        
-        // userHeartbeats.delete(`${socket.userId}_${socket.schema}`);
-        
-      } catch (error) {
-        console.error('Erro ao desconectar usuário:', error);
-      }
-    }
-  });
-
+  // Reemissões restritas à empresa do emissor (antes: broadcast global cross-tenant)
   socket.on('message', (message) => {
-    socket.broadcast.emit('message', message);
+    socket.broadcast.to(`schema_${socket.auth.schema}`).emit('message', message);
   });
-
-  socket.on('lembrete', (data)=>{
-    socket.broadcast.emit('lembrete', data);
-  })
-
-  // socket.on('page_visibility_change', async (data) => {
-  //   try {
-  //     const { isVisible, userId, schema } = data;
-  //     const { changeOnline, changeOffline } = require('./services/UserService');
-      
-  //     console.log(`📥 Recebido evento page_visibility_change:`, { isVisible, userId, schema });
-      
-  //     if (isVisible) {
-  //       await changeOnline(userId, schema);
-  //       userHeartbeats.set(`${userId}_${schema}`, Date.now());
-  //       console.log(`👤 Usuário ${userId} voltou à aba (online)`);
-  //     } else {
-  //       await changeOffline(userId, schema);
-  //       userHeartbeats.delete(`${userId}_${schema}`);
-  //       console.log(`👤 Usuário ${userId} saiu da aba (offline)`);
-  //     }
-  //   } catch (error) {
-  //     console.error('Erro ao atualizar status de visibilidade:', error);
-  //   }
-  // });
-
+  socket.on('lembrete', (data) => {
+    socket.broadcast.to(`schema_${socket.auth.schema}`).emit('lembrete', data);
+  });
   socket.on('leadMoved', (data) => {
-    socket.broadcast.emit('leadMoved', data);
+    socket.broadcast.to(`schema_${socket.auth.schema}`).emit('leadMoved', data);
   });
-
-  // socket.on('heartbeat', async (data) => {
-  //   try {
-  //     const { userId, schema } = data;
-  //     const { changeOnline } = require('./services/UserService');
-      
-  //     await changeOnline(userId, schema);
-      
-  //     userHeartbeats.set(`${userId}_${schema}`, Date.now());
-      
-  //     console.log(`Heartbeat recebido do usuário ${userId}`);
-  //   } catch (error) {
-  //     console.error('Erro ao processar heartbeat:', error);
-  //   }
-  // });
+  socket.on('opportunityMoved', (data) => {
+    socket.broadcast.to(`schema_${socket.auth.schema}`).emit('opportunityMoved', data);
+  });
+  socket.on('transferirEmMassa', (data) => {
+    socket.broadcast.to(`schema_${socket.auth.schema}`).emit('transferirEmMassa', data);
+  });
 });
 
+// ---- Parsers ----
 app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json({ limit: '50mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-app.use('/webhook', webhook((msg) => io.emit('message', msg)));
-app.use('/api', userRoutes);
-app.use('/company', companyRoutes);
-app.use('/queue', queueRoutes);
-app.use('/connection', connRoutes);
-app.use('/evo', evoRoutes);
-app.use('/chat', chatRoutes);
-app.use('/contact', contactRoutes);
-app.use('/kanban', kanbanRoutes);
-app.use('/files', filesRoutes);
-app.use('/campaing', campaingRoutes)
-app.use('/tag', tagRoutes)
-app.use('/excel', excelRoutes);
-app.use('/lembretes', lembreteRoutes);
-app.use('/preferences', preferenceRoutes)
-app.use('/auth', passportRoutes);
-app.use('/qmessage', quickMessagesRoutes);
-app.use('/calendar', googleCalendarRoutes);
-app.use('/report', reportRoutes);
-app.use('/category', categoryRoutes);
-app.use('/vendor', vendorRoutes);
-app.use('/expenses', expensesRoutes);
-app.use('/receita', receitaRoutes);
-app.use('/opportunity', opportunityRoutes);
-app.use('/meta-leads', metaLeadsRoutes);
-app.use('/ai-agent', aiAgentRoutes);
-app.use('/attribution', attributionRoutes);
+// ---- Gate global de autenticação/isolamento ----
+// Tudo exige sessão + schema do token, exceto os públicos abaixo.
+const PUBLIC_PATHS = new Set([
+  'POST /api/login',
+  'POST /api/select-company',
+  'POST /api/refresh-token',
+  'POST /api/logout',
+  'GET /api/test',
+]);
 
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-const { changeOnline, changeOffline } = require('./services/UserService');
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+const requireEvolutionKey = (req, res, next) => {
+  const expected = process.env.EVOLUTION_API_KEY;
+  if (!expected) return next(); // sem chave configurada ainda — não bloqueia o boot
+  if (req.headers.authorization === expected) return next();
+  return res.status(401).json({ error: 'Webhook não autorizado' });
+};
 
-app.post('/webhook/audio', async (req, res) => {
-  const { type, body, from } = req.body;
-
-  if (type === 'audio' && body.startsWith('http')) {
-
-    try {
-      console.log('Baixando áudio do URL:', body);
-      const response = await axios.get(body, { responseType: 'stream' });
-      const writer = fs.createWriteStream(oggPath);
-      response.data.pipe(writer);
-
-      await new Promise((resolve, reject) => {
-        writer.on('finish', resolve);
-        writer.on('error', reject);
-      });
-
-      console.log('Convertendo áudio para MP3...');
-      await new Promise((resolve, reject) => {
-        ffmpeg(oggPath)
-          .toFormat('mp3')
-          .on('end', resolve)
-          .on('error', reject)
-          .save(mp3Path);
-      });
-
-      console.log('Áudio processado com sucesso:', mp3Path);
-      res.sendStatus(200);
-    } catch (error) {
-      console.error('Erro ao processar áudio:', error);
-      res.sendStatus(500);
-    }
-  } else {
-    console.log('Requisição de áudio ignorada. Tipo ou URL inválido.');
-    res.sendStatus(204);
-  }
+app.use((req, res, next) => {
+  const key = `${req.method} ${req.path.replace(/\/+$/, '') || '/'}`;
+  if (PUBLIC_PATHS.has(key)) return next();
+  if (req.path.startsWith('/webhook')) return requireEvolutionKey(req, res, next);
+  if (req.path.startsWith('/meta-leads')) return next(); // valida HMAC internamente
+  return auth(req, res, () => enforceSchema(req, res, next));
 });
 
+// Healthcheck (usado pelo monitor de latência do frontend)
+app.get('/api/test', (req, res) => res.status(200).json({ ok: true, ts: Date.now() }));
+
+// ---- Rotas ----
+// bindAuthParams neutraliza :schema/:role de URL com os valores do token.
+app.use('/webhook', webhook((msg) => io.emit('message', msg)));
+app.use('/api', bindAuthParams(userRoutes));
+app.use('/company', requireTecnico, bindAuthParams(companyRoutes));
+app.use('/queue', bindAuthParams(queueRoutes));
+app.use('/connection', bindAuthParams(connRoutes));
+app.use('/evo', bindAuthParams(evoRoutes));
+app.use('/chat', bindAuthParams(chatRoutes));
+app.use('/contact', bindAuthParams(contactRoutes));
+app.use('/kanban', bindAuthParams(kanbanRoutes));
+app.use('/files', bindAuthParams(filesRoutes));
+app.use('/campaing', requireRole('lider'), bindAuthParams(campaingRoutes));
+app.use('/tag', bindAuthParams(tagRoutes));
+app.use('/excel', bindAuthParams(excelRoutes));
+app.use('/lembretes', bindAuthParams(lembreteRoutes));
+app.use('/preferences', bindAuthParams(preferenceRoutes));
+app.use('/auth', passportRoutes);
+app.use('/qmessage', bindAuthParams(quickMessagesRoutes));
+app.use('/calendar', bindAuthParams(googleCalendarRoutes));
+app.use('/report', bindAuthParams(reportRoutes));
+app.use('/category', requireRole('master'), bindAuthParams(categoryRoutes));
+app.use('/vendor', requireRole('master'), bindAuthParams(vendorRoutes));
+app.use('/expenses', requireRole('master'), bindAuthParams(expensesRoutes));
+app.use('/receita', requireRole('master'), bindAuthParams(receitaRoutes));
+app.use('/opportunity', bindAuthParams(opportunityRoutes));
+app.use('/meta-leads', metaLeadsRoutes);
+app.use('/ai-agent', requireRole('master'), bindAuthParams(aiAgentRoutes));
+app.use('/attribution', requireRole('lider'), bindAuthParams(attributionRoutes));
 
 const PORT = 3002;
 
 server.listen(PORT, () => {
-console.log(`Servidor rodando na porta ${PORT} 🚀`);
+  console.log(`Servidor rodando na porta ${PORT} 🚀`);
 });
 
-
-
-// Configurar o socket global para o LembreteService
+// Socket global para o LembreteService
 setGlobalSocket(socketIoServer);
 
 socketServer.listen(3333, () => {
   console.log(`Socket rodando na porta 3333`);
 });
-
-// setInterval(async () => {
-//   const now = Date.now();
-//   const timeout = 2 * 60 * 1000; 
-  
-//   for (const [key, lastHeartbeat] of userHeartbeats.entries()) {
-//     if (now - lastHeartbeat > timeout) {
-//       const [userId, schema] = key.split('_');
-      
-//       try {
-//         const { changeOffline } = require('./services/UserService');
-//         await changeOffline(userId, schema);
-//         userHeartbeats.delete(key);
-//         console.log(`⏰ Usuário ${userId} marcado como offline por timeout`);
-//       } catch (error) {
-//         console.error(`Erro ao marcar usuário ${userId} como offline:`, error);
-//       }
-//     }
-//   }
-// }, 60000);

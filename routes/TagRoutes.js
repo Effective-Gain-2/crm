@@ -14,6 +14,7 @@ router.post('/create', createTagController);
 router.get('/:schema', getTagsController);
 router.delete('/:schema/:tagId', deleteTagController);
 router.post('/update-tag', updateTagsController);
+router.post('/add-to-chat', addTagToChatController);
 router.post('/remove-from-chat', removeTagFromChatController);
 router.get('/by-chat/:schema/:chatId', getTagsByChatController);
 

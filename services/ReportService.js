@@ -36,13 +36,24 @@ const createReport = async(chat_id, gpt_response, status, schema)=>{
 }
 
 const getReports = async(schema, user_id, user_role)=>{
-    if(user_role === 'user'){
+    // operacional (legado 'user') → só os próprios relatórios
+    if(user_role === 'user' || user_role === 'operacional'){
         const result = await pool.query(`SELECT * FROM ${schema}.reports WHERE user_id=$1`, [user_id]);
         return result.rows;
-    }else{
-        const result = await pool.query(`SELECT * FROM ${schema}.reports`);
+    }
+    // líder → relatórios da equipe das filas que lidera (+ os próprios)
+    if(user_role === 'lider'){
+        const { getTeamUserIds } = require('./QueueService');
+        const team = await getTeamUserIds(user_id, schema);
+        const result = await pool.query(
+            `SELECT * FROM ${schema}.reports WHERE user_id::text = ANY($1)`,
+            [team.map(String)]
+        );
         return result.rows;
     }
+    // master/tecnico → todos
+    const result = await pool.query(`SELECT * FROM ${schema}.reports`);
+    return result.rows;
 }
 
 module.exports={

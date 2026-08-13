@@ -387,26 +387,55 @@ const getChatData = async(id, schema)=>{
 
 const getChatByUser = async (userId, role, schema) => {
   try {
-    if (role === 'admin' || role === 'tecnico') {
+    // master/tecnico (e legado admin) → todos os chats do tenant
+    if (role === 'admin' || role === 'tecnico' || role === 'master') {
       const result = await pool.query(
         `SELECT * FROM ${schema}.chats where status <> 'closed' ORDER BY (updated_time IS NULL) , updated_time DESC`
       );
       return result.rows;
-    } else {
-      const queues = await pool.query(
-        `SELECT * FROM ${schema}.queue_users WHERE user_id=$1`, [userId]
-      );
-      let allChats = [];
-      for (let i = 0; i < queues.rowCount; i++) {
-        const queueId = queues.rows[i].queue_id;
-        const result = await pool.query(
-          `SELECT * FROM ${schema}.chats WHERE (assigned_user = $1 OR assigned_user IS NULL) AND status <> 'closed' AND queue_id=$2 ORDER BY (updated_time IS NULL), updated_time DESC`,
-          [userId, queueId]
-        );
-        allChats = allChats.concat(result.rows);
-      }
-      return allChats;
     }
+
+    // lider → TODOS os chats das filas que ele lidera (equipe inteira),
+    // mais o comportamento de operacional nas filas em que é apenas membro
+    if (role === 'lider') {
+      const { getLedQueues } = require('./QueueService');
+      const ledQueues = await getLedQueues(userId, schema);
+      let chats = [];
+      if (ledQueues.length > 0) {
+        const led = await pool.query(
+          `SELECT * FROM ${schema}.chats
+            WHERE queue_id = ANY($1::uuid[]) AND status <> 'closed'
+            ORDER BY (updated_time IS NULL), updated_time DESC`,
+          [ledQueues]
+        );
+        chats = led.rows;
+      }
+      const member = await pool.query(
+        `SELECT c.* FROM ${schema}.chats c
+           JOIN ${schema}.queue_users qu ON qu.queue_id = c.queue_id AND qu.user_id = $1
+          WHERE (c.assigned_user = $1 OR c.assigned_user IS NULL)
+            AND c.status <> 'closed'
+            AND NOT (c.queue_id = ANY($2::uuid[]))
+          ORDER BY (c.updated_time IS NULL), c.updated_time DESC`,
+        [userId, ledQueues.length ? ledQueues : ['00000000-0000-0000-0000-000000000000']]
+      );
+      return chats.concat(member.rows);
+    }
+
+    // operacional → próprios atendimentos + não atribuídos das suas filas
+    const queues = await pool.query(
+      `SELECT * FROM ${schema}.queue_users WHERE user_id=$1`, [userId]
+    );
+    let allChats = [];
+    for (let i = 0; i < queues.rowCount; i++) {
+      const queueId = queues.rows[i].queue_id;
+      const result = await pool.query(
+        `SELECT * FROM ${schema}.chats WHERE (assigned_user = $1 OR assigned_user IS NULL) AND status <> 'closed' AND queue_id=$2 ORDER BY (updated_time IS NULL), updated_time DESC`,
+        [userId, queueId]
+      );
+      allChats = allChats.concat(result.rows);
+    }
+    return allChats;
   } catch (error) {
     console.error('Erro ao buscar chats do usuário:', error.message);
     throw new Error('Erro ao buscar chats do usuário');
@@ -414,7 +443,7 @@ const getChatByUser = async (userId, role, schema) => {
 };
 const getChatIfUserIsNull = async(connection, permission, schema, userQueues = null)=>{
   try{
-     if (permission === 'admin' || permission ==='tecnico') {
+     if (permission === 'admin' || permission ==='tecnico' || permission === 'master') {
       const result = await pool.query(
         `SELECT * FROM ${schema}.chats where status <> 'closed' ORDER BY (updated_time IS NULL) , updated_time DESC`
       );

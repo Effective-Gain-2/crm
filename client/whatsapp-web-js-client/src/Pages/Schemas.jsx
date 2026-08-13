@@ -41,13 +41,27 @@ function SchemasPage({ theme: themeProp }) {
     fetchSchemas();
   }, [url]);
 
-  const handleEnterSchema = (schema) => {
-    const userData = JSON.parse(localStorage.getItem('user')) || {};
-    userData.schema = schema.schema_name || schema;
-    userData.empresa = schema.company_name || schema.empresa || '';
-    localStorage.setItem('user', JSON.stringify(userData));
-    setSelectedSchema(schema.schema_name || schema);
-    navigate('/painel');
+  // Troca de empresa REAL: o servidor emite novo token com o schema/papel corretos
+  // (antes era só uma reescrita de localStorage — furava o isolamento multi-tenant).
+  const handleEnterSchema = async (schema) => {
+    try {
+      const response = await axios.post(`${url}/api/select-company`, { company_id: schema.id }, { withCredentials: true });
+      if (response.data?.success) {
+        const userData = {
+          id: response.data.user.id,
+          username: response.data.user.name,
+          role: response.data.role,
+          empresa: response.data.company.company_name,
+          schema: response.data.company.schema_name,
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+        setSelectedSchema(schema.schema_name || schema);
+        navigate('/painel');
+      }
+    } catch (error) {
+      console.error('Erro ao entrar na empresa:', error);
+      alert(error.response?.data?.error || 'Erro ao entrar na empresa');
+    }
   };
 
   // Filtro aplicado ao array de schemas

@@ -212,12 +212,12 @@ const getChatDataController = async (req, res) => {
 };
 
 const getChatByUserController = async (req, res) => {
-  const { userId, role} = req.params;
-  const schema = req.params.schema || 'effective_gain';
-
-  if (!userId) {
-    return res.status(400).json({ error: 'O parâmetro userId é obrigatório.' });
-  }
+  // Papel e schema vêm SEMPRE do token (nunca da URL — hardening multi-tenant).
+  const role = req.auth.role;
+  const schema = req.auth.schema;
+  // Operacional/líder só enxergam pelo próprio id; master/técnico podem consultar outro usuário.
+  const requested = req.params.userId;
+  const userId = (role === 'master' || role === 'tecnico') && requested ? requested : req.auth.local_user_id;
 
   try {
     const result = await getChatByUser(userId, role, schema);

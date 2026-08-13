@@ -115,53 +115,31 @@ const createFunilController = async (req, res) => {
     }
 }
 const deleteFunilController = async (req, res) => {
-    const {sector, schema} = req.params
-    const {password, userRole} = req.body
-    
+    const { sector } = req.params;
+    const schema = req.auth.schema;
+    const { password } = req.body;
+
     try {
-        if (userRole === 'admin' && !password) {
-            return res.status(400).json({
-                success: false,
-                message: 'Senha é obrigatória para administradores'
-            });
+        // Papel do TOKEN (nunca do body). Só master/técnico deletam funil.
+        if (req.auth.role !== 'master' && req.auth.role !== 'tecnico') {
+            return res.status(403).json({ success: false, message: 'Apenas master pode excluir funis' });
         }
 
-        if (userRole === 'admin') {
-            const { searchUser, getUserById } = require('../services/UserService');
-            const userData = JSON.parse(req.headers['user-data'] || '{}');
-            if (!userData.id) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Dados do usuário não encontrados'
-                });
-            }
-            try {
-                const user = await searchUser(user_email.email, password);
-                if (!user || user.user.permission !== 'admin') {
-                    return res.status(401).json({
-                        success: false,
-                        message: 'Senha incorreta ou usuário não é administrador'
-                    });
-                }
-            } catch (error) {
-                return res.status(401).json({
-                    success: false,
-                    message: 'Senha incorreta'
-                });
-            }
+        // Confirmação por senha da CONTA GLOBAL (corrige o ReferenceError user_email do código antigo)
+        if (!password) {
+            return res.status(400).json({ success: false, message: 'Senha é obrigatória para excluir funil' });
+        }
+        const { findAccountById, verifyPassword } = require('../services/AuthService');
+        const account = await findAccountById(req.auth.account_id);
+        if (!account || !(await verifyPassword(account, password))) {
+            return res.status(401).json({ success: false, message: 'Senha incorreta' });
         }
 
-        await deleteFunil(sector, schema)
-        res.status(200).json({
-            success: true,
-            message: 'Funil deletado com sucesso'
-        })
+        await deleteFunil(sector, schema);
+        res.status(200).json({ success: true, message: 'Funil deletado com sucesso' });
     } catch (error) {
-        console.error(error)
-        res.status(400).json({
-            success: false,
-            message: 'Erro ao deletar Funil'
-        })
+        console.error(error);
+        res.status(400).json({ success: false, message: 'Erro ao deletar Funil' });
     }
 }
 const deleteEtapaController = async (req, res) => {

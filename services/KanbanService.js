@@ -211,17 +211,30 @@ const createFunil = async (sector, schema) => {
   )
 }
 const deleteFunil = async (sector, schema) => {
+  // Coleta as etapas antes de dropar para limpar órfãos
+  let stageIds = [];
   try {
-    await pool.query(`DROP TABLE ${schema}.kanban_${sector} CASCADE`)
-  } catch (error) {
-    console.error(error)
+    const stages = await pool.query(`SELECT id FROM ${schema}.kanban_${sector}`);
+    stageIds = stages.rows.map(r => r.id);
+  } catch (e) { /* funil pode não existir */ }
+
+  await pool.query(`DROP TABLE IF EXISTS ${schema}.kanban_${sector} CASCADE`);
+
+  // Limpeza de órfãos (antes ficavam para sempre)
+  if (stageIds.length > 0) {
+    await pool.query(`DELETE FROM ${schema}.contacts_stage WHERE stage = ANY($1::uuid[])`, [stageIds]).catch(() => {});
+    await pool.query(`UPDATE ${schema}.opportunities SET stage_id = NULL WHERE stage_id = ANY($1::uuid[])`, [stageIds]).catch(() => {});
   }
+  await pool.query(`DELETE FROM ${schema}.preferences_kanban WHERE sector = $1`, [sector]).catch(() => {});
+  await pool.query(`DELETE FROM ${schema}.opportunities WHERE funnel = lower($1) AND stage_id IS NULL AND status = 'open'`, [sector]).catch(() => {});
 }
 const deleteEtapa = async (etapa_id, sector, schema) => {
   await pool.query(
     `DELETE FROM ${schema}.kanban_${sector} where id=$1`, [etapa_id]
   )
-  
+  // Órfãos da etapa: contatos saem do estágio; oportunidades ficam sem etapa (visíveis para re-triagem)
+  await pool.query(`DELETE FROM ${schema}.contacts_stage WHERE stage = $1`, [etapa_id]).catch(() => {});
+  await pool.query(`UPDATE ${schema}.opportunities SET stage_id = NULL WHERE stage_id = $1`, [etapa_id]).catch(() => {});
 }
 const getCustomFields = async (schema) => {
   const result = await pool.query(

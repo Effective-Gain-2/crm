@@ -58,7 +58,7 @@ const emitWaitingChatsToQueue = async (serverTest, schema, connectionId, queueId
       const onlineUsers = onlineUsersQuery.rows;
       
       for (const user of onlineUsers) {
-        if (user.permission === 'admin' || user.permission === 'tecnico') {
+        if (user.permission === 'admin' || user.permission === 'tecnico' || user.permission === 'master') {
           // Admins e técnicos veem todos os chats na sala de espera
           const allWaitingChats = await getChatIfUserIsNull(connectionId, user.permission, schema);
           if (allWaitingChats && allWaitingChats.length > 0) {
@@ -204,7 +204,7 @@ module.exports = (broadcastMessage) => {
           
           // Emitir para admins e técnicos
           const adminUsersQuery = await pool.query(
-            `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico') AND online = true AND id != $1`,
+            `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico' OR permission = 'master') AND online = true AND id != $1`,
             [baseChat.assigned_user]
           );
           
@@ -257,7 +257,7 @@ module.exports = (broadcastMessage) => {
             
             // Emitir para admins e técnicos
             const adminUsersQuery = await pool.query(
-              `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico') AND online = true AND id != $1`,
+              `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico' OR permission = 'master') AND online = true AND id != $1`,
               [baseChat.assigned_user]
             );
             
@@ -327,7 +327,7 @@ module.exports = (broadcastMessage) => {
               
               // Emitir para admins e técnicos
               const adminUsersQuery = await pool.query(
-                `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico') AND online = true AND id != $1`,
+                `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico' OR permission = 'master') AND online = true AND id != $1`,
                 [baseChat.assigned_user]
               );
               
@@ -387,7 +387,7 @@ module.exports = (broadcastMessage) => {
             
             // Emitir para admins e técnicos
             const adminUsersQuery = await pool.query(
-              `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico') AND online = true AND id != $1`,
+              `SELECT id FROM ${schema}.users WHERE (permission = 'admin' OR permission = 'tecnico' OR permission = 'master') AND online = true AND id != $1`,
               [baseChat.assigned_user]
             );
             

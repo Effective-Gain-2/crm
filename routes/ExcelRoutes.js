@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const ExcelController = require('../controllers/ExcelController');
+const { enforceSchema } = require('../middlewares/enforceSchema');
 
 const router = express.Router();
 
@@ -16,6 +17,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-router.post('/upload', upload.single('file'), ExcelController.uploadExcel);
+router.post('/upload', upload.single('file'), enforceSchema, ExcelController.uploadExcel);
 
 module.exports = router;

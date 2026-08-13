@@ -97,8 +97,9 @@ function EditUserModal({ theme, user }) {
                 onChange={(e) => setUserRole(e.target.value)}
                 >
                 <option value="" disabled>Selecione um perfil</option>
-                <option value="user">Usuário</option>
-                <option value="admin">Administrador</option>
+                <option value="operacional">Operacional</option>
+                <option value="lider">Líder</option>
+                <option value="master">Master</option>
             </select>
             </div>
           </div>

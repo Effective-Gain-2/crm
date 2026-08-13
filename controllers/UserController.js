@@ -1,273 +1,165 @@
-const { createUser, getAllUsers, searchUser, changeOnline, getOnlineUsers, changeOffline, deleteUser, updateUser, getUserById, getLoginAttempts, getIp, saveLoginAttempt} = require('../services/UserService');
-const { Users } = require('../entities/Users');
-const { v4: uuidv4 } = require('uuid');
-const jwt = require('jsonwebtoken');
+const pool = require('../db/queries');
+const { getAllUsers, getOnlineUsers, changeOffline, getUserById } = require('../services/UserService');
+const { createOrAttachUser, revokeAccess, updateAccountBasics, getMembership, ensureMirrorUser, findAccountById, CLIENT_ROLES } = require('../services/AuthService');
+const { auth } = require('../middlewares/auth');
 
-function verifyToken(req, res, next) {
-  const { token } = req.cookies;
-  if (!token) {
-    return res.status(401).json({ error: 'Token não fornecido' });
-  }
-  jwt.verify(token, process.env.JWT_SECRET, (error, decoded) => {
-    if (error) {
-      return res.status(401).json({ error: 'Token inválido ou expirado' });
-    }
-    req.user_id = decoded.user_id;
-    next();
-  });
-}
+// Compat: vários arquivos de rotas importam verifyToken daqui.
+const verifyToken = auth;
 
-const refreshTokenController = (req, res) => {
-  const { refreshToken } = req.cookies;
-  if (!refreshToken) {
-    return res.status(401).json({ error: 'Refresh token não fornecido' });
-  }
+// Papéis legados → novos (telas antigas podem mandar admin/user)
+const normalizeRole = (role) => {
+  const map = { admin: 'master', user: 'operacional', tecnico: 'master' };
+  const r = (role || '').toLowerCase();
+  return CLIENT_ROLES.includes(r) ? r : (map[r] || null);
+};
+
+// Um usuário não cria papel acima do seu (master cria os 3; técnico idem)
+const canAssignRole = (creatorRole, targetRole) => {
+  if (creatorRole === 'tecnico' || creatorRole === 'master') return CLIENT_ROLES.includes(targetRole);
+  return false;
+};
+
+// POST /api/users — cria conta global (ou anexa existente) + acesso à empresa atual
+const createUserController = async (req, res) => {
   try {
-    const refresh = jwt.verify(refreshToken, process.env.JWT_SECRET);
-    const newToken = jwt.sign(
-      { user_id: refresh.user_id },
-      process.env.JWT_SECRET,
-      { expiresIn: '15m' }
-    );
-    res.cookie('token', newToken, {
-      maxAge: 15 * 60 * 1000, // 15 minutos em millisegundos
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-      path: '/',
-      domain: process.env.COOKIE_DOMAIN || undefined
+    const { name, email, password } = req.body;
+    const role = normalizeRole(req.body.role);
+    if (!name || !email) return res.status(400).json({ error: 'Nome e email obrigatórios' });
+    if (!role) return res.status(400).json({ error: 'Papel inválido (use master, lider ou operacional)' });
+    if (!canAssignRole(req.auth.role, role)) {
+      return res.status(403).json({ error: 'Sem permissão para atribuir este papel' });
+    }
+
+    const result = await createOrAttachUser({
+      name,
+      email,
+      password,
+      role,
+      companyId: req.auth.company_id,
+      grantedBy: req.auth.account_id,
     });
-    return res.status(200).json({ 
+
+    const mirror = await getUserById(result.local_user_id, req.auth.schema);
+    global.socketIoServer?.to(`schema_${req.auth.schema}`).emit('new_user', mirror);
+    res.status(201).json({
       success: true,
-      token: newToken 
+      result: mirror,
+      attached_existing_account: !result.created && result.attached,
     });
-  } catch (refreshError) {
-    return res.status(401).json({ error: 'Refresh token inválido' });
+  } catch (err) {
+    console.error('Erro ao criar usuário:', err.message);
+    const msg = err.message.includes('Senha obrigatória') ? err.message : 'Erro ao criar usuário';
+    res.status(500).json({ error: msg });
   }
 };
 
-const createUserController = async (req, res) => {
-    try {
-      const { name, email, password, role } = req.body;
-  
-      const user = new Users(
-        uuidv4(),
-        name,
-        email,
-        password,
-        role
+// PUT /api/update-user — atualiza conta global + papel na empresa atual + espelho
+const updateUserController = async (req, res) => {
+  const { userId, userName, userEmail } = req.body;
+  const role = normalizeRole(req.body.userRole);
+  try {
+    if (role && !canAssignRole(req.auth.role, role)) {
+      return res.status(403).json({ error: 'Sem permissão para atribuir este papel' });
+    }
+    // Localiza a conta global pelo espelho local
+    const uc = await pool.query(
+      `SELECT * FROM effective_gain.user_companies WHERE local_user_id = $1 AND company_id = $2`,
+      [userId, req.auth.company_id]
+    );
+    const membership = uc.rows[0];
+    if (!membership) return res.status(404).json({ error: 'Usuário não encontrado nesta empresa' });
+
+    await updateAccountBasics(membership.account_id, { name: userName, email: userEmail });
+    if (role && role !== membership.role) {
+      await pool.query(
+        `UPDATE effective_gain.user_companies SET role = $1 WHERE account_id = $2 AND company_id = $3`,
+        [role, membership.account_id, req.auth.company_id]
       );
-  
-        const schema = req.body.schema;
-        const result = await createUser(user, schema);
-        global.socketIoServer.to(`schema_${schema}`).emit('new_user', result)
-      res.status(201).json({success:true,result});
-  
-    } catch (err) {
-      console.error("Erro ao criar usuário:", err.message);
-      res.status(500).json({ error: 'Erro ao criar usuário' });
     }
-  };
-  const updateUserController = async (req, res) => {
-    const { userId, userName, userEmail, userRole } = req.body;
-    const schema = req.body.schema;
-    try {
-      const result = await updateUser(userId, userName, userEmail, userRole, schema);
-      res.status(200).json({
-        message: 'Usuário atualizado com sucesso',
-      })
-    } catch (error) {
-      console.error("Erro ao atualizar usuário:", error.message);
-      res.status(500).json({ error: 'Erro ao atualizar usuário' });
-    }
+    const account = await findAccountById(membership.account_id);
+    await ensureMirrorUser(req.auth.schema, userId, account, role || membership.role);
+
+    res.status(200).json({ message: 'Usuário atualizado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao atualizar usuário:', error.message);
+    res.status(500).json({ error: 'Erro ao atualizar usuário' });
   }
+};
+
+// DELETE /api/delete-user — revoga o acesso à empresa atual (espelho fica p/ histórico)
+const deleteUserController = async (req, res) => {
+  const { user_id } = req.body;
+  try {
+    const uc = await pool.query(
+      `SELECT account_id FROM effective_gain.user_companies WHERE local_user_id = $1 AND company_id = $2`,
+      [user_id, req.auth.company_id]
+    );
+    if (!uc.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado nesta empresa' });
+    if (uc.rows[0].account_id === req.auth.account_id) {
+      return res.status(400).json({ error: 'Você não pode revogar o próprio acesso' });
+    }
+    await revokeAccess(uc.rows[0].account_id, req.auth.company_id);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Erro ao revogar usuário:', error.message);
+    res.status(500).json({ error: 'Erro ao revogar usuário' });
+  }
+};
+
 const getAllUsersController = async (req, res) => {
   const schema = req.params.schema;
-  
   try {
     const result = await getAllUsers(schema);
-    res.status(200).json({
-      users: result
-    });
+    // Não expõe o hash/placeholder de senha
+    res.status(200).json({ users: result.map(({ password, ...u }) => u) });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      message: 'Não foi possível exibir os usuários'
-    });
+    res.status(500).json({ message: 'Não foi possível exibir os usuários' });
   }
 };
-const searchUserController = async (req, res) => {
-  const { email, password } = req.body;
-  const ip = await getIp(req);
-
-  try {
-    const result = await searchUser(email, password);
-    
-    if (!result) {
-      console.log("Usuário não encontrado");
-      await saveLoginAttempt(ip, 'effective_gain');
-      return res.status(404).json({success:false});
-    }
-
-    const isBlocked = await getLoginAttempts(ip, result.company.schema_name);
-    if(isBlocked===true){
-      return res.status(403).json({ error: 'IP bloqueado por tentativas excessivas' });
-    }
-
-    changeOnline(result.user.id, result.company.schema_name);
-
-    const token = jwt.sign(
-      { user_id: result.user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: '15m' }
-    );
-
-    const refreshToken = jwt.sign(
-      { user_id: result.user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    res.cookie('token', token, {
-      maxAge: 15 * 60 * 1000, // 15 minutos em millisegundos
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-      path: '/',
-      domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined
-    });
-
-    res.cookie('refreshToken', refreshToken, {
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias em millisegundos
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-      path: '/',
-      domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined
-    });
-
-    res.status(200).json({
-      success: true,
-      user: result.user,
-      role: result.user.permission,
-      company: result.company,
-      schema: result.company.schema_name
-    });
-
-  } catch (error) {
-    console.error("Erro ao buscar usuário:", error.message);
-    res.status(500).json({ error: 'Erro ao buscar usuário' });
-  }
-
-}
 
 const searchUserByIdController = async (req, res) => {
   const { user_id, schema } = req.params;
   try {
     const result = await getUserById(user_id, schema);
-
-    if (!result) {
-      return res.status(404).json({});
-    }
-    
-    res.status(200).json({
-      success: true,
-      user: result,
-    });
-
+    if (!result) return res.status(404).json({});
+    const { password, ...user } = result;
+    res.status(200).json({ success: true, user });
   } catch (error) {
-    console.error("Erro ao buscar usuário:", error.message);
+    console.error('Erro ao buscar usuário:', error.message);
     res.status(500).json({ error: 'Erro ao buscar usuário' });
   }
-}
+};
+
 const getOnlineUsersController = async (req, res) => {
-  const { schema } = req.query 
+  const schema = req.auth.schema;
   try {
     const result = await getOnlineUsers(schema);
-    res.status(201).json({
-      users: result,
-    });
+    res.status(200).json({ users: result });
   } catch (error) {
-    console.error(error)
-    res.status(500).json({
-      message: 'Não foi possível exibir os usuários',
-    });
+    console.error(error);
+    res.status(500).json({ message: 'Não foi possível exibir os usuários' });
   }
-  
 };
 
-const changeOfflineController = async(req, res)=>{
-  const { userID } = req.query 
-  const schema = req.param?.schema
+const changeOfflineController = async (req, res) => {
+  const { userID } = req.query;
   try {
-    const result = await changeOffline(userID, schema)
-    res.status(201).json({
-      users: result,
-    });
+    const result = await changeOffline(userID, req.auth.schema);
+    res.status(200).json({ users: result });
   } catch (error) {
-    console.error(error)
-    res.status(500).json({
-      message: error,
-    });
-  }
-}
-const deleteUserController = async(req, res)=>{
-  const {user_id} = req.body
-  const schema = req.body.schema
-
-  try{
-    const result = await deleteUser(user_id, schema)
-    res.status(204).json({
-      success:true,
-      users: result,
-    });
-  } catch (error) {
-    console.error(error)
-    res.status(500).json({
-      message: error,
-    });
-  }
-}
-
-const logoutController = async (req, res) => {
-  try {
-    res.clearCookie('token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-      path: '/',
-      domain: process.env.COOKIE_DOMAIN || undefined
-    });
-
-    res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-      path: '/',
-      domain: process.env.COOKIE_DOMAIN || undefined
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Logout realizado com sucesso'
-    });
-  } catch (error) {
-    console.error('Erro no logout:', error);
-    res.status(500).json({
-      error: 'Erro ao fazer logout'
-    });
+    console.error(error);
+    res.status(500).json({ message: 'Erro ao atualizar status' });
   }
 };
-  module.exports = {
-    createUserController,
-    getAllUsersController,
-    searchUserController,
-    getOnlineUsersController,
-    changeOfflineController,
-    deleteUserController,
-    updateUserController,
-    searchUserByIdController,
-    logoutController,
-    verifyToken,
-    refreshTokenController
-  }
+
+module.exports = {
+  createUserController,
+  getAllUsersController,
+  getOnlineUsersController,
+  changeOfflineController,
+  deleteUserController,
+  updateUserController,
+  searchUserByIdController,
+  verifyToken,
+};

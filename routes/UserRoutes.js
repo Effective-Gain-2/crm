@@ -1,15 +1,38 @@
 const express = require('express');
 const router = express.Router();
-const { createUserController, getAllUsersController, searchUserController, getOnlineUsersController, deleteUserController, updateUserController, searchUserByIdController, logoutController, verifyToken, refreshTokenController } = require('../controllers/UserController');
+const {
+    createUserController,
+    getAllUsersController,
+    getOnlineUsersController,
+    deleteUserController,
+    updateUserController,
+    searchUserByIdController,
+} = require('../controllers/UserController');
+const {
+    loginController,
+    selectCompanyController,
+    refreshTokenController,
+    meController,
+    logoutController,
+} = require('../controllers/AuthController');
+const { requireRole } = require('../middlewares/requireRole');
 
-router.get('/users/:schema', verifyToken ,getAllUsersController);
-router.get('/users/online', verifyToken, getOnlineUsersController)
-router.get('/search-user/:schema/:user_id', verifyToken, searchUserByIdController);
-router.post('/users', verifyToken, createUserController);
-router.post('/login', searchUserController);
+// ---- Autenticação global (públicas — liberadas no gate do index.js) ----
+router.post('/login', loginController);
+router.post('/select-company', selectCompanyController);
+router.post('/refresh-token', refreshTokenController);
 router.post('/logout', logoutController);
-router.post('/refresh-token', refreshTokenController)
-router.put('/update-user', verifyToken, updateUserController)
-router.delete('/delete-user', verifyToken, deleteUserController)
+
+// ---- Sessão ----
+router.get('/me', meController);
+
+// ---- Usuários do tenant ----
+// Rotas específicas ANTES do :schema (bug antigo: /users/online era capturado por /users/:schema)
+router.get('/users/online', getOnlineUsersController);
+router.get('/users/:schema', getAllUsersController);
+router.get('/search-user/:schema/:user_id', searchUserByIdController);
+router.post('/users', requireRole('master'), createUserController);
+router.put('/update-user', requireRole('master'), updateUserController);
+router.delete('/delete-user', requireRole('master'), deleteUserController);
 
 module.exports = router;

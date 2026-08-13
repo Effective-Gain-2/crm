@@ -151,10 +151,33 @@ const updateQueue = async (queueId, name, color, super_user, distribution, schem
     return result.rows[0];
 };
 
+// ---- Liderança de fila (papel LIDER) ----
+// Fila liderada = queues.superuser = local_user_id do líder.
+const getLedQueues = async (userId, schema) => {
+    const result = await pool.query(
+        `SELECT id FROM ${schema}.queues WHERE superuser = $1`, [userId]
+    );
+    return result.rows.map(r => r.id);
+};
+
+// Todos os user_ids das filas lideradas (a equipe do líder), incluindo ele mesmo.
+const getTeamUserIds = async (userId, schema) => {
+    const result = await pool.query(
+        `SELECT DISTINCT qu.user_id
+           FROM ${schema}.queue_users qu
+           JOIN ${schema}.queues q ON q.id = qu.queue_id
+          WHERE q.superuser = $1`,
+        [userId]
+    );
+    const ids = new Set(result.rows.map(r => r.user_id));
+    ids.add(userId);
+    return [...ids];
+};
+
 module.exports = {
     createQueue,
     addUserinQueue,
-    getUserQueues, 
+    getUserQueues,
     getChatsInQueue,
     getAllQueues,
     deleteQueue,
@@ -164,5 +187,7 @@ module.exports = {
     updateWebhookUrl,
     toggleWebhookStatus,
     getUsersInQueue,
-    updateQueue
+    updateQueue,
+    getLedQueues,
+    getTeamUserIds
 };

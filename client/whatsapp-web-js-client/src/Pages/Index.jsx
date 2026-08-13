@@ -463,6 +463,45 @@
     //     };
 
 
+    // ---- Papéis (gating do menu; a autoridade é o servidor) ----
+    const ROLE_LEVEL = { operacional: 1, user: 1, lider: 2, master: 3, admin: 3, tecnico: 4 };
+    const canSee = (min) => (ROLE_LEVEL[(role || '').toLowerCase()] || 1) >= (ROLE_LEVEL[min] || 99);
+
+    // ---- Seletor de empresa (multi-empresa / técnico) ----
+    const [meCompanies, setMeCompanies] = useState([]);
+    useEffect(() => {
+      axios.get(`${url}/api/me`, { withCredentials: true })
+        .then((res) => {
+          if (Array.isArray(res.data?.companies)) setMeCompanies(res.data.companies);
+          if (res.data?.role) setRole(res.data.role);
+          if (res.data?.companies && res.data?.company_id) {
+            const current = res.data.companies.find(c => c.id === res.data.company_id);
+            if (current) setEmpresa(current.company_name);
+          }
+        })
+        .catch(() => {});
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const handleSwitchCompany = async (companyId) => {
+      try {
+        const res = await axios.post(`${url}/api/select-company`, { company_id: companyId }, { withCredentials: true });
+        if (res.data?.success) {
+          const userData = {
+            id: res.data.user.id,
+            username: res.data.user.name,
+            role: res.data.role,
+            empresa: res.data.company.company_name,
+            schema: res.data.company.schema_name,
+          };
+          localStorage.setItem('user', JSON.stringify(userData));
+          window.location.reload();
+        }
+      } catch (e) {
+        console.error('Erro ao trocar de empresa:', e);
+      }
+    };
+
     const renderPage = () => {
       switch (page) {
         case 'dashboard': return <Dashboard theme={theme} />;
@@ -570,7 +609,8 @@
                 <i className="bi bi-bullseye"></i>
                 <span className="sidebar-label d-none">Oportunidades</span>
               </button>
-              <button
+              {canSee('master') && (
+<button
                 id="ai-agent"
                 onClick={() => handlePageChange('ai-agent')}
                 data-bs-toggle="tooltip"
@@ -581,7 +621,9 @@
                 <i className="bi bi-robot"></i>
                 <span className="sidebar-label d-none">Agente de IA</span>
               </button>
-              <button
+)}
+              {canSee('master') && (
+<button
                 id="atribuicao"
                 onClick={() => handlePageChange('atribuicao')}
                 data-bs-toggle="tooltip"
@@ -592,7 +634,9 @@
                 <i className="bi bi-graph-up-arrow"></i>
                 <span className="sidebar-label d-none">Atribuição</span>
               </button>
-              <button
+)}
+              {canSee('master') && (
+<button
                 id="filas"
                 onClick={() => handlePageChange('filas')}
                 data-bs-toggle="tooltip"
@@ -603,7 +647,9 @@
                 <i className="bi bi-diagram-3"></i>
                 <span className="sidebar-label d-none">Filas</span>
               </button>
-              <button
+)}
+              {canSee('lider') && (
+<button
                 id="disparos"
                 onClick={() => handlePageChange('disparos')}
                 data-bs-toggle="tooltip"
@@ -614,8 +660,10 @@
                 <i className="bi bi-megaphone"></i>
                 <span className="sidebar-label d-none">Disparos</span>
               </button>
+)}
               <hr className={`hr-${theme} mx-auto my-0`} style={{ width: '50%' }} />
-              <button
+              {canSee('master') && (
+<button
                 id="usuarios"
                 onClick={() => handlePageChange('usuarios')}
                 data-bs-toggle="tooltip"
@@ -626,7 +674,9 @@
                 <i className="bi bi-people"></i>
                 <span className="sidebar-label d-none">Usuários</span>
               </button>
-              <button
+)}
+              {canSee('master') && (
+<button
                 id="whatsapp"
                 onClick={handleWhatsapp}
                 data-bs-toggle="tooltip"
@@ -637,6 +687,7 @@
                 <i className="bi bi-whatsapp"></i>
                 <span className="sidebar-label d-none">WhatsApp</span>
               </button>
+)}
               <button
                 id="lembretes"
                 onClick={() => handlePageChange('agenda')}
@@ -709,6 +760,21 @@
               </div>
 
               <div className="d-flex flex-row align-items-center gap-2">
+                {meCompanies.length > 1 && (
+                  <select
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="bottom"
+                    data-bs-title="Trocar de empresa"
+                    className={`form-select form-select-sm input-${theme}`}
+                    style={{ width: 180 }}
+                    value={meCompanies.find(c => c.company_name === empresa)?.id || ''}
+                    onChange={(e) => e.target.value && handleSwitchCompany(e.target.value)}
+                  >
+                    {meCompanies.map((c) => (
+                      <option key={c.id} value={c.id}>{c.company_name}</option>
+                    ))}
+                  </select>
+                )}
                 {/* Botão para técnicos */}
                 {role === 'tecnico' && (
                   <button

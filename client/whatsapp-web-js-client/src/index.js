@@ -2,12 +2,12 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import Login from './Pages/Login';
-import App from './App';
 import ChatPage from './Pages/Chats';
 import DashboardCards from './Pages/Dashboard';
 import UsuariosPage from './Pages/Usuarios';
 import Painel from './Pages/Index';
 import SchemasPage from './Pages/Schemas';
+import ProtectedRoute from './Componentes/ProtectedRoute';
 import reportWebVitals from './reportWebVitals';
 import { ToastProvider } from './contexts/ToastContext';
 import Toast from './Componentes/Toast';
@@ -25,20 +25,16 @@ import './index.css';
 // Configurar o router
 const router = createBrowserRouter([
   {
-    path: "/home",
-    element: <App />
-  },
-  {
     path: "/",
     element: <Login />
   },
   {
-    path: "/painel", 
-    element: <Painel />
+    path: "/painel",
+    element: <ProtectedRoute><Painel /></ProtectedRoute>
   },
   {
     path: '/schemas',
-    element: <SchemasPage/>
+    element: <ProtectedRoute requiredRole="tecnico"><SchemasPage/></ProtectedRoute>
   }
 ]);
 
