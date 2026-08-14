@@ -27,6 +27,7 @@
   import axios from 'axios';
   import useUserPreferences from '../hooks/useUserPreferences';
   import CustomValuesModal from './modalPages/CustomValuesModal';
+  import AlterarSenhaModal from './modalPages/AlterarSenha';
   import { useToast } from '../contexts/ToastContext';
 
   window.addEventListener('error', function (event) {
@@ -107,6 +108,7 @@
     const url = process.env.REACT_APP_URL;
     const [socketInstance] = useState(() => socket());
     const [showCustomValuesModal, setShowCustomValuesModal] = useState(false);
+    const [showAlterarSenha, setShowAlterarSenha] = useState(false);
     const customValuesBtnRef = useRef(null);
     const { showError } = useToast();
     const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -831,6 +833,10 @@
                   <i className={`${theme === 'light' ? `bi-sun` : `bi-moon-stars`}`}></i>
                 </button>
 
+                <button type="button" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-title="Alterar minha senha" className={`btn btn-2-${theme} toggle-${theme}`} onClick={() => setShowAlterarSenha(true)}>
+                  <i className="bi bi-shield-lock"></i>
+                </button>
+
                 <button id="sair" type="button" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-title="Sair" className={`btn btn-2-${theme} toggle-${theme}`} onClick={handleLogout}>
                   <i className="bi bi-door-open"></i>
                 </button>
@@ -843,10 +849,16 @@
         </div>
 
         {/* WhatsApp Modal */}
-        <WhatsappModal 
+        <WhatsappModal
           theme={theme}
           show={showWhatsappModal}
           onHide={() => setShowWhatsappModal(false)}
+        />
+        {/* Alterar a própria senha */}
+        <AlterarSenhaModal
+          theme={theme}
+          show={showAlterarSenha}
+          onHide={() => setShowAlterarSenha(false)}
         />
         {/* Alertas de lembrete (persistem até ação do usuário) */}
         <audio ref={reminderAudioRef} src="data:audio/wav;base64,UklGRl4EAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YToEAACAgICAgICAgICAgICAgP+A/4D/gP+A/4D/gICAgICAgICAgICAgID/gP+A/4D/gP+A/4CAgICAgICAgICAgICA/4D/gP+A/4D/gP+AgICAgICAgICAgICAgP+A/4D/gP+A/4D/gA==" />

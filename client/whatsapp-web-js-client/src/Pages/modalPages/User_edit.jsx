@@ -6,7 +6,9 @@ function EditUserModal({ theme, user }) {
   const [userName, setUserName] = useState(user?.name || '');
   const [userEmail, setUserEmail] = useState(user?.email || '');
   const [userRole, setUserRole] = useState(user?.role || '');
-  const userData = JSON.parse(localStorage.getItem('user')); 
+  const [novaSenha, setNovaSenha] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const userData = JSON.parse(localStorage.getItem('user'));
   const schema = userData?.schema
 
     const url = process.env.REACT_APP_URL;
@@ -21,31 +23,38 @@ function EditUserModal({ theme, user }) {
     return ['master', 'lider', 'operacional'].includes(r) ? r : '';
   };
   setUserRole(normalizeRole(user?.role) || normalizeRole(user?.permission));
+  setNovaSenha('');
+  setFeedback('');
 }, [user]);
 
   const handleSave = async () => {
+    setFeedback('');
     if (!userName || !userEmail || !userRole) {
-      console.error('Preencha todos os campos.');
+      setFeedback('Preencha nome, email e perfil.');
+      return;
+    }
+    if (novaSenha && novaSenha.length < 8) {
+      setFeedback('A nova senha deve ter ao menos 8 caracteres.');
       return;
     }
 
     try {
-      const response = await axios.put(
+      await axios.put(
         `${url}/api/update-user`,
         {
           userId: user.id,
-          userName: userName,
-          userEmail: userEmail,
-          userRole: userRole,
-          schema: schema
+          userName,
+          userEmail,
+          userRole,
+          schema,
+          ...(novaSenha ? { newPassword: novaSenha } : {}),
         },
-        {
-      withCredentials: true
-    }
+        { withCredentials: true }
       );
-      // Aqui você pode fechar o modal ou atualizar a lista de usuários, se necessário
+      setFeedback(novaSenha ? 'Usuário atualizado e senha redefinida.' : 'Usuário atualizado.');
+      setNovaSenha('');
     } catch (error) {
-      console.error('Erro ao editar usuário:', error);
+      setFeedback(error.response?.data?.error || 'Erro ao editar usuário.');
     }
   };
 
@@ -102,6 +111,27 @@ function EditUserModal({ theme, user }) {
                 <option value="master">Master</option>
             </select>
             </div>
+
+            {/* Reset de senha (o master define uma senha temporária; o usuário troca depois em "Alterar minha senha") */}
+            <div className="mb-3">
+              <label htmlFor="novaSenha" className={`form-label card-subtitle-${theme}`}>Redefinir senha (opcional)</label>
+              <input
+                type="password"
+                className={`form-control input-${theme}`}
+                id="novaSenha"
+                value={novaSenha}
+                onChange={(e) => setNovaSenha(e.target.value)}
+                placeholder="deixe em branco para não alterar"
+                autoComplete="new-password"
+              />
+              <small className={`card-subtitle-${theme}`}>Mínimo 8 caracteres. Peça ao usuário para trocá-la no primeiro acesso.</small>
+            </div>
+
+            {feedback && (
+              <div className={`alert py-2 ${feedback.includes('Erro') || feedback.includes('Preencha') || feedback.includes('deve ter') ? 'alert-danger' : 'alert-success'}`}>
+                {feedback}
+              </div>
+            )}
           </div>
 
           <div className="modal-footer">

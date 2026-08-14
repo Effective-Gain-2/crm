@@ -6,6 +6,7 @@ const {
     getOnlineUsersController,
     deleteUserController,
     updateUserController,
+    changeMyPasswordController,
     searchUserByIdController,
 } = require('../controllers/UserController');
 const {
@@ -25,6 +26,8 @@ router.post('/logout', logoutController);
 
 // ---- Sessão ----
 router.get('/me', meController);
+// Troca da própria senha (qualquer papel autenticado; exige a senha atual)
+router.post('/change-password', changeMyPasswordController);
 
 // ---- Usuários do tenant ----
 // Rotas específicas ANTES do :schema (bug antigo: /users/online era capturado por /users/:schema)

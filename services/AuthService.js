@@ -192,12 +192,26 @@ const updateAccountBasics = async (accountId, { name, email }) => {
     );
 };
 
+// Troca de senha da conta global (o espelho local nunca guarda senha real)
+const setAccountPassword = async (accountId, newPassword) => {
+    if (!newPassword || String(newPassword).length < 8) {
+        throw new Error('A senha deve ter ao menos 8 caracteres');
+    }
+    const hashed = await hash(String(newPassword), 10);
+    const res = await pool.query(
+        `UPDATE effective_gain.user_accounts SET password = $1, updated_at = now() WHERE id = $2 RETURNING id`,
+        [hashed, accountId]
+    );
+    return res.rowCount > 0;
+};
+
 module.exports = {
     CLIENT_ROLES,
     ensureIdentityTables,
     findAccountByEmail,
     findAccountById,
     verifyPassword,
+    setAccountPassword,
     listCompaniesForAccount,
     getMembership,
     getCompanyById,

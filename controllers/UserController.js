@@ -1,6 +1,6 @@
 const pool = require('../db/queries');
 const { getAllUsers, getOnlineUsers, changeOffline, getUserById } = require('../services/UserService');
-const { createOrAttachUser, revokeAccess, updateAccountBasics, getMembership, ensureMirrorUser, findAccountById, CLIENT_ROLES } = require('../services/AuthService');
+const { createOrAttachUser, revokeAccess, updateAccountBasics, setAccountPassword, verifyPassword, getMembership, ensureMirrorUser, findAccountById, CLIENT_ROLES } = require('../services/AuthService');
 const { auth } = require('../middlewares/auth');
 
 // Compat: vários arquivos de rotas importam verifyToken daqui.
@@ -71,6 +71,13 @@ const updateUserController = async (req, res) => {
     if (!membership) return res.status(404).json({ error: 'Usuário não encontrado nesta empresa' });
 
     await updateAccountBasics(membership.account_id, { name: userName, email: userEmail });
+    // Reset de senha pelo master (não exige a senha antiga; é o admin agindo sobre o time)
+    if (req.body.newPassword) {
+      if (membership.account_id === req.auth.account_id) {
+        return res.status(400).json({ error: 'Use "Alterar minha senha" para trocar a própria senha' });
+      }
+      await setAccountPassword(membership.account_id, req.body.newPassword);
+    }
     if (role && role !== membership.role) {
       await pool.query(
         `UPDATE effective_gain.user_companies SET role = $1 WHERE account_id = $2 AND company_id = $3`,
@@ -84,6 +91,32 @@ const updateUserController = async (req, res) => {
   } catch (error) {
     console.error('Erro ao atualizar usuário:', error.message);
     res.status(500).json({ error: 'Erro ao atualizar usuário' });
+  }
+};
+
+// POST /api/change-password — o próprio usuário troca a senha (exige a senha atual)
+const changeMyPasswordController = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  try {
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Informe a senha atual e a nova senha' });
+    }
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({ error: 'A nova senha deve ter ao menos 8 caracteres' });
+    }
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ error: 'A nova senha deve ser diferente da atual' });
+    }
+    const account = await findAccountById(req.auth.account_id);
+    if (!account) return res.status(404).json({ error: 'Conta não encontrada' });
+    const ok = await verifyPassword(account, currentPassword);
+    if (!ok) return res.status(401).json({ error: 'Senha atual incorreta' });
+
+    await setAccountPassword(account.id, newPassword);
+    res.status(200).json({ success: true, message: 'Senha alterada com sucesso' });
+  } catch (error) {
+    console.error('Erro ao alterar senha:', error.message);
+    res.status(500).json({ error: error.message || 'Erro ao alterar senha' });
   }
 };
 
@@ -161,6 +194,7 @@ module.exports = {
   changeOfflineController,
   deleteUserController,
   updateUserController,
+  changeMyPasswordController,
   searchUserByIdController,
   verifyToken,
 };
