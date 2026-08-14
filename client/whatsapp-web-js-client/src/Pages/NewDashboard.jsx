@@ -188,7 +188,7 @@ function NewDashboard({ theme }) {
                       {(!data.reportData || data.reportData.length === 0) && (
                         <tr><td colSpan={9} className="text-center">Nenhum dado encontrado</td></tr>
                       )}
-                      {data.reportData?.slice(0, 10).filter(userData.role==='tecnico'||userData.role==='admin'?r=>r.id!==null:r=>r.user_id===userData.id).map((row, idx) => (
+                      {data.reportData?.slice(0, 10).filter(['tecnico','admin','master','lider'].includes(userData.role)?r=>r.id!==null:r=>r.user_id===userData.id).map((row, idx) => (
                         <tr key={idx} className={idx % 2 === 0 ? `table-light-${theme}` : ''}>
                           <td>{new Date().toLocaleDateString('pt-BR')}</td>
                           <td>WhatsApp</td>
@@ -940,7 +940,7 @@ function NewDashboard({ theme }) {
                       {(!data.reportData || data.reportData.length === 0) && (
                         <tr><td colSpan={9} className="text-center">Nenhum dado encontrado</td></tr>
                       )}
-                      {data.reportData?.slice(0, 10).filter(userData.role==='tecnico'||userData.role==='admin'?r=>r.id!==null:r=>r.user_id===userData.id).map((row, idx) => (
+                      {data.reportData?.slice(0, 10).filter(['tecnico','admin','master','lider'].includes(userData.role)?r=>r.id!==null:r=>r.user_id===userData.id).map((row, idx) => (
                         <tr key={idx} className={idx % 2 === 0 ? `table-light-${theme}` : ''}>
                           <td>{new Date().toLocaleDateString('pt-BR')}</td>
                           <td>WhatsApp</td>

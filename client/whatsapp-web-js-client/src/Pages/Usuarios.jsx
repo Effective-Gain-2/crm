@@ -54,7 +54,7 @@ function UsuariosPage({ theme }) {
 
 
   // Verificar se o usuário tem permissão para gerenciar usuários
-  const canManageUsers = userData?.role === 'admin' || userData?.role === 'tecnico';
+  const canManageUsers = ['admin', 'tecnico', 'master'].includes(userData?.role);
   useEffect(() => {
   if(socketInstance){
     socketInstance.emit('join', `schema_${schema}`);

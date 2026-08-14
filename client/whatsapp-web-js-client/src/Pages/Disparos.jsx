@@ -9,7 +9,7 @@ import DeleteDisparoModal from './modalPages/Disparos_delete';
 import { useToast } from '../contexts/ToastContext';
 
 const userData = JSON.parse(localStorage.getItem('user'));
-const isAdmin = userData?.role === 'admin' || userData?.role === 'tecnico';
+const isAdmin = ['admin', 'tecnico', 'master', 'lider'].includes(userData?.role);
 
 function formatDateHour(timestamp) {
   let ts = Number(timestamp);

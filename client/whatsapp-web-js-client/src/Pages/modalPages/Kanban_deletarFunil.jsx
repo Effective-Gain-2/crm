@@ -14,9 +14,7 @@ function KanbanDeletarFunilModal({ show, onHide, funil, theme }) {
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
   
-  const isAdmin = userData?.role === 'admin';
-  const isTecnico = userData?.role === 'tecnico';
-  const canAccess = isAdmin || isTecnico;
+  const canAccess = ['admin', 'tecnico', 'master'].includes(userData?.role);
 
   useEffect(() => {
     if (show) {

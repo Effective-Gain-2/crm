@@ -653,13 +653,9 @@ const disableBot = async () => {
   if (!selectedChat) return;
   
   try {
-    // Mapear a role para o valor correto
-    const roleValue = userData.role === 'admin' ? 'admin' : 'user';
-    
     await axios.post(`${url}/chat/disable-bot`, {
       chat_id: selectedChat.id,
-      schema: schema,
-      role: roleValue
+      schema: schema
     },
         {
       withCredentials: true

@@ -14,13 +14,13 @@ function EditUserModal({ theme, user }) {
   useEffect(() => {
   setUserName(user?.name || '');
   setUserEmail(user?.email || '');
-  setUserRole(
-  user?.role === 'admin' || user?.role === 'user'
-    ? user.role
-    : user?.permission === 'admin' || user?.permission === 'user'
-      ? user.permission
-      : ''
-);
+  // Normaliza papéis legados (admin→master, user→operacional) para o select atual
+  const normalizeRole = (r) => {
+    if (r === 'admin') return 'master';
+    if (r === 'user') return 'operacional';
+    return ['master', 'lider', 'operacional'].includes(r) ? r : '';
+  };
+  setUserRole(normalizeRole(user?.role) || normalizeRole(user?.permission));
 }, [user]);
 
   const handleSave = async () => {

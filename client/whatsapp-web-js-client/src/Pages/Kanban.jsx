@@ -747,7 +747,7 @@ useEffect(() => {
                 <i className="bi bi-file-earmark-arrow-up me-2"></i>Importar Contatos
             </button>
 
-            {(userData?.role === 'admin' || userData?.role === 'tecnico') && (
+            {['admin', 'tecnico', 'master'].includes(userData?.role) && (
               <button 
                 className="btn delete-btn" 
                 style={{ minWidth: 140 }} 

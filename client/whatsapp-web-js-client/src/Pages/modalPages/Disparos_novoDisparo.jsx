@@ -59,7 +59,7 @@ function DisparoModal({ theme, disparo = null, onSave }) {
   const userData = JSON.parse(localStorage.getItem('user'));
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
-  const isAdmin = userData?.role === 'admin' || userData?.role === 'tecnico';
+  const isAdmin = ['admin', 'tecnico', 'master', 'lider'].includes(userData?.role);
 
 
 

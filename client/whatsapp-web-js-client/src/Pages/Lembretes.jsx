@@ -463,8 +463,7 @@ const handleSalvarLembrete = (lembreteCriadoOuEditado) => {
                         )}
                         {lembretesOrdenados.map(l => {
         const podeExcluir =
-        userData?.role === 'admin' ||
-        userData?.role === 'tecnico' ||
+        ['admin', 'tecnico', 'master'].includes(userData?.role) ||
         l.user_id === userData?.id;
 
     return (

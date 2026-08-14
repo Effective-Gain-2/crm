@@ -92,7 +92,7 @@ const [filasSelecionadas, setFilasSelecionadas] = useState(
   fetchFilas();
 }, [schema, url, userData?.id]);
 
-const isAdmin = userRole === 'admin' || userRole === 'tecnico';
+const isAdmin = ['admin', 'tecnico', 'master'].includes(userRole);
 const isSuperUserEmAlgumaFila = filasSuperUser.length > 0;
 
 const podeGeral = isAdmin;

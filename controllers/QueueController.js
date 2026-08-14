@@ -199,7 +199,10 @@ const getUsersInQueueController = async (req, res) => {
         const usersData = [];
         for (const user of result) {
             const userData = await getUserById(user.user_id, schema);
-            if (userData) usersData.push(userData);
+            if (userData) {
+                const { password, ...safe } = userData;
+                usersData.push(safe);
+            }
         }
 
         res.status(200).json({

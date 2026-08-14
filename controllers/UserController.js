@@ -40,10 +40,11 @@ const createUserController = async (req, res) => {
     });
 
     const mirror = await getUserById(result.local_user_id, req.auth.schema);
-    global.socketIoServer?.to(`schema_${req.auth.schema}`).emit('new_user', mirror);
+    const { password: _pw, ...safeMirror } = mirror || {};
+    global.socketIoServer?.to(`schema_${req.auth.schema}`).emit('new_user', safeMirror);
     res.status(201).json({
       success: true,
-      result: mirror,
+      result: safeMirror,
       attached_existing_account: !result.created && result.attached,
     });
   } catch (err) {
