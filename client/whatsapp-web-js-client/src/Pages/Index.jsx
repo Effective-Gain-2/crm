@@ -94,8 +94,11 @@
   function Painel() {
     const [lembretes, setLembretes] = useState([]);
     const [username, setUsername] = useState('');
-    const [role, setRole] = useState('');
-    const [empresa, setEmpresa] = useState('');
+    // Papel/empresa começam com o valor da sessão local: enquanto o /api/me não responde,
+    // o seletor do topo mostrava a empresa errada (a primeira da lista).
+    const sessaoLocal = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch (e) { return {}; } })();
+    const [role, setRole] = useState(sessaoLocal.role || '');
+    const [empresa, setEmpresa] = useState(sessaoLocal.empresa || '');
     const [theme, setTheme] = useTheme();
     const { preferences, updatePage } = useUserPreferences();
     const [page, setPage] = useState(preferences.currentPage || 'chats');
@@ -518,22 +521,38 @@
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Troca de empresa: timeout + aviso na tela. Antes falhava em silêncio
+    // (sem timeout travava para sempre; o erro só saía no console do navegador).
+    const [trocandoEmpresa, setTrocandoEmpresa] = useState(false);
     const handleSwitchCompany = async (companyId) => {
+      if (!companyId || trocandoEmpresa) return;
+      setTrocandoEmpresa(true);
       try {
-        const res = await axios.post(`${url}/api/select-company`, { company_id: companyId }, { withCredentials: true });
-        if (res.data?.success) {
-          const userData = {
-            id: res.data.user.id,
-            username: res.data.user.name,
-            role: res.data.role,
-            empresa: res.data.company.company_name,
-            schema: res.data.company.schema_name,
-          };
-          localStorage.setItem('user', JSON.stringify(userData));
-          window.location.reload();
-        }
+        const res = await axios.post(
+          `${url}/api/select-company`,
+          { company_id: companyId },
+          { withCredentials: true, timeout: 20000 }
+        );
+        if (!res.data?.success) throw new Error(res.data?.error || 'resposta inesperada');
+        const userData = {
+          id: res.data.user.id,
+          username: res.data.user.name,
+          role: res.data.role,
+          empresa: res.data.company.company_name,
+          schema: res.data.company.schema_name,
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+        // limpa a página guardada: ela pode não existir/valer no papel da outra empresa
+        try { updatePage('chats'); } catch (e) { /* preferências indisponíveis */ }
+        window.location.reload();
       } catch (e) {
-        console.error('Erro ao trocar de empresa:', e);
+        setTrocandoEmpresa(false);
+        const semResposta = !e.response;
+        showError(
+          semResposta
+            ? 'O servidor não respondeu ao trocar de empresa. Tente de novo em alguns segundos.'
+            : (e.response?.data?.error || 'Não foi possível entrar nesta empresa.')
+        );
       }
     };
 
@@ -798,6 +817,7 @@
                     data-bs-title="Trocar de empresa"
                     className={`form-select form-select-sm input-${theme}`}
                     style={{ width: 180 }}
+                    disabled={trocandoEmpresa}
                     value={meCompanies.find(c => c.company_name === empresa)?.id || ''}
                     onChange={(e) => e.target.value && handleSwitchCompany(e.target.value)}
                   >
