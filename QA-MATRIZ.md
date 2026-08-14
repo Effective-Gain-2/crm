@@ -58,3 +58,11 @@ Build de referência: `b83bae5` (atualizar a cada correção).
 
 | ID | Passada | Área | Descrição | Correção (commit) | Re-teste |
 |---|---|---|---|---|---|
+| BUG-01 | P1 | Kanban | Etapas com milhares de contatos renderizavam TODOS os cards → navegador congelado ~60s ao abrir o Kanban do CDT | Renderização limitada a 30 cards/etapa + "Mostrar mais" | pendente |
+
+## Evidências parciais (build b83bae5 → em atualização)
+
+- Login 1366×768: card centralizado, olho de senha visível ✅
+- Painel master 1366×768: sidebar 60px (media query ativa), Chats íntegro ✅
+- Dashboard 1366×768: KPIs visíveis, página ROLA (antes cortava sem scroll) ✅
+- Backfill produção: agenda 980 contatos sincronizada (effective_gain), isGroup corrigido em 11 chats, 1 chat renomeado ✅

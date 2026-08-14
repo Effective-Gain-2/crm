@@ -176,6 +176,11 @@ function KanbanPage({ theme }) {
   const [etapas, setEtapas] = useState([])
   const [draggedLead, setDraggedLead] = useState(null);
   const [cards, setCards] = useState([])
+  // Renderização limitada por etapa (etapas com milhares de contatos congelavam o navegador)
+  const CARDS_POR_ETAPA = 30;
+  const [visiveisPorEtapa, setVisiveisPorEtapa] = useState({});
+  const mostrarMaisDaEtapa = (etapaId) =>
+    setVisiveisPorEtapa(prev => ({ ...prev, [etapaId]: (prev[etapaId] || CARDS_POR_ETAPA) + CARDS_POR_ETAPA }));
   const [allTags, setAllTags] = useState([]);
   const scrollRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -902,12 +907,15 @@ useEffect(() => {
                     </div>
 
                     {/* Container para os leads com scroll */}
-                    <div style={{ 
+                    <div style={{
                       maxHeight: '580px', // Altura máxima para ~5 cards
                       overflowY: 'auto',
                     }}>
-                      {/* Renderizando os leads filtrados */}
-                      {(cards.filter(lead => lead.etapa_id === etapa.id) || []).map(lead => (
+                      {/* Renderização LIMITADA por etapa: milhares de cards de uma vez
+                          congelavam o navegador por ~1 min (etapas com 4.800+ contatos) */}
+                      {(cards.filter(lead => lead.etapa_id === etapa.id) || [])
+                        .slice(0, visiveisPorEtapa[etapa.id] || CARDS_POR_ETAPA)
+                        .map(lead => (
                         <div key={lead.number} className={`kanban-card card-${theme} border border-${theme} mb-2 py-2 px-3`}
                           draggable
                           onDragStart={() => onDragStart(lead)}
@@ -1061,6 +1069,17 @@ useEffect(() => {
                           </div>
                         </div>
                       ))}
+
+                      {/* Mostrar mais desta etapa (sob demanda) */}
+                      {cards.filter(lead => lead.etapa_id === etapa.id).length > (visiveisPorEtapa[etapa.id] || CARDS_POR_ETAPA) && (
+                        <button
+                          type="button"
+                          className={`btn btn-sm btn-2-${theme} w-100 mb-2`}
+                          onClick={() => mostrarMaisDaEtapa(etapa.id)}
+                        >
+                          Mostrar mais ({cards.filter(lead => lead.etapa_id === etapa.id).length - (visiveisPorEtapa[etapa.id] || CARDS_POR_ETAPA)} restantes)
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
