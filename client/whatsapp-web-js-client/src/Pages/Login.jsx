@@ -19,6 +19,7 @@ function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [verSenha, setVerSenha] = useState(false);
 
   // Etapa 2 — seleção de empresa (contas multi-empresa e técnico)
   const [companies, setCompanies] = useState(null);
@@ -64,11 +65,12 @@ function Login() {
     }
 
     try {
+      // timeout obrigatório: sem ele, um backend reiniciando deixa o botão em "Entrando…" para sempre
       const response = await axios.post(`${url}/api/login`, {
         email: username,
         password,
         recaptcha: recaptchaValue,
-      }, { withCredentials: true });
+      }, { withCredentials: true, timeout: 20000 });
 
       if (response.data.success && response.data.needsSelection) {
         setCompanies(response.data.companies || []);
@@ -85,7 +87,14 @@ function Login() {
       setErrorCount(prev => prev + 1);
       setLoading(false);
       const apiMsg = err.response?.data?.error;
-      setErrorMsg(apiMsg || 'Login e/ou senha incorretos, tente novamente.');
+      if (!err.response) {
+        // Sem resposta do servidor: timeout, queda de rede ou backend reiniciando (deploy)
+        setErrorMsg(err.code === 'ECONNABORTED'
+          ? 'O servidor demorou a responder. Aguarde alguns segundos e tente de novo.'
+          : 'Não foi possível falar com o servidor. Verifique a conexão e tente de novo.');
+      } else {
+        setErrorMsg(apiMsg || 'Login e/ou senha incorretos, tente novamente.');
+      }
     }
   };
 
@@ -93,7 +102,7 @@ function Login() {
     setSelecting(true);
     setErrorMsg('');
     try {
-      const response = await axios.post(`${url}/api/select-company`, { company_id: companyId }, { withCredentials: true });
+      const response = await axios.post(`${url}/api/select-company`, { company_id: companyId }, { withCredentials: true, timeout: 20000 });
       if (response.data.success) {
         persistSession(response.data);
         return;
@@ -101,7 +110,11 @@ function Login() {
       throw new Error('seleção falhou');
     } catch (err) {
       setSelecting(false);
-      setErrorMsg(err.response?.data?.error || 'Não foi possível entrar nesta empresa.');
+      if (!err.response) {
+        setErrorMsg('O servidor não respondeu. Aguarde alguns segundos e tente de novo.');
+      } else {
+        setErrorMsg(err.response?.data?.error || 'Não foi possível entrar nesta empresa.');
+      }
     }
   };
 
@@ -179,13 +192,23 @@ function Login() {
                     <i className="bi bi-key"></i>
                   </span>
                   <input
-                    type="password"
+                    type={verSenha ? 'text' : 'password'}
                     className={`form-control input-${theme}`}
                     placeholder="Senha"
                     aria-describedby="basic-addon2"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
+                  <button
+                    type="button"
+                    className={`input-group-text igt-${theme}`}
+                    title={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                    aria-label={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                    onClick={() => setVerSenha(v => !v)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <i className={`bi ${verSenha ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+                  </button>
                 </div>
               </div>
 

@@ -9,6 +9,7 @@ function NewUserModal({ theme, type }) {
   const [userRole, setUserRole] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [verSenha, setVerSenha] = useState(false);
   const [verifyPassword, setVerifyPassword] = useState('');
   const userData = JSON.parse(localStorage.getItem('user')); 
   const schema = userData?.schema
@@ -138,27 +139,51 @@ function NewUserModal({ theme, type }) {
               <div>
                 <div className="mb-3">
                   <label htmlFor="userPassword" className={`form-label card-subtitle-${theme}`}>Senha</label>
-                  <input
-                    type="password"
-                    className={`form-control input-${theme}`}
-                    id="userPassword"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Digite a senha"
-                  />
+                  <div className="input-group">
+                    <input
+                      type={verSenha ? 'text' : 'password'}
+                      className={`form-control input-${theme}`}
+                      id="userPassword"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="mínimo 8 caracteres"
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      className={`input-group-text igt-${theme}`}
+                      title={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                      onClick={() => setVerSenha(v => !v)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <i className={`bi ${verSenha ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mb-3">
                   <label htmlFor="confirmPassword" className={`form-label card-subtitle-${theme}`}>Confirmar Senha</label>
-                  <input
-                    type="password"
-                    className={`form-control input-${theme}`}
-                    id="confirmPassword"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    onBlur={handleConfirmPasswordBlur}
-                    placeholder="Confirme a senha"
-                  />
+                  <div className="input-group">
+                    <input
+                      type={verSenha ? 'text' : 'password'}
+                      className={`form-control input-${theme}`}
+                      id="confirmPassword"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onBlur={handleConfirmPasswordBlur}
+                      placeholder="Confirme a senha"
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      className={`input-group-text igt-${theme}`}
+                      title={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                      onClick={() => setVerSenha(v => !v)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <i className={`bi ${verSenha ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

@@ -7,6 +7,7 @@ function EditUserModal({ theme, user }) {
   const [userEmail, setUserEmail] = useState(user?.email || '');
   const [userRole, setUserRole] = useState(user?.role || '');
   const [novaSenha, setNovaSenha] = useState('');
+  const [verSenha, setVerSenha] = useState(false);
   const [feedback, setFeedback] = useState('');
   const userData = JSON.parse(localStorage.getItem('user'));
   const schema = userData?.schema
@@ -115,15 +116,26 @@ function EditUserModal({ theme, user }) {
             {/* Reset de senha (o master define uma senha temporária; o usuário troca depois em "Alterar minha senha") */}
             <div className="mb-3">
               <label htmlFor="novaSenha" className={`form-label card-subtitle-${theme}`}>Redefinir senha (opcional)</label>
-              <input
-                type="password"
-                className={`form-control input-${theme}`}
-                id="novaSenha"
-                value={novaSenha}
-                onChange={(e) => setNovaSenha(e.target.value)}
-                placeholder="deixe em branco para não alterar"
-                autoComplete="new-password"
-              />
+              <div className="input-group">
+                <input
+                  type={verSenha ? 'text' : 'password'}
+                  className={`form-control input-${theme}`}
+                  id="novaSenha"
+                  value={novaSenha}
+                  onChange={(e) => setNovaSenha(e.target.value)}
+                  placeholder="deixe em branco para não alterar"
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  className={`input-group-text igt-${theme}`}
+                  title={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                  onClick={() => setVerSenha(v => !v)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <i className={`bi ${verSenha ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+                </button>
+              </div>
               <small className={`card-subtitle-${theme}`}>Mínimo 8 caracteres. Peça ao usuário para trocá-la no primeiro acesso.</small>
             </div>
 

@@ -10,8 +10,23 @@ function AlterarSenhaModal({ theme, show, onHide }) {
   const [erro, setErro] = useState('');
   const [ok, setOk] = useState('');
   const [loading, setLoading] = useState(false);
+  const [ver, setVer] = useState(false);
 
   const url = process.env.REACT_APP_URL;
+
+  const tipo = ver ? 'text' : 'password';
+  const olho = (
+    <button
+      type="button"
+      className={`input-group-text igt-${theme}`}
+      title={ver ? 'Ocultar senhas' : 'Mostrar senhas'}
+      aria-label={ver ? 'Ocultar senhas' : 'Mostrar senhas'}
+      onClick={() => setVer(v => !v)}
+      style={{ cursor: 'pointer' }}
+    >
+      <i className={`bi ${ver ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+    </button>
+  );
 
   const limpar = () => { setAtual(''); setNova(''); setConfirma(''); setErro(''); setOk(''); };
   const fechar = () => { limpar(); onHide(); };
@@ -47,20 +62,31 @@ function AlterarSenhaModal({ theme, show, onHide }) {
 
       <Modal.Body style={{ backgroundColor: `var(--bg-color-${theme})` }}>
         <div className="mb-3">
-          <label className={`form-label card-subtitle-${theme}`}>Senha atual</label>
-          <input type="password" className={`form-control input-${theme}`} value={atual}
-            onChange={(e) => setAtual(e.target.value)} autoComplete="current-password" />
+          <label htmlFor="senhaAtual" className={`form-label card-subtitle-${theme}`}>Senha atual</label>
+          <div className="input-group">
+            <input type={tipo} id="senhaAtual" className={`form-control input-${theme}`} value={atual}
+              onChange={(e) => setAtual(e.target.value)} autoComplete="off" />
+            {olho}
+          </div>
         </div>
+
         <div className="mb-3">
-          <label className={`form-label card-subtitle-${theme}`}>Nova senha</label>
-          <input type="password" className={`form-control input-${theme}`} value={nova}
-            onChange={(e) => setNova(e.target.value)} autoComplete="new-password" placeholder="mínimo 8 caracteres" />
+          <label htmlFor="senhaNova" className={`form-label card-subtitle-${theme}`}>Nova senha</label>
+          <div className="input-group">
+            <input type={tipo} id="senhaNova" className={`form-control input-${theme}`} value={nova}
+              onChange={(e) => setNova(e.target.value)} autoComplete="off" placeholder="mínimo 8 caracteres" />
+            {olho}
+          </div>
         </div>
+
         <div className="mb-2">
-          <label className={`form-label card-subtitle-${theme}`}>Confirmar nova senha</label>
-          <input type="password" className={`form-control input-${theme}`} value={confirma}
-            onChange={(e) => setConfirma(e.target.value)} autoComplete="new-password"
-            onKeyDown={(e) => e.key === 'Enter' && salvar()} />
+          <label htmlFor="senhaConfirma" className={`form-label card-subtitle-${theme}`}>Confirmar nova senha</label>
+          <div className="input-group">
+            <input type={tipo} id="senhaConfirma" className={`form-control input-${theme}`} value={confirma}
+              onChange={(e) => setConfirma(e.target.value)} autoComplete="off"
+              onKeyDown={(e) => e.key === 'Enter' && salvar()} />
+            {olho}
+          </div>
         </div>
 
         {erro && <div className="alert alert-danger py-2 mb-0 mt-3"><i className="bi bi-exclamation-triangle me-2"></i>{erro}</div>}
