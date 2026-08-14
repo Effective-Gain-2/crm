@@ -1,7 +1,7 @@
 require('dotenv').config();
 const axios = require('axios'); 
 
-const createInstance = async ({ instanceName, number }) => {
+const createInstance = async ({ instanceName, number, groupsIgnore = false }) => {
   // Guard: sem BACKEND_URL o webhook seria registrado como "undefined/webhook/chat" —
   // a instância nasceria surda (nenhuma mensagem chega) de forma silenciosa e irreversível.
   if (!process.env.BACKEND_URL) {
@@ -16,7 +16,9 @@ const createInstance = async ({ instanceName, number }) => {
     number,
     integration: "WHATSAPP-BAILEYS",
     qrcode: true,
-    groupsIgnore: true,
+    // false = conversas de GRUPO também chegam ao CRM (antes ficava fixo em true e
+    // os grupos simplesmente não apareciam, sem nenhum aviso)
+    groupsIgnore: !!groupsIgnore,
     webhook:{
       url:`${process.env.BACKEND_URL}/webhook/chat`,
       base64:true,

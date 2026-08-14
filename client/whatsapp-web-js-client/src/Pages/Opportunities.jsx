@@ -22,6 +22,8 @@ export default function Opportunities({ theme }) {
   const [oportunidades, setOportunidades] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dragged, setDragged] = useState(null);
+  const [carregandoEtapa, setCarregandoEtapa] = useState(null);
+  const [totaisEtapa, setTotaisEtapa] = useState({}); // contagem REAL por etapa (vem do forecast)
 
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ title: '', contact_number: '', source: '', value: '', stage_id: '' });
@@ -62,23 +64,68 @@ export default function Opportunities({ theme }) {
       .catch((e) => console.error('Erro ao buscar etapas:', e));
   }, [funilSelecionado, schema]);
 
-  // ---- Oportunidades do funil ----
+  // ---- Oportunidades do funil (carregamento por etapa) ----
+  // Um funil pode ter milhares de leads: buscar tudo de uma vez trazia ~3 MB e
+  // renderizava milhares de cards, travando a tela. Agora vem por etapa, sob demanda.
+  const POR_ETAPA = 25;
+
   const fetchOportunidades = useCallback(() => {
-    if (!funilSelecionado || !schema) {
+    if (!funilSelecionado || !schema || etapas.length === 0) {
       setOportunidades([]);
       return;
     }
     setLoading(true);
-    axios
-      .get(`${url}/opportunity/by-funnel/${encodeURIComponent(funilSelecionado)}/${schema}`, { withCredentials: true })
-      .then((res) => setOportunidades(Array.isArray(res.data.opportunities) ? res.data.opportunities : []))
-      .catch((e) => console.error('Erro ao buscar oportunidades:', e))
+    Promise.all(
+      etapas.map((et) =>
+        axios
+          .get(`${url}/opportunity/by-stage/${et.id}/${schema}?limit=${POR_ETAPA}&offset=0`, { withCredentials: true })
+          .then((r) => (Array.isArray(r.data?.opportunities) ? r.data.opportunities : []))
+          .catch(() => [])
+      )
+    )
+      .then((listas) => setOportunidades(listas.flat()))
       .finally(() => setLoading(false));
-  }, [funilSelecionado, schema]);
+  }, [funilSelecionado, schema, etapas]);
+
+  // "Carregar mais" de uma etapa específica
+  const carregarMais = async (stageId) => {
+    const jaCarregadas = oportunidades.filter((o) => o.stage_id === stageId).length;
+    setCarregandoEtapa(stageId);
+    try {
+      const { data } = await axios.get(
+        `${url}/opportunity/by-stage/${stageId}/${schema}?limit=${POR_ETAPA}&offset=${jaCarregadas}`,
+        { withCredentials: true }
+      );
+      const novas = Array.isArray(data?.opportunities) ? data.opportunities : [];
+      setOportunidades((prev) => {
+        const ids = new Set(prev.map((o) => o.id));
+        return [...prev, ...novas.filter((o) => !ids.has(o.id))];
+      });
+    } catch (e) {
+      console.error('Erro ao carregar mais:', e);
+    } finally {
+      setCarregandoEtapa(null);
+    }
+  };
 
   useEffect(() => {
     fetchOportunidades();
   }, [fetchOportunidades]);
+
+  // Contagem e valor REAIS por etapa (o card mostra só os primeiros carregados)
+  useEffect(() => {
+    if (!funilSelecionado || !schema) { setTotaisEtapa({}); return; }
+    axios
+      .get(`${url}/opportunity/forecast/${encodeURIComponent(funilSelecionado)}/${schema}`, { withCredentials: true })
+      .then((res) => {
+        const mapa = {};
+        (res.data?.forecast || []).forEach((f) => {
+          mapa[f.stage_id] = { count: Number(f.count || 0), total: Number(f.total_value || 0) };
+        });
+        setTotaisEtapa(mapa);
+      })
+      .catch(() => setTotaisEtapa({}));
+  }, [funilSelecionado, schema, oportunidades.length]);
 
   // Realtime: mover ou criar (ex.: lead do Meta) uma oportunidade
   useEffect(() => {
@@ -123,9 +170,14 @@ export default function Opportunities({ theme }) {
   };
 
   const oportunidadesDaEtapa = (stageId) => oportunidades.filter((o) => o.stage_id === stageId);
+  // Contagem/valor reais vêm do forecast (servidor); a lista mostra só o que foi carregado
+  const countDaEtapa = (stageId) =>
+    totaisEtapa[stageId]?.count ?? oportunidadesDaEtapa(stageId).length;
   const totalDaEtapa = (stageId) =>
-    oportunidadesDaEtapa(stageId).reduce((acc, o) => acc + Number(o.value || 0), 0);
-  const totalGeral = oportunidades.reduce((acc, o) => acc + Number(o.value || 0), 0);
+    totaisEtapa[stageId]?.total ?? oportunidadesDaEtapa(stageId).reduce((acc, o) => acc + Number(o.value || 0), 0);
+  const totalGeral = Object.values(totaisEtapa).reduce((acc, t) => acc + Number(t.total || 0), 0);
+  const countGeral = Object.values(totaisEtapa).reduce((acc, t) => acc + Number(t.count || 0), 0)
+    || oportunidades.length;
 
   // ---- Criar oportunidade ----
   const openModal = () => {
@@ -222,7 +274,7 @@ export default function Opportunities({ theme }) {
             ))}
           </select>
           <span className="badge bg-primary-subtle text-primary-emphasis">
-            {oportunidades.length} oportunidades · {formatBRL(totalGeral)}
+            {countGeral} oportunidades · {formatBRL(totalGeral)}
           </span>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -255,7 +307,7 @@ export default function Opportunities({ theme }) {
               <div className="d-flex align-items-center justify-content-between">
                 <span className="fw-semibold text-truncate">{etapa.etapa}</span>
                 <span className="badge bg-secondary-subtle text-secondary-emphasis">
-                  {oportunidadesDaEtapa(etapa.id).length}
+                  {countDaEtapa(etapa.id)}
                 </span>
               </div>
               <small className="text-muted">{formatBRL(totalDaEtapa(etapa.id))}</small>
@@ -307,6 +359,20 @@ export default function Opportunities({ theme }) {
                   </div>
                 </div>
               ))}
+
+              {/* Carrega o restante desta etapa sob demanda (evita baixar milhares de cards) */}
+              {oportunidadesDaEtapa(etapa.id).length < countDaEtapa(etapa.id) && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary w-100 mt-1"
+                  disabled={carregandoEtapa === etapa.id}
+                  onClick={() => carregarMais(etapa.id)}
+                >
+                  {carregandoEtapa === etapa.id
+                    ? 'Carregando…'
+                    : `Carregar mais (${countDaEtapa(etapa.id) - oportunidadesDaEtapa(etapa.id).length} restantes)`}
+                </button>
+              )}
             </div>
           </div>
         ))}

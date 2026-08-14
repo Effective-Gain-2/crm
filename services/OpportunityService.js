@@ -24,29 +24,37 @@ const createOpportunity = async (
 };
 
 // Lista oportunidades de um funil, com nome do contato e do proprietário (para o Kanban).
-const getOpportunitiesByFunnel = async (funnel, schema) => {
+// Paginado por padrão: sem limite, um funil com milhares de leads devolvia ~3 MB
+// numa resposta só e travava a tela. O front pede mais por etapa conforme rola.
+const getOpportunitiesByFunnel = async (funnel, schema, { limit = 200, offset = 0 } = {}) => {
+    const lim = Math.min(Math.max(Number(limit) || 200, 1), 2000);
+    const off = Math.max(Number(offset) || 0, 0);
     const result = await pool.query(
         `SELECT o.*, c.contact_name AS contact_name, u.name AS owner_name
            FROM ${schema}.opportunities o
            LEFT JOIN ${schema}.contacts c ON c.number = o.contact_number
            LEFT JOIN ${schema}.users u ON u.id = o.owner_id
           WHERE lower(o.funnel) = lower($1)
-          ORDER BY o.updated_at DESC`,
-        [funnel]
+          ORDER BY o.updated_at DESC
+          LIMIT $2 OFFSET $3`,
+        [funnel, lim, off]
     );
     return result.rows;
 };
 
-// Lista oportunidades de uma etapa específica.
-const getOpportunitiesByStage = async (stage_id, schema) => {
+// Lista oportunidades de uma etapa específica (paginada — uma etapa pode ter milhares).
+const getOpportunitiesByStage = async (stage_id, schema, { limit = 50, offset = 0 } = {}) => {
+    const lim = Math.min(Math.max(Number(limit) || 50, 1), 500);
+    const off = Math.max(Number(offset) || 0, 0);
     const result = await pool.query(
         `SELECT o.*, c.contact_name AS contact_name, u.name AS owner_name
            FROM ${schema}.opportunities o
            LEFT JOIN ${schema}.contacts c ON c.number = o.contact_number
            LEFT JOIN ${schema}.users u ON u.id = o.owner_id
           WHERE o.stage_id = $1
-          ORDER BY o.updated_at DESC`,
-        [stage_id]
+          ORDER BY o.updated_at DESC
+          LIMIT $2 OFFSET $3`,
+        [stage_id, lim, off]
     );
     return result.rows;
 };

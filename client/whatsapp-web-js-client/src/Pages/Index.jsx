@@ -780,7 +780,8 @@
             </div>
           </div>
           <div className="d-flex flex-column flex-grow-1" style={{ flex: 1, minWidth: 0 }}>
-            <div className={`header-${theme} ps-3 pe-4 d-flex align-items-center justify-content-between`} style={{ height: '10%' }}>
+            {/* altura fixa em px: com 10% o cabeçalho encolhia/estourava conforme a tela */}
+            <div className={`header-${theme} ps-3 pe-4 d-flex align-items-center justify-content-between`} style={{ flex: '0 0 auto', minHeight: 64 }}>
               <button data-bs-toggle="tooltip" data-bs-placement="right" data-bs-title="Expandir/Retrair" id="toggleSidebar" className={`btn btn-3-${theme} p-1`} onClick={toggleSidebar}>
                 <i className={`bi ${isSidebarExpanded ? 'bi-arrow-bar-left' : 'bi-arrow-bar-right'}`}></i>
               </button>
@@ -842,7 +843,13 @@
                 </button>
               </div>
             </div>
-            <div className={`main-${theme} ps-2 pe-3 pb-3`} style={{ flex: 1, overflow: 'auto', minWidth: 0, height: '90%' }} id="main">
+            {/* minHeight/minWidth 0 são obrigatórios para um filho de flex poder encolher e rolar.
+                Com height:90% fixo o conteúdo era cortado e a barra de rolagem sumia. */}
+            <div
+              className={`main-${theme} ps-2 pe-3 pb-3`}
+              style={{ flex: '1 1 auto', overflow: 'auto', minWidth: 0, minHeight: 0 }}
+              id="main"
+            >
               {renderPage()}
             </div>
           </div>

@@ -149,6 +149,52 @@ const mapConnectionState = (state) => {
   return 'disconnected';
 };
 
+// ---- Endereçamento LID do WhatsApp ----
+// O WhatsApp passou a identificar contatos por um "LID" (<id>@lid) em vez do telefone.
+// A Evolution entrega:
+//   recebida → remoteJid/senderPn = <telefone>@s.whatsapp.net + previousRemoteJid = <lid>@lid
+//   enviada  → remoteJid = <lid>@lid  (sem o telefone!)
+// Sem tratar isso, ida e volta da MESMA conversa viram dois chats distintos.
+// Guardamos o par (lid → telefone) assim que ele aparece e usamos nas enviadas.
+const lembrarLid = async (lid, jidTelefone, schema) => {
+  if (!lid || !jidTelefone || !schema) return;
+  try {
+    await pool.query(
+      `INSERT INTO ${schema}.lid_map (lid, phone_jid, updated_at)
+       VALUES ($1, $2, now())
+       ON CONFLICT (lid) DO UPDATE SET phone_jid = EXCLUDED.phone_jid, updated_at = now()`,
+      [lid, jidTelefone]
+    );
+  } catch (e) { /* tabela ainda não migrada — segue com o LID mesmo */ }
+};
+
+const buscarLid = async (lid, schema) => {
+  if (!lid || !schema) return null;
+  try {
+    const r = await pool.query(`SELECT phone_jid FROM ${schema}.lid_map WHERE lid = $1`, [lid]);
+    return r.rows[0]?.phone_jid || null;
+  } catch (e) { return null; }
+};
+
+const normalizarJid = async (key, schema) => {
+  const remoteJid = key?.remoteJid || '';
+  if (remoteJid.endsWith('@g.us')) return remoteJid; // grupo: o próprio jid é a conversa
+
+  // Telefone explícito na mensagem (recebidas) — é a fonte mais confiável
+  const jidTelefone = [key?.senderPn, remoteJid].find(j => typeof j === 'string' && j.includes('@s.whatsapp.net'));
+  const lid = [key?.previousRemoteJid, remoteJid].find(j => typeof j === 'string' && j.endsWith('@lid'));
+
+  if (jidTelefone) {
+    if (lid) await lembrarLid(lid, jidTelefone, schema); // aprende o par para as enviadas
+    return jidTelefone;
+  }
+  if (lid) {
+    const conhecido = await buscarLid(lid, schema);
+    if (conhecido) return conhecido;
+  }
+  return remoteJid;
+};
+
 
 module.exports = (broadcastMessage) => {
   const app = express.Router();
@@ -201,13 +247,21 @@ module.exports = (broadcastMessage) => {
     if (!result?.data?.key?.remoteJid) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
-    const num = result.data.key.remoteJid.split('@')[0]; 
-    const numberLimpo = num.length === 12 
-      ? num 
-      : num.slice(0, 4) + num.slice(5);
-    const contact = result.data.key.fromMe
-      ? numberLimpo
-      : result.data.pushName || numberLimpo;
+    // ---- Endereçamento LID (WhatsApp novo) ----
+    // Recebidas trazem senderPn (telefone) + previousRemoteJid (o LID);
+    // enviadas trazem SÓ o LID. Sem normalizar, a mesma pessoa virava dois chats.
+    const key = result.data.key;
+    const schemaAlvo = await resolveSchemaByInstance(result.instance);
+    const jidNormalizado = await normalizarJid(key, schemaAlvo);
+
+    const num = jidNormalizado.split('@')[0].split(':')[0];
+    // NADA de remover dígito: o "9" do celular BR faz parte do número e a mutilação
+    // quebrava o casamento com os contatos importados (e destruía LIDs/DDIs).
+    const numberLimpo = num;
+    const isGrupo = jidNormalizado.endsWith('@g.us');
+    const contact = isGrupo
+      ? (result.data.pushName || 'Grupo')
+      : (result.data.pushName && !key.fromMe ? result.data.pushName : numberLimpo);
 
     try {
       const timestamp = getCurrentTimestamp()

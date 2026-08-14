@@ -323,6 +323,13 @@ const ensureSchemaTables = async (schema) => {
 
     // Chaves de API por cliente (controle de custo por empresa) — valores write-only na UI
     await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.lid_map (
+            lid TEXT PRIMARY KEY,
+            phone_jid TEXT NOT NULL,
+            updated_at TIMESTAMPTZ DEFAULT now()
+        );`);
+
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.integration_settings (
             key TEXT PRIMARY KEY,
             value TEXT,

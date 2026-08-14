@@ -33,8 +33,9 @@ const createOpportunityController = async (req, res) => {
 const getOpportunitiesByFunnelController = async (req, res) => {
     try {
         const { funnel, schema } = req.params;
-        const opportunities = await getOpportunitiesByFunnel(funnel, schema);
-        res.status(200).json({ opportunities });
+        const { limit, offset } = req.query;
+        const opportunities = await getOpportunitiesByFunnel(funnel, schema, { limit, offset });
+        res.status(200).json({ opportunities, limit: Number(limit) || 200, offset: Number(offset) || 0 });
     } catch (error) {
         console.error('Erro ao buscar oportunidades:', error);
         res.status(500).json({ error: 'Erro ao buscar oportunidades' });
@@ -44,8 +45,9 @@ const getOpportunitiesByFunnelController = async (req, res) => {
 const getOpportunitiesByStageController = async (req, res) => {
     try {
         const { stage_id, schema } = req.params;
-        const opportunities = await getOpportunitiesByStage(stage_id, schema);
-        res.status(200).json({ opportunities });
+        const { limit, offset } = req.query;
+        const opportunities = await getOpportunitiesByStage(stage_id, schema, { limit, offset });
+        res.status(200).json({ opportunities, limit: Number(limit) || 50, offset: Number(offset) || 0 });
     } catch (error) {
         console.error('Erro ao buscar oportunidades da etapa:', error);
         res.status(500).json({ error: 'Erro ao buscar oportunidades da etapa' });

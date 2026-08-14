@@ -254,7 +254,8 @@ function NewDashboard({ theme }) {
     )
   }
   return (
-    <div className="pt-3" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    // height:100% travava a altura e escondia o conteúdo que passava da tela
+    <div className="pt-3" style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* CSS personalizado para filtros */}
       <style>
         {`
