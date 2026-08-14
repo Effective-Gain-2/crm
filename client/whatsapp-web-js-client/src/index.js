@@ -11,6 +11,7 @@ import reportWebVitals from './reportWebVitals';
 import { ToastProvider } from './contexts/ToastContext';
 import Toast from './Componentes/Toast';
 import ToastWrapper from './Componentes/ToastWrapper';
+import ErrorBoundary from './Componentes/ErrorBoundary';
 
 // Importar configuração global do axios
 import './utils/axiosConfig';
@@ -49,12 +50,14 @@ const root = ReactDOM.createRoot(rootElement);
 // Renderizar a aplicação com StrictMode
 root.render(
   <React.StrictMode>
-    <ToastProvider>
-      <ToastWrapper>
-        <RouterProvider router={router} />
-        <Toast />
-      </ToastWrapper>
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <ToastWrapper>
+          <RouterProvider router={router} />
+          <Toast />
+        </ToastWrapper>
+      </ToastProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );
 

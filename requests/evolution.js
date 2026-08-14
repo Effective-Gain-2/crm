@@ -26,8 +26,8 @@ const createInstance = async ({ instanceName, number, groupsIgnore = false }) =>
       headers: {
       authorization: process.env.EVOLUTION_API_KEY,
       },
-    // CONNECTION_UPDATE/QRCODE_UPDATED alimentam o status de conexão em tempo real
-    events:['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED']
+    // CONNECTION_UPDATE/QRCODE_UPDATED = status em tempo real; CONTACTS_* = agenda (nomes)
+    events:['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED', 'CONTACTS_UPSERT', 'CONTACTS_SET', 'CONTACTS_UPDATE']
     },
   };
 
@@ -172,6 +172,42 @@ const searchContact = async (remoteJid, instanceId) => {
     console.error('Erro ao buscar contato:', err);
   }
 };
+// Nome (subject) de um grupo — usado para batizar o chat do grupo corretamente
+const getGroupSubject = async (instanceName, groupJid) => {
+  try {
+    const response = await fetch(
+      `${process.env.EVOLUTION_SERVER_URL}/group/findGroupInfos/${encodeURIComponent(instanceName)}?groupJid=${encodeURIComponent(groupJid)}`,
+      { headers: { apikey: process.env.EVOLUTION_API_KEY } }
+    );
+    if (!response.ok) return null;
+    const result = await response.json();
+    return result?.subject || result?.group?.subject || null;
+  } catch (err) {
+    console.error('Erro ao buscar nome do grupo:', err.message);
+    return null;
+  }
+};
+
+// Lista completa de contatos da instância (sync da agenda ao conectar)
+const listAllContacts = async (instanceName) => {
+  try {
+    const response = await fetch(
+      `${process.env.EVOLUTION_SERVER_URL}/chat/findContacts/${encodeURIComponent(instanceName)}`,
+      {
+        method: 'POST',
+        headers: { apikey: process.env.EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      }
+    );
+    if (!response.ok) return [];
+    const result = await response.json();
+    return Array.isArray(result) ? result : (result?.contacts || []);
+  } catch (err) {
+    console.error('Erro ao listar contatos da instância:', err.message);
+    return [];
+  }
+};
+
 const sendImageToWhatsApp = async (number, imageBase64, instanceId) => {
   try {
     if (!process.env.EVOLUTION_SERVER_URL) {
@@ -289,6 +325,8 @@ module.exports = {
   fetchInstanceEvo,
   sendTextMessage,
   searchContact,
+  getGroupSubject,
+  listAllContacts,
   sendAudioToWhatsApp,
   getBase64FromMediaMessage,
   sendImageToWhatsApp,

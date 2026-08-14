@@ -446,9 +446,16 @@ function ChatPage({ theme, chat_id} ) {
   // Função para filtrar chats baseado nos filtros ativos
   const getFilteredChats = () => {
     let filtered = chatList.filter(chat => {
-      // Filtro por aba (conversas/aguardando)
-      if (selectedTab === 'conversas' && chat.status === 'waiting') return false;
-      if (selectedTab === 'aguardando' && chat.status !== 'waiting') return false;
+      // Filtro por aba (conversas / aguardando / grupos)
+      const ehGrupo = !!(chat.isgroup || chat.isGroup);
+      if (selectedTab === 'grupos') {
+        if (!ehGrupo) return false;
+      } else {
+        // grupos ficam na própria aba (fora do atendimento/distribuição)
+        if (ehGrupo) return false;
+        if (selectedTab === 'conversas' && chat.status === 'waiting') return false;
+        if (selectedTab === 'aguardando' && chat.status !== 'waiting') return false;
+      }
 
       // Filtro por status
       if (filtrosAtivos.status && filtrosAtivos.status !== 'todos') {
@@ -885,7 +892,9 @@ const formatMessage = (msg) => ({
   timestamp: msg.timestamp || msg.created_at,
   message_type: msg.message_type,
   base64: msg.midiaBase64 || msg.base64,
-  user_id: msg.user_id
+  user_id: msg.user_id,
+  // autor real (quem falou num grupo) — gravado pelo webhook
+  participant_name: msg.participant_name || msg.from || null,
 }
 );
 
@@ -1624,35 +1633,33 @@ const handleImageUpload = async (event) => {
   return (
     <div className={`d-flex flex-column w-100 h-100 ms-2`} style={{ overflow: 'hidden' }}>
       <audio ref={audioRef} src="/notification.mp3" preload="auto" />
-      <div className="pt-3 mb-3 d-flex flex-row align-items-center gap-5" style={{ height: '7%' }}>
+      {/* altura fixa em conteúdo, não em % da tela (em monitor menor o % esmagava o cabeçalho) */}
+      <div className="pt-3 mb-3 d-flex flex-row align-items-center gap-5" style={{ flex: '0 0 auto' }}>
         <h2 className={`mb-0 ms-4 header-text-${theme}`} style={{ fontWeight: 400 }}>Chats</h2>
 
-        <button 
+        <button
           className={`btn btn-sm btn-1-${theme} d-flex align-items-center gap-2`}
-          style={{ height: '90%' }}
           onClick={() => setShowNewContactModal(true)}
         >
           <i className="bi-plus-lg"></i>
           Novo Contato
         </button>
       </div>
-      <div 
+      <div
         className={`chat chat-${theme} w-100 d-flex flex-row`}
-        style={{ height: '100%', overflow: 'hidden' }}
+        style={{ flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }}
       >
-        {/* LISTA DE CONTATOS */}
-        <div className={`col-3 chat-list-${theme} bg-color-${theme} d-flex flex-column`}
-          style={{ 
-            height: '100%', 
-            width: '100%',
-            maxWidth: '300px',
+        {/* LISTA DE CONTATOS — classe p/ media query reduzir em telas menores */}
+        <div className={`chat-lista-conversas chat-list-${theme} bg-color-${theme} d-flex flex-column`}
+          style={{
+            height: '100%',
             backgroundColor: `var(--bg-color-${theme})`,
             overflow: 'hidden',
             position: 'relative'
           }}>
 
-          <div style={{ 
-            height: '12.5%', 
+          <div style={{
+            flex: '0 0 auto',
             position: 'sticky',
             top: 0,
             zIndex: 1,
@@ -1674,6 +1681,14 @@ const handleImageUpload = async (event) => {
                 <i className="bi bi-alarm"></i>
                 Aguardando
               </button>
+              <button
+                className={`d-flex gap-2 btn btn-sm ${selectedTab === 'grupos' ? `btn-1-${theme}` : `btn-2-${theme}`}`}
+                onClick={() => handleTabChange('grupos')}
+                title="Conversas de grupo (fora da distribuição automática)"
+              >
+                <i className="bi bi-people"></i>
+                Grupos
+              </button>
               {/* <button
                 className={`btn btn-sm btn-2-${theme}`}
                 onClick={() => setShowFiltros(true)}
@@ -1689,7 +1704,7 @@ const handleImageUpload = async (event) => {
                 <h6 
                   className={`header-text-${theme} m-0`}
                 >
-                  {selectedTab === 'conversas' ? 'Conversas' : 'Sala de Espera'}
+                  {selectedTab === 'conversas' ? 'Conversas' : selectedTab === 'grupos' ? 'Grupos' : 'Sala de Espera'}
                 </h6>
                 {selectedTab === 'aguardando' && (
                   <button
@@ -1734,7 +1749,10 @@ const handleImageUpload = async (event) => {
     marginBottom: 2,
   }}
 >
-  <strong>{chat.contact_name || chat.id || 'Sem Nome'}</strong>
+  <strong>
+    {chat.isgroup && <i className="bi bi-people-fill me-1" title="Grupo" style={{ fontSize: '0.85em', opacity: 0.7 }}></i>}
+    {chat.contact_name || chat.contact_phone || 'Sem Nome'}
+  </strong>
   <span
   title={getQueueName(chat.queue_id)}
   style={{
@@ -1807,9 +1825,7 @@ const handleImageUpload = async (event) => {
       backgroundColor: `var(--bg-color-${theme})`,
       color: `var(--color-${theme})`,
       borderBottom: `1px solid var(--border-color-${theme})`,
-      minHeight: '95.11px',
       width:'100%',
-      maxWidth:'1700px',
     }}
   >
     <div>
@@ -1841,11 +1857,12 @@ const handleImageUpload = async (event) => {
     style={{ fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer' }}
     onClick={handleEditNameStart}
   >
-    {selectedChat?.contact_name || 'Sem Nome'}
+    {selectedChat?.isgroup && <i className="bi bi-people-fill me-2" title="Grupo" style={{ opacity: 0.7 }}></i>}
+    {selectedChat?.contact_name || selectedChat?.contact_phone || 'Sem Nome'}
   </strong>
 )}
       <div style={{ fontSize: '0.95rem', opacity: 0.8 }}>
-        {selectedChat?.contact_phone || selectedChat?.id || ''}
+        {selectedChat?.isgroup ? 'Grupo' : (selectedChat?.contact_phone || '')}
       </div>
     </div>
 
@@ -1962,11 +1979,11 @@ const handleImageUpload = async (event) => {
 
   </div>
 
-  {/* Área de conteúdo da conversa */}
+  {/* Área de conteúdo da conversa — flex real no lugar do 707.61px medido de uma tela */}
   <div
     style={{
-      height: '100%',
-      maxHeight: '707.61px',
+      flex: '1 1 auto',
+      minHeight: 0,
       overflow: 'hidden auto',
       border: '1px solid var(--border-color)',
       position: 'relative',
@@ -2132,10 +2149,16 @@ const handleImageUpload = async (event) => {
                 textAlign: 'left',
                 padding: '10px 10px 5px 10px',
                 borderRadius: '10px',
-                maxWidth: '50%',
+                maxWidth: 'min(60%, 640px)',
                 width: (msg.message_type === 'audio' || msg.message_type === 'audioMessage') ? '50%' : 'fit-content',
               }}
             >
+              {/* Em grupo: quem falou (autor real, vindo do webhook) */}
+              {selectedChat?.isgroup && !msg.from_me && msg.participant_name && (
+                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#2E7599', marginBottom: 3 }}>
+                  {msg.participant_name}
+                </div>
+              )}
               {(msg.message_type === 'audio' || msg.message_type === 'audioMessage') ? (
                 <AudioPlayer 
                   audioSrc={msg.base64} 
@@ -2161,7 +2184,7 @@ const handleImageUpload = async (event) => {
                     }
                     alt="imagem"
                     style={{
-                      maxWidth: '300px',
+                      maxWidth: 'min(300px, 100%)',
                       width: '100%',
                       height: 'auto',
                       borderRadius: '8px',
@@ -2233,7 +2256,8 @@ const handleImageUpload = async (event) => {
       borderBottomRightRadius: '5px',
       backgroundColor: `var(--bg-color-${theme})`,
       borderTop: '1px solid var(--border-color)',
-      height: '70px',
+      flex: '0 0 auto',
+      minHeight: '64px',
     }}
   >
 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>

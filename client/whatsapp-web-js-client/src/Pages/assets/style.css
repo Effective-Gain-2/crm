@@ -381,6 +381,33 @@ a {
 .sidebar-collapsed .sidebar-label {
     display: none;
 }
+
+/* Lista de conversas do Chats — largura controlada por media query (era 300px fixo) */
+.chat-lista-conversas {
+    width: 100%;
+    max-width: 300px;
+    flex: 0 0 auto;
+}
+
+/* ====== Responsividade de layout (o CSS original foi calibrado para 1521px) ====== */
+@media (max-width: 1400px) {
+    .sidebar-collapsed { width: 60px !important; max-width: 60px !important; }
+    .sidebar-expanded { width: 170px !important; max-width: 170px !important; }
+    .chat-lista-conversas { max-width: 260px; }
+}
+
+@media (max-width: 1280px) {
+    .sidebar-collapsed { width: 54px !important; max-width: 54px !important; }
+    .chat-lista-conversas { max-width: 230px; }
+}
+
+/* Modais nunca maiores que a tela (em 768px de altura alguns cortavam os botões) */
+.modal-content {
+    max-height: 92vh;
+}
+.modal-content .modal-body {
+    overflow-y: auto;
+}
 .header-text-light {
     color: var(--color-light);
 }

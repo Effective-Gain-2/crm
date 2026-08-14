@@ -176,6 +176,85 @@ const buscarLid = async (lid, schema) => {
   } catch (e) { return null; }
 };
 
+// Upsert de contatos vindos da Evolution (agenda). Regra:
+//  - isSaved/saved=true → nome da AGENDA: grava contact_name e marca is_saved
+//  - senão → só push_name; contact_name apenas se o atual for ruim (número/vazio)
+const upsertContatosDaAgenda = async (contatos, schema) => {
+  for (const c of contatos) {
+    try {
+      const jid = c.remoteJid || c.id || '';
+      if (!jid || jid.endsWith('@g.us') || jid.endsWith('@lid')) continue; // grupos/LID não são agenda
+      const numero = String(jid).split('@')[0].split(':')[0];
+      if (!/^\d{8,15}$/.test(numero)) continue;
+      const salvo = !!(c.isSaved ?? c.saved);
+      const nome = (c.pushName || c.name || '').trim();
+      if (!nome) continue;
+      if (salvo) {
+        await pool.query(
+          `INSERT INTO ${schema}.contacts (number, contact_name, push_name, is_saved)
+           VALUES ($1, $2, $2, true)
+           ON CONFLICT (number) DO UPDATE SET contact_name = EXCLUDED.contact_name, push_name = EXCLUDED.push_name, is_saved = true`,
+          [numero, nome]
+        );
+        // reflete no chat aberto se o nome atual for número/vazio OU pushName antigo
+        await pool.query(
+          `UPDATE ${schema}.chats SET contact_name = $1 WHERE contact_phone = $2 AND status <> 'closed'`,
+          [nome, numero]
+        ).catch(() => {});
+      } else {
+        await pool.query(
+          `INSERT INTO ${schema}.contacts (number, contact_name, push_name, is_saved)
+           VALUES ($1, $2, $2, false)
+           ON CONFLICT (number) DO UPDATE SET
+             push_name = EXCLUDED.push_name,
+             contact_name = CASE
+               WHEN ${schema}.contacts.is_saved THEN ${schema}.contacts.contact_name
+               WHEN ${schema}.contacts.contact_name IS NULL OR ${schema}.contacts.contact_name ~ '^[0-9 ()+-]+$'
+                 THEN EXCLUDED.contact_name
+               ELSE ${schema}.contacts.contact_name
+             END`,
+          [numero, nome]
+        );
+      }
+    } catch (e) { /* contato individual com problema não derruba o lote */ }
+  }
+};
+
+// Sync completo da agenda de uma instância (chamado ao conectar)
+const sincronizarAgenda = async (instanceName, schema) => {
+  const { listAllContacts } = require('../requests/evolution');
+  const contatos = await listAllContacts(instanceName);
+  if (contatos.length === 0) return;
+  await upsertContatosDaAgenda(contatos, schema);
+  console.log(`Agenda sincronizada (${instanceName}): ${contatos.length} contatos processados`);
+};
+
+// Nome do grupo com cache em contacts (number = id do grupo).
+// Sem isso o chat do grupo era batizado com o pushName do 1º remetente.
+const resolverNomeGrupo = async (groupJid, instanceName, schema) => {
+  const groupId = groupJid.split('@')[0];
+  if (schema) {
+    try {
+      const cached = await pool.query(
+        `SELECT contact_name FROM ${schema}.contacts WHERE number = $1`, [groupId]
+      );
+      const nome = cached.rows[0]?.contact_name;
+      if (nome && nome !== 'Grupo' && !/^[\d\s()+\-]+$/.test(nome)) return nome;
+    } catch (e) { /* segue para a Evolution */ }
+  }
+  const { getGroupSubject } = require('../requests/evolution');
+  const subject = await getGroupSubject(instanceName, groupJid);
+  if (subject && schema) {
+    await pool.query(
+      `INSERT INTO ${schema}.contacts (number, contact_name, is_saved)
+       VALUES ($1, $2, false)
+       ON CONFLICT (number) DO UPDATE SET contact_name = EXCLUDED.contact_name`,
+      [groupId, subject]
+    ).catch(() => {});
+  }
+  return subject || 'Grupo';
+};
+
 const normalizarJid = async (key, schema) => {
   const remoteJid = key?.remoteJid || '';
   if (remoteJid.endsWith('@g.us')) return remoteJid; // grupo: o próprio jid é a conversa
@@ -233,6 +312,11 @@ module.exports = (broadcastMessage) => {
             const status = mapConnectionState(result?.data?.state);
             await setConnectionStatusByName(instanceName, status, schema);
             serverTest.io?.to(`schema_${schema}`).emit('connectionStatus', { connection_name: instanceName, status });
+            // Conectou → sincroniza a AGENDA em background (nomes salvos > pushName > número)
+            if (status === 'connected') {
+              sincronizarAgenda(instanceName, schema)
+                .catch((e) => console.error('Sync de agenda falhou:', e.message));
+            }
           } else {
             const base64 = result?.data?.qrcode?.base64 || result?.data?.base64 || null;
             serverTest.io?.to(`schema_${schema}`).emit('qrcodeUpdated', { connection_name: instanceName, base64 });
@@ -244,8 +328,21 @@ module.exports = (broadcastMessage) => {
       return res.sendStatus(200);
     }
 
+    // Contatos da agenda chegando por evento (antes: caía no 400 "Dados incompletos")
+    if (eventName === 'contacts.upsert' || eventName === 'contacts.set' || eventName === 'contacts.update') {
+      try {
+        const schema = await resolveSchemaByInstance(result.instance);
+        const lista = Array.isArray(result.data) ? result.data : [result.data];
+        if (schema) await upsertContatosDaAgenda(lista, schema);
+      } catch (e) {
+        console.error('Erro no evento de contatos:', e.message);
+      }
+      return res.sendStatus(200);
+    }
+
     if (!result?.data?.key?.remoteJid) {
-      return res.status(400).json({ error: 'Dados incompletos' });
+      // Eventos sem remoteJid não são erro — só não nos interessam
+      return res.sendStatus(200);
     }
     // ---- Endereçamento LID (WhatsApp novo) ----
     // Recebidas trazem senderPn (telefone) + previousRemoteJid (o LID);
@@ -259,9 +356,17 @@ module.exports = (broadcastMessage) => {
     // quebrava o casamento com os contatos importados (e destruía LIDs/DDIs).
     const numberLimpo = num;
     const isGrupo = jidNormalizado.endsWith('@g.us');
-    const contact = isGrupo
-      ? (result.data.pushName || 'Grupo')
-      : (result.data.pushName && !key.fromMe ? result.data.pushName : numberLimpo);
+
+    // Nome do chat:
+    //  - grupo: nome do GRUPO (subject via Evolution, com cache em contacts) —
+    //    antes usava o pushName de quem mandou a 1ª mensagem, e o grupo virava "pessoa"
+    //  - 1:1: pushName só em mensagem RECEBIDA; senão o número (createChat melhora depois)
+    let contact;
+    if (isGrupo) {
+      contact = await resolverNomeGrupo(jidNormalizado, result.instance, schemaAlvo);
+    } else {
+      contact = (result.data.pushName && !key.fromMe) ? result.data.pushName : numberLimpo;
+    }
 
     try {
       const timestamp = getCurrentTimestamp()
@@ -271,10 +376,10 @@ module.exports = (broadcastMessage) => {
 
       const chat = new Chat(
         uuidv4(),
-        result.data.key.remoteJid,
+        jidNormalizado,          // jid NORMALIZADO (LID→telefone) — senão ida e volta viram 2 chats
         result.data.instanceId,
         null,
-        result.data.key.fromMe,
+        isGrupo,                 // era key.fromMe aqui: isGroup no banco guardava "fromMe"
         contact,
         null,
         result.data.status,
@@ -290,7 +395,8 @@ module.exports = (broadcastMessage) => {
       const chatDb = await getChatService(createChats.chat.id, createChats.chat.connection_id, createChats.schema);
       const schema = createChats.schema
 
-      if(chatDb.assigned_user===null){
+      // Grupo NÃO entra na distribuição automática (grupo não é lead) — decisão do Luiz
+      if(chatDb.assigned_user===null && !isGrupo){
         await setUserChat(chatDb.id, schema)
       }
 
@@ -542,6 +648,10 @@ module.exports = (broadcastMessage) => {
       );
 
       if (existingMessage.rowCount === 0 && !result.data.message?.audioMessage?.base64) {
+        // Autor real da mensagem (em grupo: quem falou; em 1:1 recebida: o contato)
+        const participante = !result.data.key.fromMe
+          ? { name: result.data.pushName || null, jid: key.participant || key.senderPn || null }
+          : null;
         await saveMessage(
           chatDb.id,
           new Message(
@@ -551,7 +661,9 @@ module.exports = (broadcastMessage) => {
             result.data.key.remoteJid,
             timestamp
           ),
-          schema
+          schema,
+          undefined,
+          participante
         );
       }
       const data = {

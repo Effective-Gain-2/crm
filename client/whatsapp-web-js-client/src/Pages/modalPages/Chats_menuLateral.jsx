@@ -112,7 +112,7 @@ const ChatsMenuLateral = ({ theme, onClose, style = {}, selectedChat }) => {
         position: 'absolute',
         top: 0,
         right: 0,
-        width: '350px',
+        width: 'min(350px, 90vw)',
         height: '100%',
         background: 'var(--bg-color-' + theme + ')',
         boxShadow: '-2px 0 8px rgba(0,0,0,0.15)',

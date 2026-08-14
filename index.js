@@ -249,11 +249,39 @@ app.use('/meta-leads', metaLeadsRoutes);
 app.use('/ai-agent', requireRole('master'), bindAuthParams(aiAgentRoutes));
 app.use('/attribution', requireRole('lider'), bindAuthParams(attributionRoutes));
 
+// ---- Error handler final: nenhum erro sai como HTML/stack ou derruba a request ----
+// Sempre JSON {error} consistente; o front (axiosConfig) transforma em toast.
+app.use((err, req, res, next) => {
+  console.error(`Erro não tratado em ${req.method} ${req.originalUrl}:`, err.stack || err.message || err);
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ error: err.expose ? err.message : 'Erro interno do servidor' });
+});
+
 const PORT = 3002;
 
 server.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT} 🚀`);
 });
+
+// ---- Migrações no boot (idempotentes) ----
+// Todo deploy garante o shape do banco sozinho — sem depender de console manual.
+setTimeout(async () => {
+  try {
+    const { ensureSchemaTables } = require('./services/CompanyService');
+    const db = require('./db/queries');
+    const companies = await db.query(`SELECT schema_name FROM effective_gain.companies`);
+    for (const row of companies.rows) {
+      try {
+        await ensureSchemaTables(row.schema_name);
+      } catch (e) {
+        console.error(`Migração boot falhou em ${row.schema_name}:`, e.message);
+      }
+    }
+    console.log(`Migrações de boot aplicadas em ${companies.rows.length} tenant(s)`);
+  } catch (e) {
+    console.error('Migração de boot indisponível:', e.message);
+  }
+}, 5000);
 
 // Socket global para o LembreteService
 setGlobalSocket(socketIoServer);

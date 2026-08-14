@@ -62,10 +62,23 @@ const createChat = async (chat, instance, message, etapa, io) => {
     throw new Error("Schema não encontrado para a instância fornecida.");
   }
 
+  // Um "nome ruim" é ausência de nome real: vazio, só dígitos (número), UUID ou jid.
+  const ehNomeRuim = (n) => {
+    const s = String(n || '').trim();
+    if (!s) return true;
+    if (/^[\d\s()+\-@.:]+$/.test(s)) return true;                       // número/jid
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return true; // uuid
+    return false;
+  };
+
   try {
+    const contactNumber = chat.getChatId().split('@')[0];
+    const nomeNovo = chat.getContact();
+    const nomeNovoEhBom = !ehNomeRuim(nomeNovo);
+
     const existingChat = await pool.query(
       `SELECT * FROM ${schema}.chats WHERE contact_phone = $1 AND connection_id = $2 AND status <> 'closed' `,
-      [chat.getChatId().split('@')[0], chat.getConnectionId()]
+      [contactNumber, chat.getConnectionId()]
     );
 
 
@@ -73,6 +86,20 @@ const createChat = async (chat, instance, message, etapa, io) => {
       // Procura o chat mais recente que NÃO está 'closed'
       const chatValido = existingChat.rows.find(c => c.status !== 'closed');
       if (chatValido) {
+        // O nome ficava congelado no primeiro valor para sempre: se o atual é
+        // número/UUID e chegou um nome real (pushName/agenda), atualiza.
+        if (nomeNovoEhBom && ehNomeRuim(chatValido.contact_name)) {
+          await pool.query(
+            `UPDATE ${schema}.chats SET contact_name = $1 WHERE id = $2`,
+            [nomeNovo, chatValido.id]
+          ).catch(() => {});
+          chatValido.contact_name = nomeNovo;
+          await pool.query(
+            `UPDATE ${schema}.contacts SET contact_name = $1, push_name = $2
+              WHERE number = $3 AND COALESCE(is_saved, false) = false`,
+            [nomeNovo, nomeNovo, contactNumber]
+          ).catch(() => {});
+        }
         // Atualiza mensagens e retorna o chat válido
         const updated = await updateChatMessages(chat, schema, message);
         if(chatValido.queue_id===null){
@@ -83,8 +110,7 @@ const createChat = async (chat, instance, message, etapa, io) => {
           schema: schema
         };
       }
-    } 
-    const contactNumber = chat.getChatId().split('@')[0];
+    }
     const contactQuery = await pool.query(
       `SELECT * FROM ${schema}.contacts WHERE number = $1`,
       [contactNumber]
@@ -93,10 +119,18 @@ const createChat = async (chat, instance, message, etapa, io) => {
     let contactName;
     if (contactQuery.rowCount > 0) {
       contactName = contactQuery.rows[0].contact_name;
+      // Agenda/rename manual (is_saved) manda; senão, um nome real substitui número/UUID
+      if (nomeNovoEhBom && ehNomeRuim(contactName) && !contactQuery.rows[0].is_saved) {
+        await pool.query(
+          `UPDATE ${schema}.contacts SET contact_name = $1, push_name = $2 WHERE number = $3`,
+          [nomeNovo, nomeNovo, contactNumber]
+        ).catch(() => {});
+        contactName = nomeNovo;
+      }
     } else {
       const newContact = await pool.query(
-        `INSERT INTO ${schema}.contacts (number, contact_name) VALUES ($1, $2) RETURNING *`,
-        [contactNumber, chat.getContact()]
+        `INSERT INTO ${schema}.contacts (number, contact_name, push_name) VALUES ($1, $2, $2) RETURNING *`,
+        [contactNumber, nomeNovo]
       );
       contactName = newContact.rows[0].contact_name;
     }

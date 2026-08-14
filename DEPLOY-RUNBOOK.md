@@ -45,8 +45,22 @@ TARGET_SCHEMA=<schema> TEC_PW=... MASTER_PW=... LIDER_PW=... OPER_PW=... node sc
 ## WhatsApp (Evolution v2)
 1. Login como master/técnico → botão WhatsApp → Nova Conexão (nome + número 12-13 dígitos).
 2. Instância criada como `<schema>__<nome>` (única globalmente; webhook resolve a empresa em O(1)).
-3. QR na tela; badge muda para **Conectado** em tempo real (evento CONNECTION_UPDATE). Botão "QR expirou?" renova sem recriar.
-4. Eventos assinados: MESSAGES_UPSERT + CONNECTION_UPDATE + QRCODE_UPDATED. Webhook valida header `authorization` = EVOLUTION_API_KEY.
+3. QR na tela; badge muda para **Conectado** em tempo real (evento CONNECTION_UPDATE). Botão QR na lista reconecta/renova sem recriar.
+4. Eventos assinados: MESSAGES_UPSERT + CONNECTION_UPDATE + QRCODE_UPDATED + CONTACTS_UPSERT/SET/UPDATE. Webhook valida header `authorization` = EVOLUTION_API_KEY.
+
+### Nomes, LID e grupos (comportamento correto)
+- **LID**: o WhatsApp identifica contatos por `<id>@lid`; o webhook normaliza para o telefone via `lid_map` (aprendido de `senderPn`/`previousRemoteJid`) — ida e volta são UMA conversa.
+- **Nome do chat**: agenda (`contacts.is_saved`) > pushName do contato > número. Nome ruim (número/UUID) é atualizado quando chega um melhor; nome da agenda/manual nunca é sobrescrito.
+- **Agenda**: sincronizada ao conectar (findContacts) e por eventos CONTACTS_*.
+- **Grupos**: chat único por grupo com o NOME DO GRUPO (subject via Evolution, cache em contacts); autor de cada mensagem em `messages.participant_name`; grupos ficam na aba "Grupos" do Chats e **fora da distribuição automática**.
+- **Backfill pós-correção** (1x por ambiente): `node scripts/fix_whatsapp_chats.js` — corrige isGroup, unifica chats LID e renomeia chats com número/UUID.
+
+## Migrações
+- Rodam **automaticamente no boot** do backend (ensureSchemaTables em todos os tenants, idempotente). `scripts/migrate_all.js` continua disponível para execução manual.
+
+## Erros nunca silenciosos
+- Frontend: `utils/axiosConfig.js` (global) — timeout 20s, toast para rede/timeout/403/5xx, refresh automático em 401 com redirect ao login se falhar; rotas de auth tratadas pelas telas. `config.silent=true` desliga o toast por chamada. ErrorBoundary no root captura erro de renderização.
+- Backend: error handler final em `index.js` — resposta sempre JSON `{error}`.
 
 ## Distribuição automática de leads
 - Fila com `distribution = true` → mensagens novas são atribuídas round-robin **apenas entre membros ONLINE** da fila (operacional/líder). Sem ninguém online → chat vai para Espera; botão "Redistribuir" na tela de Chats.

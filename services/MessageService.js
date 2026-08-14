@@ -1,7 +1,8 @@
 const pool = require('../db/queries')
 const { Message } = require('../entities/Message'); 
 
-const saveMessage = async (chatId, message, schema, user_id) => {
+// participant = { name, jid } — autor real da mensagem (quem falou num grupo)
+const saveMessage = async (chatId, message, schema, user_id, participant = null) => {
     if (!(message instanceof Message)) {
         message = new Message(
             message.id,
@@ -18,17 +19,19 @@ const saveMessage = async (chatId, message, schema, user_id) => {
     }
 
     const result = await pool.query(
-        `INSERT INTO ${schema}.messages(id, body, from_me, chat_id, created_at, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        `INSERT INTO ${schema}.messages(id, body, from_me, chat_id, created_at, user_id, participant_name, participant_jid)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
          [
             message.getId(),
             message.getMessage(),
             message.getFromMe(),
             chatId,
             createdAt,
-            user_id
+            user_id,
+            participant?.name || null,
+            participant?.jid || null
         ]
     );
-    console.log('Message saved:', result.rows[0]);
     return result.rows[0];
 };
 module.exports ={

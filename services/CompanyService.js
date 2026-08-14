@@ -83,6 +83,14 @@ const ensureSchemaTables = async (schema) => {
             quote_id text
         );`);
     await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS user_id uuid;`);
+    // Autor real da mensagem (essencial em grupos: quem falou)
+    await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS participant_name TEXT;`);
+    await pool.query(`ALTER TABLE ${schema}.messages ADD COLUMN IF NOT EXISTS participant_jid TEXT;`);
+    // Nome do WhatsApp (pushName) vs nome vindo da agenda/manual (is_saved)
+    await pool.query(`ALTER TABLE ${schema}.contacts ADD COLUMN IF NOT EXISTS push_name TEXT;`);
+    await pool.query(`ALTER TABLE ${schema}.contacts ADD COLUMN IF NOT EXISTS is_saved BOOLEAN DEFAULT false;`);
+    // Backfill: isGroup guardava fromMe por um bug de posição de argumento
+    await pool.query(`UPDATE ${schema}.chats SET isGroup = (chat_id LIKE '%@g.us');`).catch(() => {});
 
     await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.contacts (
