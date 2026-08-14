@@ -29,8 +29,32 @@ function WhatsappModal({ theme, show, onHide }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUsuariosModal, setShowUsuariosModal] = useState(false);
   const [socketInstance] = useState(() => socket());
+  // Reconexão: QR de uma conexão JÁ existente (o QR do WhatsApp expira em segundos)
+  const [qrConn, setQrConn] = useState(null);
+  const [qrImg, setQrImg] = useState(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrErro, setQrErro] = useState('');
 
   const url = process.env.REACT_APP_URL;
+
+  const abrirQr = useCallback(async (contato) => {
+    setQrConn(contato); setQrImg(null); setQrErro(''); setQrLoading(true);
+    try {
+      const { data } = await axios.get(`${url}/evo/qr/${contato.id}`, { withCredentials: true });
+      if (data?.connected) {
+        setQrErro('Esta conexão já está conectada.');
+        setContatos(prev => prev.map(c => (c.id === contato.id ? { ...c, status: 'connected' } : c)));
+      } else if (data?.qrcode) {
+        setQrImg(data.qrcode.startsWith('data:') ? data.qrcode : `data:image/png;base64,${data.qrcode}`);
+      } else {
+        setQrErro('A Evolution não devolveu o QR. Tente novamente em alguns segundos.');
+      }
+    } catch (e) {
+      setQrErro(e.response?.data?.error || 'Erro ao gerar o QR.');
+    } finally {
+      setQrLoading(false);
+    }
+  }, [url]);
 
   const loadConns = useCallback(async () => {
     try {
@@ -51,9 +75,30 @@ function WhatsappModal({ theme, show, onHide }) {
   useEffect(() => {
     const handleStatus = ({ connection_name, status }) => {
       setContatos(prev => prev.map(c => (c.name === connection_name ? { ...c, status } : c)));
+      // Conectou enquanto o QR estava aberto → fecha e avisa
+      setQrConn(prev => {
+        if (prev && prev.name === connection_name && status === 'connected') {
+          setQrImg(null); setQrErro('Conectado com sucesso!');
+        }
+        return prev;
+      });
+    };
+    // QR rotativo da Evolution: atualiza a imagem sem o usuário clicar de novo
+    const handleQr = ({ connection_name, base64 }) => {
+      setQrConn(prev => {
+        if (prev && prev.name === connection_name && base64) {
+          setQrImg(base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`);
+          setQrErro('');
+        }
+        return prev;
+      });
     };
     socketInstance.on('connectionStatus', handleStatus);
-    return () => socketInstance.off('connectionStatus', handleStatus);
+    socketInstance.on('qrcodeUpdated', handleQr);
+    return () => {
+      socketInstance.off('connectionStatus', handleStatus);
+      socketInstance.off('qrcodeUpdated', handleQr);
+    };
   }, [socketInstance]);
 
   const handleNovoContato = () => {
@@ -144,6 +189,17 @@ function WhatsappModal({ theme, show, onHide }) {
                       <td className="px-3 py-2"><StatusBadge status={contato.status} /></td>
                       <td className="px-3 py-2">
                         <div className="d-flex flex-wrap gap-2">
+                          {contato.status !== 'connected' && (
+                            <button
+                              type="button"
+                              className={`btn btn-sm btn-1-${theme}`}
+                              title="Conectar / ver QR Code"
+                              onClick={() => abrirQr(contato)}
+                            >
+                              <i className="bi bi-qr-code"></i>
+                            </button>
+                          )}
+
                           <button
                             type="button"
                             className={`btn btn-sm btn-2-${theme}`}
@@ -176,6 +232,43 @@ function WhatsappModal({ theme, show, onHide }) {
 
         <Modal.Footer style={{ backgroundColor: `var(--bg-color-${theme})` }}>
           <button type="button" className={`btn btn-2-${theme}`} onClick={onHide}>
+            Fechar
+          </button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* QR de reconexão — o QR do WhatsApp expira em segundos e a Evolution emite um novo por socket */}
+      <Modal show={!!qrConn} onHide={() => { setQrConn(null); setQrImg(null); setQrErro(''); }} centered style={{ zIndex: 1070 }}>
+        <Modal.Header closeButton style={{ backgroundColor: `var(--bg-color-${theme})` }}>
+          <h5 className={`modal-title header-text-${theme} mb-0`}>
+            <i className="bi bi-qr-code me-2"></i>Conectar {qrConn ? displayName(qrConn.name) : ''}
+          </h5>
+        </Modal.Header>
+        <Modal.Body style={{ backgroundColor: `var(--bg-color-${theme})`, minHeight: 300 }}>
+          <div className="d-flex flex-column align-items-center justify-content-center h-100">
+            {qrLoading && <div className={`card-subtitle-${theme}`}>Gerando QR Code…</div>}
+            {!qrLoading && qrImg && (
+              <>
+                <img src={qrImg} alt="QR Code do WhatsApp" style={{ width: 260, height: 260 }} />
+                <p className={`card-subtitle-${theme} text-center mt-3 mb-0`}>
+                  WhatsApp → <strong>Aparelhos conectados</strong> → <strong>Conectar aparelho</strong>.<br />
+                  O código se renova sozinho; a tela avisa quando conectar.
+                </p>
+              </>
+            )}
+            {!qrLoading && !qrImg && qrErro && (
+              <div className={`text-center card-subtitle-${theme}`}>
+                <i className={`bi ${qrErro.includes('sucesso') ? 'bi-check-circle-fill text-success' : 'bi-exclamation-triangle-fill text-warning'} fs-1 d-block mb-2`}></i>
+                {qrErro}
+              </div>
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer style={{ backgroundColor: `var(--bg-color-${theme})` }}>
+          <button type="button" className={`btn btn-2-${theme}`} onClick={() => qrConn && abrirQr(qrConn)} disabled={qrLoading}>
+            <i className="bi bi-arrow-repeat me-2"></i>Gerar novo QR
+          </button>
+          <button type="button" className={`btn btn-1-${theme}`} onClick={() => { setQrConn(null); setQrImg(null); setQrErro(''); loadConns(); }}>
             Fechar
           </button>
         </Modal.Footer>

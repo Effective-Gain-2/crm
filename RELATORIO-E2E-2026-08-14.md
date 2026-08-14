@@ -73,11 +73,17 @@ Commits desta rodada: `4bcf712`, `a0320ae`, `33af144`, `4ea7e51` (todos na main,
 | Líder CDT | lider2.teste@cdt.eg | `Egde7g3cRZnR!` |
 | Operacional CDT | oper2.teste@cdt.eg | `EgcrgTSeKsBp!` |
 
-## 5. O que depende do Luiz (≈15 min)
+## 5. O que depende do Luiz
 
-1. **DNS** — 3 registros A → `31.97.172.123`: `crm`, `crm-api`, `crm-socket` (.effectivegain.com). Sem isso o sistema segue nas URLs de preview acima (funcionais).
-2. **EVOLUTION_API_KEY** — copiar `AUTHENTICATION_API_KEY` do serviço `evotest/evolution-api` para o env do `crm-backend` (+ `EVOLUTION_SERVER_URL=https://evo.effectivegain.com` e `BACKEND_URL` se ainda não estiverem). Sem isso o WhatsApp não conecta (a UI avisa com erro claro).
-3. **Escanear o QR** de um número real para o teste fim-a-fim de mensagens + distribuição automática (round-robin entre membros online da fila já está ativo na fila "Atendimento CDT").
+1. ~~**DNS**~~ ✅ RESOLVIDO — 3 registros A criados e propagados, SSL válido.
+2. ~~**EVOLUTION_API_KEY**~~ ✅ RESOLVIDO (14:55) — copiada do `AUTHENTICATION_API_KEY` do serviço
+   `evotest/evolution-api` para o env do `crm-backend`, junto com `EVOLUTION_SERVER_URL=https://evo.effectivegain.com`.
+   Chave validada com chamada autenticada (`GET /instance/fetchInstances` → 200, Evolution **v2.3.2**).
+   Instâncias pré-existentes no servidor: `cdt-refiliacao` (close) · `octo-suporte` (open).
+   As instâncias criadas pelo CRM usam prefixo `<schema>__<nome>` (isolamento por empresa + resolução O(1) no webhook).
+3. 📱 **ÚNICO ITEM RESTANTE — escanear o QR** de um número real (tela WhatsApp → Nova Conexão),
+   para o teste fim-a-fim de mensagens + distribuição automática (round-robin entre membros online
+   já ativo na fila "Atendimento CDT").
 4. Opcional: `OPENAI_KEY` global (fallback) — cada empresa pode colar a própria na tela do Agente de IA.
 
 ## 6. Confirmações finais (10:47)

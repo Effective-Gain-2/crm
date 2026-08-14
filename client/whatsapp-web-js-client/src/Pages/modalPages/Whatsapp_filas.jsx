@@ -138,7 +138,7 @@ function WhatsappFilasModal({ theme, show, onHide, contato, onQueueChange }) {
           </div>
 
           <div className={`card-subtitle-${theme} mb-2`}>
-            Contato: <strong>{contato?.name}</strong>
+            Conexão: <strong>{(contato?.name || '').includes('__') ? contato.name.split('__').slice(1).join('__') : contato?.name}</strong>
           </div>
 
           {loading ? (
