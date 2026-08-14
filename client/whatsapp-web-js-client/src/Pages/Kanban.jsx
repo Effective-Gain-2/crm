@@ -292,22 +292,22 @@ function KanbanPage({ theme }) {
           // Adiciona o campo etapa_id para facilitar o filtro na renderização
           allContacts = allContacts.concat(contatos.map(c => ({ ...c, etapa_id: etapa.id })));
         }
-        // Buscar custom value para cada contato
-        const contatosComCustomValue = await Promise.all(
-          allContacts.map(async contato => {
-            let customValue = '';
-            try {
-              const resp = await axios.get(`${url}/contact/get-custom-values/${contato.number}/${schema}`);
-              console.log('DEBUG custom values', contato.number, resp.data, 'selectedCustomField:', selectedCustomField);
-              const resultArr = resp.data.result && Array.isArray(resp.data.result) ? resp.data.result : [];
-              if (selectedCustomField) {
+        // Custom values: só busca quando há campo selecionado (evita 1 request por contato)
+        let contatosComCustomValue = allContacts.map(c => ({ ...c, customValue: '' }));
+        if (selectedCustomField) {
+          contatosComCustomValue = await Promise.all(
+            allContacts.map(async contato => {
+              let customValue = '';
+              try {
+                const resp = await axios.get(`${url}/contact/get-custom-values/${contato.number}/${schema}`);
+                const resultArr = resp.data.result && Array.isArray(resp.data.result) ? resp.data.result : [];
                 const found = resultArr.find(f => String(f.field_id) === String(selectedCustomField));
                 if (found && found.value) customValue = found.value;
-              }
-            } catch {}
-            return { ...contato, customValue };
-          })
-        );
+              } catch {}
+              return { ...contato, customValue };
+            })
+          );
+        }
         setCards(contatosComCustomValue);
       } catch (error) {
         setCards([]);

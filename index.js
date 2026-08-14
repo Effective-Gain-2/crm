@@ -92,11 +92,14 @@ const socketCors = {
 };
 
 // ---- Servidores HTTP + Socket.io ----
+// UMA instância de socket.io atende os DOIS servidores (API 3002 e socket 3333).
+// Com instâncias separadas, quem conectava pela porta da API não recebia os
+// eventos emitidos via global.socketIoServer (lembretes, filas, kanban, chats).
 const server = http.createServer(app);
-const io = socketIo(server, { cors: socketCors, transports: ['websocket', 'polling'], allowEIO3: true });
-
 const socketServer = http.createServer();
-const socketIoServer = socketIo(socketServer, { cors: socketCors });
+const io = socketIo(server, { cors: socketCors, transports: ['websocket', 'polling'], allowEIO3: true });
+io.attach(socketServer);
+const socketIoServer = io;
 
 global.socketIoServer = socketIoServer;
 
@@ -131,24 +134,14 @@ const roomAllowed = (socket, room) => {
 };
 
 io.use(socketAuth);
-socketIoServer.use(socketAuth);
 
 io.on('connection', (socket) => {
   socket.join(`schema_${socket.auth.schema}`);
   socket.join(`user_${socket.auth.local_user_id}`);
-  socket.on('join', (room) => {
-    const target = typeof room === 'string' && !room.startsWith('user_') && !room.startsWith('schema_') && !room.startsWith('fila_')
-      ? `user_${room}` : room;
-    if (roomAllowed(socket, target)) socket.join(target);
-  });
+
   socket.on('contatosImportados', (data) => {
     socket.broadcast.to(`schema_${socket.auth.schema}`).emit('contatosImportados', data);
   });
-});
-
-socketIoServer.on('connection', (socket) => {
-  socket.join(`schema_${socket.auth.schema}`);
-  socket.join(`user_${socket.auth.local_user_id}`);
 
   socket.on('user_login', async () => {
     try {
