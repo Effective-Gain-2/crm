@@ -1,8 +1,13 @@
 # EG CRM — Relatório da execução noturna (2026-08-13 → 2026-08-14)
 
-**Status geral: sistema no ar, migrado, com 6.350 leads do Cartão de Todos importados e os 4 perfis testados de ponta a ponta no navegador.**
+**Status geral: sistema NO AR NO DOMÍNIO OFICIAL, migrado, com 6.350 leads do Cartão de Todos importados e os 4 perfis testados de ponta a ponta no navegador.**
 
-URLs de trabalho (preview — funcionam já):
+## 🌐 URLs OFICIAIS (SSL Let's Encrypt válido — 2026-08-14 14:30)
+- **CRM: https://crm.effectivegain.com** ← usar esta
+- API: https://crm-api.effectivegain.com
+- Socket: https://crm-socket.effectivegain.com
+
+URLs de preview (continuam ativas como backup):
 - Frontend: https://eg-os-crm-frontend.cownkm.easypanel.host
 - API/Socket: https://eg-os-crm-backend.cownkm.easypanel.host
 
@@ -82,6 +87,21 @@ Commits desta rodada: `4bcf712`, `a0320ae`, `33af144`, `4ea7e51` (todos na main,
 - ✅ Guarda de página por papel confirmada no ar (página restaurada "usuarios" → operacional cai em Chats).
 - ✅ Kanban com 9 etapas carregando fluido (fix N+1 confirmado no ar).
 - ⚠️ Detalhe de deploy descoberto: **gatilhos de deploy disparados enquanto outro build roda são descartados** (builder único). Se um deploy "não pegar", redisparar com a fila ociosa.
+
+## 6b. Fase 5 concluída — corte para o domínio oficial (14:30)
+
+- ✅ DNS: `crm`, `crm-api`, `crm-socket` → `31.97.172.123` propagados (sem CAA, sem AAAA órfão, DNS-only).
+- ✅ Frontend rebuildado com `REACT_APP_URL=https://crm-api.effectivegain.com` e `REACT_APP_SOCKET_URL=https://crm-socket.effectivegain.com`.
+- ✅ `EVOLUTION_SERVER_URL=https://evo.effectivegain.com` preenchido no env do backend.
+- ✅ **SSL Let's Encrypt emitido nos 3 domínios.**
+- ✅ E2E no domínio oficial: login master → painel → Oportunidades com 6.350 leads nas 9 etapas; socket conectado via `crm-socket`; cookie de sessão gravado em `.effectivegain.com`; zero erros de console.
+
+**⚠️ Gotcha do Traefik/Easypanel (documentar):** os 3 domínios ficaram servindo o certificado
+self-signed `CN=Easypanel` mesmo com DNS correto e desafio ACME respondendo (404, não redirect).
+Causa: o Traefik travou no estado de falha por ter tentado emitir enquanto o `crm` ainda apontava
+para o servidor antigo (69.62.93.68), queimando o limite do Let's Encrypt (5 validações falhas por
+hostname/hora). **Solução que funcionou: remover o domínio no Easypanel e recriá-lo** (gera router
+novo → solicitação ACME limpa). Salvar o domínio de novo NÃO basta.
 
 ## 7. Pendências conhecidas (não bloqueiam)
 
