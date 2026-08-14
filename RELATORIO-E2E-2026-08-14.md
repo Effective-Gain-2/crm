@@ -75,9 +75,16 @@ Commits desta rodada: `4bcf712`, `a0320ae`, `33af144`, `4ea7e51` (todos na main,
 3. **Escanear o QR** de um número real para o teste fim-a-fim de mensagens + distribuição automática (round-robin entre membros online da fila já está ativo na fila "Atendimento CDT").
 4. Opcional: `OPENAI_KEY` global (fallback) — cada empresa pode colar a própria na tela do Agente de IA.
 
-## 6. Pendências conhecidas (não bloqueiam)
+## 6. Confirmações finais (10:47)
+
+- ✅ **Toast de lembrete validado AO VIVO em produção**: lembrete criado → disparo no horário → toast persistente com "Concluir" / "+30 min" na tela do operacional. Circuito BullMQ → socket unificado → UI fechado.
+- ✅ Nome da empresa corrigido para "CDT Nova Iguaçu / RJ" (ç correto) via novo endpoint PUT /company/rename.
+- ✅ Guarda de página por papel confirmada no ar (página restaurada "usuarios" → operacional cai em Chats).
+- ✅ Kanban com 9 etapas carregando fluido (fix N+1 confirmado no ar).
+- ⚠️ Detalhe de deploy descoberto: **gatilhos de deploy disparados enquanto outro build roda são descartados** (builder único). Se um deploy "não pegar", redisparar com a fila ociosa.
+
+## 7. Pendências conhecidas (não bloqueiam)
 
 - Linha duplicada do usuário `master.teste@cdt.eg` na lista de Usuários (espelho antigo `admin` + novo `master`) — cosmético.
-- Toast de lembrete: o fix do socket foi deployado nesta madrugada; o teste ao vivo do toast fica confirmado no primeiro lembrete que disparar com o backend novo (job re-hidrata do banco no boot).
 - Modal de lembrete abre com escopo "geral" por padrão internamente (exibe "Pessoal") — o servidor força o escopo correto por papel; ajuste cosmético futuro.
 - Telas Atribuição/Financeiro/Relatórios: renderizam e consultam a API real, mas sem dados de produção ainda (sem tráfego).
