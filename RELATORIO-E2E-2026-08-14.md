@@ -73,6 +73,18 @@ Commits desta rodada: `4bcf712`, `a0320ae`, `33af144`, `4ea7e51` (todos na main,
 | Líder CDT | lider2.teste@cdt.eg | `Egde7g3cRZnR!` |
 | Operacional CDT | oper2.teste@cdt.eg | `EgcrgTSeKsBp!` |
 
+## 4c. Troca de senha implementada (15:35) — NÃO EXISTIA ANTES
+
+Descoberto ao preparar a criação dos usuários: **o sistema não tinha nenhuma forma de trocar senha**
+(nem o próprio usuário, nem o master resetando a de alguém). Qualquer senha temporária viraria permanente.
+
+- **"Alterar minha senha"** — botão de cadeado no menu lateral, qualquer papel; exige a senha atual.
+  `POST /api/change-password` · mínimo 8 caracteres · a nova precisa ser diferente da atual.
+- **Redefinir senha de outro usuário** — campo opcional no modal "Editar Usuário" (master/técnico).
+  Bloqueia o master de resetar a própria senha por ali (deve usar "Alterar minha senha").
+- Validado E2E em produção: senha atual errada → 401 · senha curta → 400 · troca válida → senha
+  antiga passa a ser rejeitada e a nova funciona (testado e revertido no usuário `lider2.teste`).
+
 ## 5. O que depende do Luiz
 
 1. ~~**DNS**~~ ✅ RESOLVIDO — 3 registros A criados e propagados, SSL válido.
