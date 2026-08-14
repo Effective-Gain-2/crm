@@ -18,21 +18,26 @@ const PREAUTH_TTL = '5m';
 
 const isProd = () => process.env.NODE_ENV === 'production';
 
-// COOKIE_DOMAIN (.effectivegain.com) so vale quando o front esta no dominio oficial.
-// Em dominios de preview (*.easypanel.host) o navegador REJEITARIA o cookie com domain
-// de outro site — entao omitimos o domain (cookie host-only) e o login funciona.
-const cookieOpts = (req, maxAgeMs) => {
-    const origin = req.headers?.origin || '';
-    const useDomain = isProd() && process.env.COOKIE_DOMAIN && origin.includes('effectivegain.com');
-    return {
-        maxAge: maxAgeMs,
-        httpOnly: true,
-        secure: isProd(),
-        sameSite: isProd() ? 'none' : 'strict',
-        path: '/',
-        domain: useDomain ? process.env.COOKIE_DOMAIN : undefined,
-    };
+// Escopo do cookie decidido pelo HOST DESTA API — nunca pelo Origin.
+// Com Origin, uma requisição sem esse cabeçalho (refresh, navegação) gravava o cookie
+// host-only; o navegador manda o host-only ANTES do cookie de domínio, então a sessão
+// antiga "sombreava" a nova e o usuário ficava preso na empresa anterior.
+const cookieDomainFor = (req) => {
+    if (!isProd() || !process.env.COOKIE_DOMAIN) return undefined;
+    const host = String(req.headers?.host || '').split(':')[0].toLowerCase();
+    const base = process.env.COOKIE_DOMAIN.replace(/^\./, '').toLowerCase();
+    // Em domínios de preview (*.easypanel.host) o navegador rejeitaria o domain de outro site
+    return host === base || host.endsWith('.' + base) ? process.env.COOKIE_DOMAIN : undefined;
 };
+
+const cookieOpts = (req, maxAgeMs) => ({
+    maxAge: maxAgeMs,
+    httpOnly: true,
+    secure: isProd(),
+    sameSite: isProd() ? 'none' : 'strict',
+    path: '/',
+    domain: cookieDomainFor(req),
+});
 
 // Limpa cookies de auth em TODOS os escopos possíveis.
 // Um clearCookie sem `domain` NÃO apaga um cookie criado com domain=.effectivegain.com —
@@ -59,8 +64,14 @@ const issueSession = (req, res, account, session) => {
     const payload = sessionPayload(account, session);
     const token = jwt.sign({ ...payload, typ: 'access' }, ACCESS_SECRET(), { expiresIn: ACCESS_TTL });
     const refreshToken = jwt.sign({ ...payload, typ: 'refresh' }, REFRESH_SECRET(), { expiresIn: REFRESH_TTL });
-    // Apaga o preAuth ANTES de emitir a sessão (nos dois escopos) para não sobrar órfão
+    const domain = cookieDomainFor(req);
+    // Apaga o preAuth (órfão) e, quando gravamos no domínio, mata a versão host-only:
+    // o navegador envia o host-only PRIMEIRO e ele sombreava a sessão nova (usuário
+    // ficava preso na empresa anterior ao trocar de empresa).
     clearAuthCookies(res, ['preAuthToken']);
+    if (domain) {
+        for (const name of ['token', 'refreshToken']) res.clearCookie(name, { path: '/' });
+    }
     res.cookie('token', token, cookieOpts(req, 15 * 60 * 1000));
     res.cookie('refreshToken', refreshToken, cookieOpts(req, 7 * 24 * 60 * 60 * 1000));
 };
