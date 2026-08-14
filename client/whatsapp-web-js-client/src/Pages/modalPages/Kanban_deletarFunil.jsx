@@ -118,7 +118,7 @@ function KanbanDeletarFunilModal({ show, onHide, funil, theme }) {
               </div>
             </div>
 
-            {isAdmin && (
+            {canAccess && (
               <div className="mb-3">
                 <label className={`form-label card-subtitle-${theme}`}>
                   Para confirmar a exclusão, digite sua senha:
@@ -163,7 +163,7 @@ function KanbanDeletarFunilModal({ show, onHide, funil, theme }) {
               type="button"
               className="btn delete-btn"
               onClick={handleDelete}
-              disabled={!canDelete || loading || (isAdmin && !password)}
+              disabled={!canDelete || loading || (canAccess && !password)}
             >
               {loading ? (
                 <>

@@ -491,7 +491,14 @@
 
     // ---- Papéis (gating do menu; a autoridade é o servidor) ----
     const ROLE_LEVEL = { operacional: 1, user: 1, lider: 2, master: 3, admin: 3, tecnico: 4 };
-    const canSee = (min) => (ROLE_LEVEL[(role || '').toLowerCase()] || 1) >= (ROLE_LEVEL[min] || 99);
+    const effectiveRole = role || userData?.role || '';
+    const canSee = (min) => (ROLE_LEVEL[effectiveRole.toLowerCase()] || 1) >= (ROLE_LEVEL[min] || 99);
+    // Papel mínimo por página (a página restaurada da sessão anterior pode ser de outro papel)
+    const PAGE_MIN = { financeiro: 'master', 'ai-agent': 'master', atribuicao: 'master', filas: 'master', usuarios: 'master', disparos: 'lider', relatorios: 'lider' };
+    useEffect(() => {
+      if (PAGE_MIN[page] && !canSee(PAGE_MIN[page])) handlePageChange('chats');
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, role]);
 
     // ---- Seletor de empresa (multi-empresa / técnico) ----
     const [meCompanies, setMeCompanies] = useState([]);
@@ -529,6 +536,8 @@
     };
 
     const renderPage = () => {
+      // Guarda de papel: nunca renderiza página acima do papel atual
+      if (PAGE_MIN[page] && !canSee(PAGE_MIN[page])) return <ChatPage theme={theme} />;
       switch (page) {
         case 'dashboard': return <Dashboard theme={theme} />;
         case 'financeiro': return <FinanceiroPage theme={theme} />;
