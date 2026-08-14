@@ -20,11 +20,62 @@ const ehNomeRuim = (n) => {
   return false;
 };
 
+// Sync da agenda para as conexões já conectadas (mesma regra do webhook:
+// isSaved → nome da agenda + is_saved; senão push_name, sem sobrescrever nome bom)
+const sincronizarAgendaDoTenant = async (schema) => {
+  const { listAllContacts } = require('../requests/evolution');
+  const conns = await pool.query(
+    `SELECT name FROM ${schema}.connections WHERE status = 'connected'`
+  ).catch(() => ({ rows: [] }));
+  let total = 0;
+  for (const { name } of conns.rows) {
+    const contatos = await listAllContacts(name);
+    for (const c of contatos) {
+      try {
+        const jid = c.remoteJid || c.id || '';
+        if (!jid || jid.endsWith('@g.us') || jid.endsWith('@lid')) continue;
+        const numero = String(jid).split('@')[0].split(':')[0];
+        if (!/^\d{8,15}$/.test(numero)) continue;
+        const salvo = !!(c.isSaved ?? c.saved);
+        const nome = (c.pushName || c.name || '').trim();
+        if (!nome) continue;
+        if (salvo) {
+          await pool.query(
+            `INSERT INTO ${schema}.contacts (number, contact_name, push_name, is_saved)
+             VALUES ($1, $2, $2, true)
+             ON CONFLICT (number) DO UPDATE SET contact_name = EXCLUDED.contact_name, push_name = EXCLUDED.push_name, is_saved = true`,
+            [numero, nome]
+          );
+        } else {
+          await pool.query(
+            `INSERT INTO ${schema}.contacts (number, contact_name, push_name, is_saved)
+             VALUES ($1, $2, $2, false)
+             ON CONFLICT (number) DO UPDATE SET
+               push_name = EXCLUDED.push_name,
+               contact_name = CASE
+                 WHEN ${schema}.contacts.is_saved THEN ${schema}.contacts.contact_name
+                 WHEN ${schema}.contacts.contact_name IS NULL OR ${schema}.contacts.contact_name ~ '^[0-9 ()+-]+$'
+                   THEN EXCLUDED.contact_name
+                 ELSE ${schema}.contacts.contact_name
+               END`,
+            [numero, nome]
+          );
+        }
+        total++;
+      } catch (e) { /* contato com problema não derruba o lote */ }
+    }
+  }
+  console.log(`agenda sincronizada: ${total} contatos`);
+};
+
 const run = async () => {
   const companies = await pool.query(`SELECT schema_name FROM effective_gain.companies`);
   for (const { schema_name: schema } of companies.rows) {
     console.log(`\n=== ${schema} ===`);
     try {
+      // 0) agenda primeiro (para o passo 3 já achar os nomes certos)
+      await sincronizarAgendaDoTenant(schema);
+
       // 1) isGroup real
       const g = await pool.query(`UPDATE ${schema}.chats SET isGroup = (chat_id LIKE '%@g.us') RETURNING id`);
       console.log(`isGroup corrigido em ${g.rowCount} chats`);
