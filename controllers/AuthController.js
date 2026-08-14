@@ -34,6 +34,18 @@ const cookieOpts = (req, maxAgeMs) => {
     };
 };
 
+// Limpa cookies de auth em TODOS os escopos possíveis.
+// Um clearCookie sem `domain` NÃO apaga um cookie criado com domain=.effectivegain.com —
+// era por isso que preAuthToken/token antigos sobreviviam e sequestravam o login seguinte.
+const clearAuthCookies = (res, names = ['preAuthToken', 'token', 'refreshToken']) => {
+    for (const name of names) {
+        res.clearCookie(name, { path: '/' });                                  // host-only (legado/preview)
+        if (process.env.COOKIE_DOMAIN) {
+            res.clearCookie(name, { path: '/', domain: process.env.COOKIE_DOMAIN });
+        }
+    }
+};
+
 const sessionPayload = (account, session) => ({
     account_id: account.id,
     local_user_id: session.local_user_id,
@@ -47,9 +59,10 @@ const issueSession = (req, res, account, session) => {
     const payload = sessionPayload(account, session);
     const token = jwt.sign({ ...payload, typ: 'access' }, ACCESS_SECRET(), { expiresIn: ACCESS_TTL });
     const refreshToken = jwt.sign({ ...payload, typ: 'refresh' }, REFRESH_SECRET(), { expiresIn: REFRESH_TTL });
+    // Apaga o preAuth ANTES de emitir a sessão (nos dois escopos) para não sobrar órfão
+    clearAuthCookies(res, ['preAuthToken']);
     res.cookie('token', token, cookieOpts(req, 15 * 60 * 1000));
     res.cookie('refreshToken', refreshToken, cookieOpts(req, 7 * 24 * 60 * 60 * 1000));
-    res.clearCookie('preAuthToken', { path: '/' });
 };
 
 // ---- Rate limit de login por IP (conserta o bloqueio morto do código antigo) ----
@@ -135,6 +148,9 @@ const loginController = async (req, res) => {
 
         // Técnico ou multi-empresa → etapa de seleção
         if (account.is_tecnico || companies.length > 1) {
+            // Zera qualquer sessão anterior antes de abrir a seleção: sem isso, um token/preAuth
+            // de outra conta ainda no navegador entra no lugar desta na hora de escolher a empresa.
+            clearAuthCookies(res);
             const preAuth = jwt.sign({ account_id: account.id, typ: 'preauth' }, ACCESS_SECRET(), { expiresIn: PREAUTH_TTL });
             res.cookie('preAuthToken', preAuth, cookieOpts(req, 5 * 60 * 1000));
             return res.status(200).json({
@@ -174,11 +190,12 @@ const selectCompanyController = async (req, res) => {
 
         let accountId = null;
         const { preAuthToken, token } = req.cookies || {};
+        // preAuth (login recém-feito) tem prioridade; senão vale a sessão completa (troca de empresa)
         if (preAuthToken) {
             try {
                 const dec = jwt.verify(preAuthToken, ACCESS_SECRET());
                 if (dec.typ === 'preauth') accountId = dec.account_id;
-            } catch (e) { /* tenta a sessão completa */ }
+            } catch (e) { /* expirado/inválido → tenta a sessão completa */ }
         }
         if (!accountId && token) {
             try {
@@ -186,7 +203,10 @@ const selectCompanyController = async (req, res) => {
                 if (dec.typ === 'access') accountId = dec.account_id;
             } catch (e) { /* sem sessão válida */ }
         }
-        if (!accountId) return res.status(401).json({ success: false, error: 'Sessão expirada — faça login novamente' });
+        if (!accountId) {
+            clearAuthCookies(res); // não deixa cookie podre para a próxima tentativa
+            return res.status(401).json({ success: false, error: 'Sessão expirada — faça login novamente' });
+        }
 
         const account = await findAccountById(accountId);
         if (!account) return res.status(401).json({ success: false, error: 'Conta inválida' });
@@ -267,9 +287,7 @@ const logoutController = async (req, res) => {
                 if (dec.typ === 'access') changeOffline(dec.local_user_id, dec.schema);
             } catch (e) { /* token já inválido */ }
         }
-        for (const name of ['token', 'refreshToken', 'preAuthToken']) {
-            res.clearCookie(name, { path: '/', domain: isProd() ? process.env.COOKIE_DOMAIN : undefined });
-        }
+        clearAuthCookies(res);
         res.status(200).json({ success: true });
     } catch (error) {
         console.error('Erro no logout:', error);
