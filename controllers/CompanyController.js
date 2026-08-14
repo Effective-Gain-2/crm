@@ -77,4 +77,24 @@ const updateSchemaController = async (req, res) => {
     }
 };
 
-module.exports = { createCompanyController, getAllCompaniesController, getAllCompaniesTecUserController, updateSchemaController };
+// PUT /company/rename — corrige o nome de exibição de uma empresa (técnico)
+const renameCompanyController = async (req, res) => {
+    try {
+        const { schema_name, company_name } = req.body;
+        if (!schema_name || !company_name) {
+            return res.status(400).json({ message: 'schema_name e company_name são obrigatórios' });
+        }
+        const pool = require('../db/queries');
+        const result = await pool.query(
+            `UPDATE effective_gain.companies SET company_name = $1 WHERE schema_name = $2 RETURNING id, company_name, schema_name`,
+            [company_name, schema_name]
+        );
+        if (result.rowCount === 0) return res.status(404).json({ message: 'Empresa não encontrada' });
+        res.status(200).json({ success: true, company: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao renomear empresa:', error);
+        res.status(500).json({ message: 'Erro ao renomear empresa' });
+    }
+};
+
+module.exports = { createCompanyController, getAllCompaniesController, getAllCompaniesTecUserController, updateSchemaController, renameCompanyController };
