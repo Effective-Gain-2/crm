@@ -471,6 +471,25 @@ const corrigirEsperaSemFila = async (schema) => {
   }
 };
 
+// O evento chats.update da Evolution avisa QUE algo mudou, mas vem só com remoteJid —
+// sem unreadCount (medido em produção: itens=1, payload = {remoteJid, instanceId}).
+// Então o evento vira GATILHO: agenda uma reconciliação curta em vez de esperar os
+// 5 min. Debounce por instância para uma rajada de eventos virar uma consulta só.
+const reconciliacaoAgendada = new Map();
+const agendarReconciliacao = (instanceName, schema, io) => {
+  if (reconciliacaoAgendada.has(instanceName)) return;
+  const t = setTimeout(async () => {
+    reconciliacaoAgendada.delete(instanceName);
+    try {
+      await sincronizarNaoLidasDaEvolution(instanceName, schema, io);
+    } catch (e) {
+      console.error(`Reconciliação sob demanda (${instanceName}):`, e.message);
+    }
+  }, 4000);
+  if (typeof t.unref === 'function') t.unref();
+  reconciliacaoAgendada.set(instanceName, t);
+};
+
 // Sync completo da agenda de uma instância (chamado ao conectar)
 const sincronizarAgenda = async (instanceName, schema) => {
   const { listAllContacts } = require('../requests/evolution');
@@ -677,6 +696,10 @@ module.exports = (broadcastMessage) => {
           // Observabilidade: sem isto não dá para saber se o WhatsApp sequer avisa da
           // leitura, e o sintoma ("não atualiza sozinho") fica indistinguível de bug nosso.
           console.log(`[leitura] ${eventName} inst=${result.instance} itens=${lista.length} chats_marcados=${marcados} ignorados=${ignorados} amostra=${JSON.stringify(lista[0] || {}).slice(0, 220)}`);
+          // O payload não disse se leu (não traz unreadCount): usa o evento como gatilho
+          // e vai perguntar o estado real à Evolution em ~4s. É o que torna a bolinha
+          // sumir "na hora" em vez de esperar a varredura de 5 minutos.
+          if (marcados === 0) agendarReconciliacao(result.instance, schema, serverTest.io);
         }
       } catch (e) {
         console.error(`Erro no evento ${eventName}:`, e.message);
