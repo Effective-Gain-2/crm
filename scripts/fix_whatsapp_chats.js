@@ -134,6 +134,34 @@ const run = async () => {
         }
       }
       console.log(`chats renomeados: ${renomeados}`);
+
+      // 4) GRUPOS: nome do grupo direto da Evolution (autoridade).
+      // O passo 3 não pega estes: o chat está com o pushName de QUEM MANDOU a
+      // primeira mensagem — "Frederico Penna" não é nome ruim, então sobrevivia.
+      const { getGroupSubject } = require('../requests/evolution');
+      const grupos = await pool.query(
+        `SELECT c.id, c.contact_phone, c.chat_id, c.contact_name, cn.name AS instancia
+           FROM ${schema}.chats c
+           LEFT JOIN ${schema}.connections cn ON cn.id = c.connection_id
+          WHERE c.status <> 'closed' AND c.chat_id LIKE '%@g.us'`
+      );
+      let gruposOk = 0, gruposFalha = 0;
+      for (const g of grupos.rows) {
+        if (!g.instancia) { gruposFalha++; continue; }
+        const subject = await getGroupSubject(g.instancia, g.chat_id);
+        if (!subject) { gruposFalha++; continue; }
+        if (subject === g.contact_name) { gruposOk++; continue; }
+        await pool.query(`UPDATE ${schema}.chats SET contact_name = $1 WHERE id = $2`, [subject, g.id]);
+        await pool.query(
+          `INSERT INTO ${schema}.contacts (number, contact_name, is_saved)
+           VALUES ($1, $2, false)
+           ON CONFLICT (number) DO UPDATE SET contact_name = EXCLUDED.contact_name`,
+          [g.contact_phone, subject]
+        ).catch(() => {});
+        console.log(`  grupo renomeado: "${g.contact_name}" -> "${subject}"`);
+        gruposOk++;
+      }
+      console.log(`grupos conferidos: ${gruposOk} ok, ${gruposFalha} sem subject (Evolution nao respondeu)`);
     } catch (e) {
       console.error(`Falha em ${schema}:`, e.message);
     }

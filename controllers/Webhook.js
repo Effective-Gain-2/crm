@@ -372,28 +372,54 @@ const resolverNomeDoPerfil = async (numero, instanceName, schema) => {
 
 // Nome do grupo com cache em contacts (number = id do grupo).
 // Sem isso o chat do grupo era batizado com o pushName do 1º remetente.
+// Cache de subject de grupo EM MEMÓRIA, com TTL.
+// Por que não usar mais o cache em `contacts`: antes do fix de grupos, o
+// contacts do ID do grupo era gravado com o pushName de QUEM MANDOU a mensagem.
+// Como esse nome "parece bom", o cache devolvia a pessoa para sempre e a
+// Evolution nunca era consultada — grupo ficava com nome de gente.
+const GRUPO_TTL_MS = 10 * 60 * 1000;
+const cacheGrupos = new Map(); // groupJid -> { subject, exp }
+
 const resolverNomeGrupo = async (groupJid, instanceName, schema) => {
   const groupId = groupJid.split('@')[0];
+  const agora = Date.now();
+
+  const memo = cacheGrupos.get(groupJid);
+  if (memo && memo.exp > agora) return memo.subject;
+
+  const { getGroupSubject } = require('../requests/evolution');
+  const subject = await getGroupSubject(instanceName, groupJid);
+
+  if (subject) {
+    cacheGrupos.set(groupJid, { subject, exp: agora + GRUPO_TTL_MS });
+    if (schema) {
+      await pool.query(
+        `INSERT INTO ${schema}.contacts (number, contact_name, is_saved)
+         VALUES ($1, $2, false)
+         ON CONFLICT (number) DO UPDATE SET contact_name = EXCLUDED.contact_name`,
+        [groupId, subject]
+      ).catch(() => {});
+      // Nome do grupo mudou (ou o chat estava com nome de pessoa) → corrige o chat
+      await pool.query(
+        `UPDATE ${schema}.chats SET contact_name = $1
+          WHERE contact_phone = $2 AND status <> 'closed' AND contact_name IS DISTINCT FROM $1`,
+        [subject, groupId]
+      ).catch(() => {});
+    }
+    return subject;
+  }
+
+  // Evolution indisponível: usa o último nome conhecido em contacts como plano B
   if (schema) {
     try {
       const cached = await pool.query(
         `SELECT contact_name FROM ${schema}.contacts WHERE number = $1`, [groupId]
       );
       const nome = cached.rows[0]?.contact_name;
-      if (nome && nome !== 'Grupo' && !/^[\d\s()+\-]+$/.test(nome)) return nome;
-    } catch (e) { /* segue para a Evolution */ }
+      if (nome && nome !== 'Grupo') return nome;
+    } catch (e) { /* sem cache também */ }
   }
-  const { getGroupSubject } = require('../requests/evolution');
-  const subject = await getGroupSubject(instanceName, groupJid);
-  if (subject && schema) {
-    await pool.query(
-      `INSERT INTO ${schema}.contacts (number, contact_name, is_saved)
-       VALUES ($1, $2, false)
-       ON CONFLICT (number) DO UPDATE SET contact_name = EXCLUDED.contact_name`,
-      [groupId, subject]
-    ).catch(() => {});
-  }
-  return subject || 'Grupo';
+  return 'Grupo';
 };
 
 const normalizarJid = async (key, schema) => {

@@ -88,7 +88,12 @@ const createChat = async (chat, instance, message, etapa, io) => {
       if (chatValido) {
         // O nome ficava congelado no primeiro valor para sempre: se o atual é
         // número/UUID e chegou um nome real (pushName/agenda), atualiza.
-        if (nomeNovoEhBom && ehNomeRuim(chatValido.contact_name)) {
+        // Em GRUPO o subject é a AUTORIDADE: o nome antigo costuma ser o pushName
+        // de quem falou primeiro — "parece bom" e por isso nunca era trocado.
+        // ('Grupo' é o fallback de quando a Evolution não respondeu: nunca sobrescreve.)
+        const ehGrupo = !!chat.getIsGroup();
+        const renomearGrupo = ehGrupo && nomeNovo !== 'Grupo' && nomeNovo !== chatValido.contact_name;
+        if (nomeNovoEhBom && (ehNomeRuim(chatValido.contact_name) || renomearGrupo)) {
           await pool.query(
             `UPDATE ${schema}.chats SET contact_name = $1 WHERE id = $2`,
             [nomeNovo, chatValido.id]
