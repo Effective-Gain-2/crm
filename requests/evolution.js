@@ -258,6 +258,28 @@ const fetchProfileName = async (instanceName, number) => {
 };
 
 // Lista completa de contatos da instância (sync da agenda ao conectar)
+// Lista os chats da instância (POST /chat/findChats). Além de remoteJid/pushName/unreadCount,
+// o lastMessage.key traz o par que resolve o LID: previousRemoteJid (@lid) ↔ senderPn (telefone).
+// É a única forma de aprender o par SEM esperar o contato mandar uma mensagem nova.
+const listAllChats = async (instanceName) => {
+  try {
+    const response = await fetch(
+      `${process.env.EVOLUTION_SERVER_URL}/chat/findChats/${encodeURIComponent(instanceName)}`,
+      {
+        method: 'POST',
+        headers: { apikey: process.env.EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      }
+    );
+    if (!response.ok) return [];
+    const result = await response.json();
+    return Array.isArray(result) ? result : (result?.chats || []);
+  } catch (err) {
+    console.error('Erro ao listar chats da instância:', err.message);
+    return [];
+  }
+};
+
 const listAllContacts = async (instanceName) => {
   try {
     const response = await fetch(
@@ -398,6 +420,7 @@ module.exports = {
   searchContact,
   getGroupSubject,
   listAllContacts,
+  listAllChats,
   fetchProfileName,
   sendAudioToWhatsApp,
   getBase64FromMediaMessage,

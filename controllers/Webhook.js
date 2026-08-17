@@ -329,6 +329,65 @@ const marcarLidoPeloCelular = async (jidBruto, instanceName, schema, io) => {
   return r.rowCount;
 };
 
+// Aprende pares LID↔telefone direto da lista de chats da Evolution.
+// Antes o par só era aprendido quando CHEGAVA uma mensagem do contato (senderPn +
+// previousRemoteJid). Resultado: conversa em que só o Luiz falou ficava para sempre
+// com o LID de 15 dígitos no lugar do nome (ex.: "259605221372078" = ILABEL ETIQUETAS).
+// O findChats expõe o mesmo par no lastMessage.key de quem já respondeu alguma vez.
+const sincronizarLidsDaEvolution = async (instanceName, schema) => {
+  const { listAllChats } = require('../requests/evolution');
+  const chats = await listAllChats(instanceName);
+  let pares = 0;
+  for (const c of chats) {
+    const key = (c.lastMessage && c.lastMessage.key) || {};
+    const lid = String(key.previousRemoteJid || '');
+    const telefone = String(key.senderPn || c.remoteJid || '');
+    if (!lid.endsWith('@lid')) continue;
+    if (!telefone.endsWith('@s.whatsapp.net')) continue;
+    // lembrarLid grava no lid_map E funde/renomeia os chats órfãos do LID
+    await lembrarLid(lid, telefone, schema);
+    pares++;
+  }
+  if (pares) console.log(`LIDs sincronizados (${instanceName}): ${pares} pares aprendidos de ${chats.length} chats`);
+  return pares;
+};
+
+// Reconcilia o "não lida" com o ESTADO REAL do WhatsApp (findChats traz unreadCount).
+// O evento de leitura só resolve daqui pra frente: tudo que foi lido no celular ANTES
+// disso existir continua com bolinha azul (o caso dos 44 no CRM x 0 no WhatsApp).
+// Isto também é a rede de segurança para quando um evento se perde.
+const sincronizarNaoLidasDaEvolution = async (instanceName, schema, io) => {
+  const { listAllChats } = require('../requests/evolution');
+  const chats = await listAllChats(instanceName);
+  if (!chats.length) return 0;
+
+  const connectionId = await conexaoIdPorInstancia(instanceName, schema);
+  if (!connectionId) return 0;
+
+  const semNaoLidas = [];
+  for (const c of chats) {
+    if (Number(c.unreadCount || 0) !== 0) continue;
+    let jid = String(c.remoteJid || c.id || '');
+    if (!jid) continue;
+    if (jid.endsWith('@lid')) jid = (await buscarLid(jid, schema)) || jid;
+    semNaoLidas.push(jid.split('@')[0].split(':')[0]);
+  }
+  if (!semNaoLidas.length) return 0;
+
+  const r = await pool.query(
+    `UPDATE ${schema}.chats SET unreadmessages = false
+      WHERE connection_id = $1 AND status <> 'closed' AND unreadmessages = true
+        AND contact_phone = ANY($2)
+      RETURNING id`,
+    [connectionId, semNaoLidas]
+  );
+  for (const row of r.rows) {
+    io?.to(`schema_${schema}`).emit('chatRead', { chatId: row.id, schema });
+  }
+  if (r.rowCount) console.log(`Não lidas reconciliadas (${instanceName}): ${r.rowCount} chat(s) zerado(s)`);
+  return r.rowCount;
+};
+
 // Sync completo da agenda de uma instância (chamado ao conectar)
 const sincronizarAgenda = async (instanceName, schema) => {
   const { listAllContacts } = require('../requests/evolution');
@@ -483,6 +542,11 @@ module.exports = (broadcastMessage) => {
             if (status === 'connected') {
               sincronizarAgenda(instanceName, schema)
                 .catch((e) => console.error('Sync de agenda falhou:', e.message));
+              // Pares LID↔telefone (conversas onde só nós falamos ficavam com o LID no nome)
+              // e, na sequência, o estado real de não lidas.
+              sincronizarLidsDaEvolution(instanceName, schema)
+                .then(() => sincronizarNaoLidasDaEvolution(instanceName, schema, serverTest.io))
+                .catch((e) => console.error('Sync de LIDs/não lidas falhou:', e.message));
               // Reconcilia a lista de eventos do webhook: instância criada antes de
               // MESSAGES_UPDATE/CHATS_UPDATE existirem não receberia esses eventos.
               setInstanceWebhook(instanceName)
@@ -998,3 +1062,8 @@ app.post('/resposta', async(req, res)=>{
 
   return app;
 };
+// Expostos para a reconciliação periódica do index.js (a lógica de merge de LID e de
+// não lidas mora aqui; duplicá-la em outro arquivo seria pedir divergência).
+// ATENÇÃO: tem de vir DEPOIS do "module.exports = (...)" acima, senão é sobrescrito.
+module.exports.sincronizarLidsDaEvolution = sincronizarLidsDaEvolution;
+module.exports.sincronizarNaoLidasDaEvolution = sincronizarNaoLidasDaEvolution;

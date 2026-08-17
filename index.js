@@ -310,6 +310,34 @@ setTimeout(async () => {
   }
 }, 5000);
 
+// ---- Reconciliação periódica com o WhatsApp ----
+// Os eventos (MESSAGES_UPDATE/CHATS_UPDATE) dão a atualização instantânea; esta varredura
+// garante CONVERGÊNCIA: pega o que foi lido antes de os eventos existirem e o que se perder
+// no caminho (era o caso de 44 "não lidas" no CRM contra 0 no WhatsApp), e aprende os pares
+// LID↔telefone das conversas em que só nós falamos (que ficavam com o número no lugar do nome).
+const RECONCILIA_MS = 5 * 60 * 1000;
+const reconciliarWhatsapp = async () => {
+  try {
+    const { sincronizarLidsDaEvolution, sincronizarNaoLidasDaEvolution } = require('./controllers/Webhook');
+    const db = require('./db/queries');
+    const companies = await db.query(`SELECT schema_name FROM effective_gain.companies`);
+    for (const row of companies.rows) {
+      let conns = { rows: [] };
+      try {
+        conns = await db.query(`SELECT name FROM ${row.schema_name}.connections WHERE status = 'connected'`);
+      } catch (e) { continue; }
+      for (const conn of conns.rows) {
+        await sincronizarLidsDaEvolution(conn.name, row.schema_name).catch((e) => console.error(`LID sync (${conn.name}):`, e.message));
+        await sincronizarNaoLidasDaEvolution(conn.name, row.schema_name, socketIoServer).catch((e) => console.error(`Não lidas sync (${conn.name}):`, e.message));
+      }
+    }
+  } catch (e) {
+    console.error('Reconciliação WhatsApp indisponível:', e.message);
+  }
+};
+setTimeout(reconciliarWhatsapp, 20000);
+setInterval(reconciliarWhatsapp, RECONCILIA_MS);
+
 // Socket global para o LembreteService
 setGlobalSocket(socketIoServer);
 
