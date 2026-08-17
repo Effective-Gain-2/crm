@@ -82,9 +82,22 @@ Push na `main` → gatilhos:
 - backend: `http://31.97.172.123:3000/api/deploy/6b4ea8a13e62dbfd773660d50cd6855dcc88bb968ecafc1b`
 - frontend: `http://31.97.172.123:3000/api/deploy/e1f3c4f141dc619bea2f86462dadcdd52e1013cc9cbe2957`
 
+**Source type = `Git` (não `Github`)** — decidido em 2026-08-17 nos dois serviços:
+| Campo | crm-backend | crm-frontend |
+|---|---|---|
+| Repository URL | `https://github.com/Effective-Gain-2/crm.git` | igual |
+| Branch | `main` | `main` |
+| Build Path | `/` | `/client/whatsapp-web-js-client` |
+
+O source `Github` do Easypanel baixa o código como **tarball anônimo** do `codeload.github.com` via curl, e o GitHub passou a responder **429** (anti-scraping) — o build morria em ~30s antes de qualquer etapa. O source `Git` usa `git clone`, que não sofre esse limite. Confirmação no log: a primeira linha passa a ser `### Cloning repository` em vez de `### Download Github Archive Started...`.
+Build config (Nixpacks 1.41.0) que deve continuar igual após qualquer troca de source:
+- backend — install `npm install`, build vazio, start `node index.js`
+- frontend — install `npm install --legacy-peer-deps`, build `npm run build`, start `npx serve -s build -l 3000`
+
 ## Troubleshooting
 - 401 em tudo → cookie de sessão ausente/expirado (relogar); ver COOKIE_DOMAIN vs domínio usado.
 - Socket desconectado (sem realtime) → sessão expirada; o handshake exige JWT.
 - QR não aparece → EVOLUTION_* vazios ou BACKEND_URL vazio (o create agora recusa e explica).
 - Mensagens não chegam → conferir webhook na Evolution e header authorization.
 - "Schema não permitido" → empresa não registrada em effective_gain.companies.
+- **Build falha em ~30s com `curl: (22) ... error: 429` + `gzip: stdin: unexpected end of file` + `tar: exit code 2`** → é o throttle anti-scraping do GitHub no download do tarball, não o seu código. Confira se o Source está em `Git` (e não `Github`) nos dois serviços. Diagnóstico rápido: `git ls-remote https://github.com/Effective-Gain-2/crm.git` funciona (protocolo git livre) enquanto `curl -I https://codeload.github.com/Effective-Gain-2/crm/tar.gz/refs/heads/main` devolve 429.

@@ -59,6 +59,7 @@ Easypanel: sessão do navegador do Luiz (perfil "Trabalho"); Claude NÃO digita 
   - backend: `http://31.97.172.123:3000/api/deploy/6b4ea8a13e62dbfd773660d50cd6855dcc88bb968ecafc1b`
   - frontend: `http://31.97.172.123:3000/api/deploy/e1f3c4f141dc619bea2f86462dadcdd52e1013cc9cbe2957`
 - ⚠️ **Fila de build única**: gatilhos disparados enquanto outro build roda são DESCARTADOS. Deploy sequencial, com sonda (bundle `main.*.js` p/ frontend; marcador HTTP p/ backend) antes do próximo.
+- ⚠️ **Source type = `Git`, nunca `Github`** (corrigido 2026-08-17): o tipo `Github` baixa tarball anônimo do `codeload.github.com` e o GitHub responde **429** (anti-scraping) → build morre em ~30s com `curl: (22)` + `gzip: unexpected end of file` + `tar: exit code 2`, antes de qualquer etapa. Config atual dos dois serviços: URL `https://github.com/Effective-Gain-2/crm.git`, branch `main`, Build Path `/` (backend) e `/client/whatsapp-web-js-client` (frontend). Log correto começa com `### Cloning repository`. Detalhes e diagnóstico no `DEPLOY-RUNBOOK.md`.
 - ⚠️ **SSL/Traefik**: se um domínio servir cert self-signed `CN=Easypanel` com DNS certo, REMOVER e RECRIAR o domínio no Easypanel (re-salvar não basta).
 - **Build local antes do push**: `cd client/whatsapp-web-js-client && CI=false ./node_modules/.bin/react-scripts build` (Git Bash) + `node --check` nos .js do backend.
 - **Console do container**: Easypanel → crm-backend → ícone `>_` → Bash. Backfill: `node scripts/fix_whatsapp_chats.js` (idempotente: agenda + isGroup + merge LID + renomear).
