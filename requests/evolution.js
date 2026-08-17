@@ -280,6 +280,28 @@ const listAllChats = async (instanceName) => {
   }
 };
 
+// Mensagens de UMA conversa (POST /chat/findMessages). Usado para garimpar o pushName
+// de quem escreveu no passado mas não está no contact store — nome que veio do WhatsApp,
+// não da agenda do cliente (que o CRM não vai ter).
+const findMessagesOfChat = async (instanceName, remoteJid) => {
+  try {
+    const response = await fetch(
+      `${process.env.EVOLUTION_SERVER_URL}/chat/findMessages/${encodeURIComponent(instanceName)}`,
+      {
+        method: 'POST',
+        headers: { apikey: process.env.EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ where: { key: { remoteJid } } }),
+      }
+    );
+    if (!response.ok) return [];
+    const d = await response.json();
+    if (Array.isArray(d)) return d;
+    return d?.messages?.records || d?.messages || [];
+  } catch (err) {
+    return [];
+  }
+};
+
 const listAllContacts = async (instanceName) => {
   try {
     const response = await fetch(
@@ -421,6 +443,7 @@ module.exports = {
   getGroupSubject,
   listAllContacts,
   listAllChats,
+  findMessagesOfChat,
   fetchProfileName,
   sendAudioToWhatsApp,
   getBase64FromMediaMessage,

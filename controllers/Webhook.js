@@ -343,7 +343,7 @@ const nomeEhRuim = (n) => {
 };
 
 const sincronizarLidsDaEvolution = async (instanceName, schema) => {
-  const { listAllChats, fetchProfileName } = require('../requests/evolution');
+  const { listAllChats, fetchProfileName, findMessagesOfChat } = require('../requests/evolution');
   const chats = await listAllChats(instanceName);
   let pares = 0;
   const pushNamePorNumero = new Map();
@@ -370,6 +370,7 @@ const sincronizarLidsDaEvolution = async (instanceName, schema) => {
   const connectionId = await conexaoIdPorInstancia(instanceName, schema);
   if (!connectionId) return pares;
   let renomeados = 0;
+  let buscasNoHistorico = 0;
   try {
     const semNome = await pool.query(
       `SELECT c.id, c.contact_phone, c.contact_name, ct.contact_name AS nome_agenda, ct.push_name
@@ -382,6 +383,17 @@ const sincronizarLidsDaEvolution = async (instanceName, schema) => {
       if (!nomeEhRuim(chat.contact_name)) continue;
       let novo = [chat.nome_agenda, chat.push_name, pushNamePorNumero.get(chat.contact_phone)]
         .find((n) => !nomeEhRuim(n));
+      // Garimpo no HISTÓRICO: pushName é o nome que a própria pessoa configurou no
+      // WhatsApp dela — chega mesmo sem estar salva na agenda (que o cliente não terá).
+      // Limitado por rodada para não varrer centenas de conversas de uma vez.
+      if (!novo && buscasNoHistorico < 30) {
+        buscasNoHistorico++;
+        const msgs = await findMessagesOfChat(instanceName, `${chat.contact_phone}@s.whatsapp.net`);
+        for (const m of msgs) {
+          const push = String(m.pushName || '').trim();
+          if (m.key && m.key.fromMe === false && !nomeEhRuim(push)) { novo = push; break; }
+        }
+      }
       if (!novo) {
         novo = await fetchProfileName(instanceName, chat.contact_phone).catch(() => null);
         if (nomeEhRuim(novo)) novo = null;
