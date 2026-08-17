@@ -1,6 +1,62 @@
 require('dotenv').config();
 const axios = require('axios'); 
 
+// Eventos assinados no webhook — fonte ÚNICA (usada na criação e no re-registro).
+// MESSAGES_UPDATE + CHATS_UPDATE = leitura feita NO CELULAR chega ao CRM; sem eles a
+// conversa lida no telefone ficava "não lida" para sempre no painel.
+const WEBHOOK_EVENTS = [
+  'MESSAGES_UPSERT',
+  'MESSAGES_UPDATE',
+  'CHATS_UPDATE',
+  'CONNECTION_UPDATE',
+  'QRCODE_UPDATED',
+  'CONTACTS_UPSERT',
+  'CONTACTS_SET',
+  'CONTACTS_UPDATE',
+];
+
+const buildWebhookConfig = () => ({
+  url: `${process.env.BACKEND_URL}/webhook/chat`,
+  base64: true,
+  byEvents: false,
+  headers: {
+    authorization: process.env.EVOLUTION_API_KEY,
+  },
+  events: WEBHOOK_EVENTS,
+});
+
+// Re-registra o webhook de uma instância JÁ EXISTENTE (POST /webhook/set/{instance}).
+// A lista de eventos só é aplicada na CRIAÇÃO da instância — sem este passo, as
+// instâncias já escaneadas nunca passariam a receber os eventos novos.
+// Idempotente: pode rodar no boot e a cada reconexão.
+const setInstanceWebhook = async (instanceName) => {
+  if (!instanceName) return null;
+  if (!process.env.BACKEND_URL || !process.env.EVOLUTION_SERVER_URL || !process.env.EVOLUTION_API_KEY) {
+    console.warn(`Webhook não re-registrado (${instanceName}): BACKEND_URL/EVOLUTION_* ausentes`);
+    return null;
+  }
+
+  const cfg = { enabled: true, ...buildWebhookConfig() };
+  const enviar = (body) => fetch(
+    `${process.env.EVOLUTION_SERVER_URL}/webhook/set/${encodeURIComponent(instanceName)}`,
+    {
+      method: 'POST',
+      headers: { apikey: process.env.EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  );
+
+  // v2.2+ espera { webhook: {...} }; v2.0 aceitava o payload plano. Tenta os dois.
+  let response = await enviar({ webhook: cfg });
+  if (!response.ok) response = await enviar(cfg);
+
+  if (!response.ok) {
+    const erro = await response.text().catch(() => '');
+    throw new Error(`Evolution respondeu ${response.status} ao setar webhook de ${instanceName}: ${erro.slice(0, 200)}`);
+  }
+  return response.json().catch(() => ({}));
+};
+
 const createInstance = async ({ instanceName, number, groupsIgnore = false }) => {
   // Guard: sem BACKEND_URL o webhook seria registrado como "undefined/webhook/chat" —
   // a instância nasceria surda (nenhuma mensagem chega) de forma silenciosa e irreversível.
@@ -19,16 +75,9 @@ const createInstance = async ({ instanceName, number, groupsIgnore = false }) =>
     // false = conversas de GRUPO também chegam ao CRM (antes ficava fixo em true e
     // os grupos simplesmente não apareciam, sem nenhum aviso)
     groupsIgnore: !!groupsIgnore,
-    webhook:{
-      url:`${process.env.BACKEND_URL}/webhook/chat`,
-      base64:true,
-      byEvents:false,
-      headers: {
-      authorization: process.env.EVOLUTION_API_KEY,
-      },
-    // CONNECTION_UPDATE/QRCODE_UPDATED = status em tempo real; CONTACTS_* = agenda (nomes)
-    events:['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED', 'CONTACTS_UPSERT', 'CONTACTS_SET', 'CONTACTS_UPDATE']
-    },
+    // CONNECTION_UPDATE/QRCODE_UPDATED = status em tempo real; CONTACTS_* = agenda (nomes);
+    // MESSAGES_UPDATE/CHATS_UPDATE = leitura no celular reflete no CRM (ver WEBHOOK_EVENTS)
+    webhook: buildWebhookConfig(),
   };
 
   const options = {
@@ -340,6 +389,8 @@ const sendMediaForBlast = async (instanceId, text, image, number) => {
 
 module.exports = {
   createInstance,
+  setInstanceWebhook,
+  WEBHOOK_EVENTS,
   connectInstance,
   getConnectionState,
   fetchInstanceEvo,

@@ -278,6 +278,33 @@ setTimeout(async () => {
       }
     }
     console.log(`Migrações de boot aplicadas em ${companies.rows.length} tenant(s)`);
+
+    // ---- Reconciliação dos webhooks da Evolution (idempotente) ----
+    // A lista de eventos só é aplicada quando a instância é CRIADA. As instâncias já
+    // escaneadas ficariam sem MESSAGES_UPDATE/CHATS_UPDATE (leitura no celular) até
+    // alguém reconectar o QR. Aqui todo deploy realinha as conexões existentes.
+    try {
+      const { setInstanceWebhook } = require('./requests/evolution');
+      let ok = 0, falhas = 0;
+      for (const row of companies.rows) {
+        let conns = { rows: [] };
+        try {
+          conns = await db.query(`SELECT name FROM ${row.schema_name}.connections`);
+        } catch (e) { continue; } // schema sem a tabela ainda
+        for (const conn of conns.rows) {
+          try {
+            await setInstanceWebhook(conn.name);
+            ok++;
+          } catch (e) {
+            falhas++;
+            console.error(`Webhook não realinhado (${conn.name}):`, e.message);
+          }
+        }
+      }
+      if (ok || falhas) console.log(`Webhooks Evolution realinhados: ${ok} ok, ${falhas} falha(s)`);
+    } catch (e) {
+      console.error('Reconciliação de webhooks indisponível:', e.message);
+    }
   } catch (e) {
     console.error('Migração de boot indisponível:', e.message);
   }

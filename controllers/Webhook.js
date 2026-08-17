@@ -11,7 +11,7 @@ const { createChat, getChatService, setChatQueue, setUserChat, saveMediaMessage,
 const { saveMessage } = require('../services/MessageService');
 const pool = require('../db/queries');
 const { getCurrentTimestamp } = require('../services/getCurrentTimestamp');
-const { getBase64FromMediaMessage, sendTextMessage } = require('../requests/evolution');
+const { getBase64FromMediaMessage, sendTextMessage, setInstanceWebhook } = require('../requests/evolution');
 const aiAgent = require('../services/AiAgentService');
 const express = require('express');
 const createRedisConnection = require('../config/Redis');
@@ -268,6 +268,67 @@ const upsertContatosDaAgenda = async (contatos, schema) => {
   }
 };
 
+// ---- Leitura feita no CELULAR reflete no CRM ----
+// O WhatsApp avisa por dois caminhos, e a Evolution repassa os dois:
+//   chats.update    → { remoteJid|id, unreadCount }  — unreadCount 0 = zerou no telefone
+//   messages.update → mensagem RECEBIDA que virou READ/PLAYED = eu li em outro aparelho
+// Antes disso, conversa lida no celular ficava com a bolinha azul para sempre no painel.
+const eventoIndicaLeitura = (eventName, item) => {
+  if (!item || typeof item !== 'object') return false;
+
+  if (eventName === 'chats.update' || eventName === 'chats.upsert') {
+    const naoLidas = item.unreadCount ?? item.unread_count;
+    return naoLidas !== undefined && naoLidas !== null && Number(naoLidas) === 0;
+  }
+
+  // messages.update: só interessa mensagem que EU RECEBI passando a lida.
+  // (fromMe=true virando READ significa que o CONTATO leu a minha — não mexe no não-lida)
+  const fromMe = item.fromMe ?? item.key?.fromMe ?? item.update?.key?.fromMe;
+  if (fromMe === true) return false;
+  const status = item.status ?? item.update?.status;
+  if (status === undefined || status === null) return false;
+  const s = String(status).toUpperCase();
+  return s === 'READ' || s === 'PLAYED' || Number(status) >= 4;
+};
+
+const jidDoEvento = (item) =>
+  item?.remoteJid || item?.id || item?.key?.remoteJid || item?.update?.key?.remoteJid || '';
+
+const conexaoIdPorInstancia = async (instanceName, schema) => {
+  try {
+    const r = await pool.query(
+      `SELECT id FROM ${schema}.connections WHERE name = $1 LIMIT 1`, [instanceName]
+    );
+    return r.rows[0]?.id || null;
+  } catch (e) { return null; }
+};
+
+const marcarLidoPeloCelular = async (jidBruto, instanceName, schema, io) => {
+  if (!jidBruto || !schema) return 0;
+  // LID → telefone (mesma normalização das mensagens); grupo mantém o próprio jid
+  let jid = String(jidBruto);
+  if (jid.endsWith('@lid')) jid = (await buscarLid(jid, schema)) || jid;
+  const numero = jid.split('@')[0].split(':')[0];
+  if (!numero) return 0;
+
+  // Escopo pela CONEXÃO: com 2 números na mesma empresa, ler no celular de um
+  // não pode zerar o não-lida do outro.
+  const connectionId = await conexaoIdPorInstancia(instanceName, schema);
+  const r = await pool.query(
+    `UPDATE ${schema}.chats SET unreadmessages = false
+      WHERE contact_phone = $1 AND status <> 'closed' AND unreadmessages = true
+        ${connectionId ? 'AND connection_id = $2' : ''}
+      RETURNING id`,
+    connectionId ? [numero, connectionId] : [numero]
+  );
+
+  // Evento próprio — NÃO reaproveita 'chats_updated', que toca som de notificação
+  for (const row of r.rows) {
+    io?.to(`schema_${schema}`).emit('chatRead', { chatId: row.id, schema });
+  }
+  return r.rowCount;
+};
+
 // Sync completo da agenda de uma instância (chamado ao conectar)
 const sincronizarAgenda = async (instanceName, schema) => {
   const { listAllContacts } = require('../requests/evolution');
@@ -396,6 +457,10 @@ module.exports = (broadcastMessage) => {
             if (status === 'connected') {
               sincronizarAgenda(instanceName, schema)
                 .catch((e) => console.error('Sync de agenda falhou:', e.message));
+              // Reconcilia a lista de eventos do webhook: instância criada antes de
+              // MESSAGES_UPDATE/CHATS_UPDATE existirem não receberia esses eventos.
+              setInstanceWebhook(instanceName)
+                .catch((e) => console.error('Re-registro de webhook falhou:', e.message));
             }
           } else {
             const base64 = result?.data?.qrcode?.base64 || result?.data?.base64 || null;
@@ -416,6 +481,25 @@ module.exports = (broadcastMessage) => {
         if (schema) await upsertContatosDaAgenda(lista, schema);
       } catch (e) {
         console.error('Erro no evento de contatos:', e.message);
+      }
+      return res.sendStatus(200);
+    }
+
+    // ---- Leitura no celular → zera o "não lida" no CRM ----
+    // Precisa vir ANTES do fluxo de mensagem: messages.update também carrega `key`
+    // e seria processado como se fosse mensagem nova.
+    if (eventName === 'chats.update' || eventName === 'chats.upsert' || eventName === 'messages.update') {
+      try {
+        const schema = await resolveSchemaByInstance(result.instance);
+        if (schema) {
+          const lista = Array.isArray(result.data) ? result.data : [result.data];
+          for (const item of lista) {
+            if (!eventoIndicaLeitura(eventName, item)) continue;
+            await marcarLidoPeloCelular(jidDoEvento(item), result.instance, schema, serverTest.io);
+          }
+        }
+      } catch (e) {
+        console.error(`Erro no evento ${eventName}:`, e.message);
       }
       return res.sendStatus(200);
     }

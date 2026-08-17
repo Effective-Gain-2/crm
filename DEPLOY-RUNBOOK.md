@@ -46,7 +46,19 @@ TARGET_SCHEMA=<schema> TEC_PW=... MASTER_PW=... LIDER_PW=... OPER_PW=... node sc
 1. Login como master/técnico → botão WhatsApp → Nova Conexão (nome + número 12-13 dígitos).
 2. Instância criada como `<schema>__<nome>` (única globalmente; webhook resolve a empresa em O(1)).
 3. QR na tela; badge muda para **Conectado** em tempo real (evento CONNECTION_UPDATE). Botão QR na lista reconecta/renova sem recriar.
-4. Eventos assinados: MESSAGES_UPSERT + CONNECTION_UPDATE + QRCODE_UPDATED + CONTACTS_UPSERT/SET/UPDATE. Webhook valida header `authorization` = EVOLUTION_API_KEY.
+4. Eventos assinados (`WEBHOOK_EVENTS` em `requests/evolution.js` — fonte única): MESSAGES_UPSERT + **MESSAGES_UPDATE** + **CHATS_UPDATE** + CONNECTION_UPDATE + QRCODE_UPDATED + CONTACTS_UPSERT/SET/UPDATE. Webhook valida header `authorization` = EVOLUTION_API_KEY.
+5. ⚠️ A lista de eventos só é aplicada na **criação** da instância. Para as já escaneadas existe `setInstanceWebhook()` (`POST /webhook/set/{instance}`), chamado **no boot do backend** (realinha todas as conexões de todos os tenants) e **a cada CONNECTION_UPDATE=connected**. Log no boot: `Webhooks Evolution realinhados: N ok, M falha(s)`.
+
+### Leitura no celular reflete no CRM
+- Sinais aceitos: `chats.update` com `unreadCount = 0` **ou** `messages.update` de mensagem **recebida** (`fromMe=false`) com status `READ`/`PLAYED`. Qualquer um zera `chats.unreadmessages`.
+- Escopo pela **conexão**: com 2+ números na mesma empresa, ler no celular de um número não zera o não-lida do outro.
+- O backend emite socket `chatRead { chatId }` para a sala `schema_<schema>`; o front tira a bolinha azul **sem tocar som** (não reusa `chats_updated`, que toca).
+- Sentido inverso (abrir no CRM → marcar lido no celular) **não** é feito de propósito: o CRM não mexe no estado do aparelho do Luiz.
+
+### Multi-número (2+ conexões na mesma empresa)
+- `chats.connection_id` = `connections.id` = instanceId da Evolution; chat é único por (contato, conexão) — o mesmo contato falando nos dois números gera duas conversas, cada uma com seu histórico.
+- Na tela Chats: chip verde com o nome da conexão em cada item, `via <conexão> (<número>)` no header da conversa, e chips de filtro por número (com contador de não lidas) — só aparecem quando há 2+ conexões.
+- A resposta sai **pela conexão do chat** (`instanceId: selectedChat.connection_id`), então o número mostrado no header é o número pelo qual você está falando.
 
 ### Nomes, LID e grupos (comportamento correto)
 - **LID**: o WhatsApp identifica contatos por `<id>@lid`; o webhook normaliza para o telefone via `lid_map` (aprendido de `senderPn`/`previousRemoteJid`) — ida e volta são UMA conversa.

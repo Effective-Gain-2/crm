@@ -316,6 +316,8 @@ function ChatPage({ theme, chat_id} ) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [connections, setConnections] = useState([]);
+  // Filtro por número do WhatsApp (conexão). 'todas' = comportamento anterior.
+  const [conexaoFiltro, setConexaoFiltro] = useState('todas');
   const [queues, setQueues] = useState([]);
   const nomeContatoRef = useRef(null);
   const [showNewContactModal, setShowNewContactModal] = useState(false);
@@ -457,6 +459,9 @@ function ChatPage({ theme, chat_id} ) {
       if (selectedTab === 'aguardando' && chat.status !== 'waiting') return false;
       if (selectedTab === 'nao-lidas' && !chat.unreadmessages) return false;
 
+      // Filtro por CONEXÃO (número do WhatsApp) — só existe com 2+ conexões
+      if (conexaoFiltro !== 'todas' && chat.connection_id !== conexaoFiltro) return false;
+
       // Filtro por status
       if (filtrosAtivos.status && filtrosAtivos.status !== 'todos') {
         if (filtrosAtivos.status === 'aberto' && chat.status !== 'open') return false;
@@ -595,10 +600,23 @@ useEffect(() => {
   fetchUsers();
 }, [url, schema]);
 
-const getConnectionName = (connectionId) => {
+// Rótulo curto da conexão: o nome da instância vem como "<schema>__Nome_Da_Conexao".
+// Com 2+ números na mesma empresa, é isto que responde "por qual número eu estou falando".
+const getConnectionLabel = (connectionId) => {
   const conn = connections.find(c => c.id === connectionId);
-  return conn?.name || connectionId;
+  if (!conn) return '';
+  const bruto = String(conn.name || '');
+  const curto = (bruto.includes('__') ? bruto.split('__').slice(1).join('__') : bruto).replace(/_/g, ' ').trim();
+  return curto || conn.number || '';
 };
+
+const getConnectionNumber = (connectionId) => {
+  const conn = connections.find(c => c.id === connectionId);
+  return conn?.number || '';
+};
+
+// Só faz sentido mostrar/filtrar por número quando existe mais de uma conexão
+const multiConexao = connections.length > 1;
 
 const getQueueName = (queueId) => {
   const queue = queues.find(q => q.id === queueId);
@@ -792,6 +810,15 @@ const handleRedistributeWaitingChats = async () => {
     });
   }
 });
+  // Li a conversa no CELULAR → o backend avisa e a bolinha azul sai daqui.
+  // Evento próprio (e não 'chats_updated') justamente para NÃO tocar som de notificação.
+  socketInstance.on('chatRead', (data) => {
+    if (!data?.chatId) return;
+    setChats(prevChats => prevChats.map(chat =>
+      chat.id === data.chatId ? { ...chat, unreadmessages: false } : chat
+    ));
+  });
+
   socketInstance.on('removeChat', (data)=>{
     setChats(prevChats => sortChatsByTimestamp(prevChats.filter(chat => chat.id !== data.id)));
     setSelectedChat(null);
@@ -837,6 +864,7 @@ const handleRedistributeWaitingChats = async () => {
     if (socketInstance) {
       socketInstance.off('connect');
       socketInstance.off('chats_updated');
+      socketInstance.off('chatRead');
       socketInstance.off('chatTransferred');
       socketInstance.emit('leave', `schema_${schema}`);
     }
@@ -1684,6 +1712,37 @@ const handleImageUpload = async (event) => {
               ))}
             </div>
 
+            {/* Chips por NÚMERO (conexão) — aparecem só quando há 2+ números escaneados */}
+            {multiConexao && (
+              <div className="d-flex gap-1 px-2 flex-wrap align-items-center" style={{ paddingTop: '6px' }}>
+                <i className="bi bi-whatsapp" style={{ fontSize: '0.8rem', opacity: 0.6 }} title="Filtrar pelo número"></i>
+                <button
+                  className={`btn btn-sm rounded-pill px-3 ${conexaoFiltro === 'todas' ? `btn-1-${theme}` : `btn-2-${theme}`}`}
+                  style={{ fontSize: '0.75rem' }}
+                  onClick={() => setConexaoFiltro('todas')}
+                >
+                  Todos os números
+                </button>
+                {connections.map((conn) => (
+                  <button
+                    key={conn.id}
+                    className={`btn btn-sm rounded-pill px-3 ${conexaoFiltro === conn.id ? `btn-1-${theme}` : `btn-2-${theme}`}`}
+                    style={{ fontSize: '0.75rem' }}
+                    title={conn.number ? `${getConnectionLabel(conn.id)} · ${conn.number}` : getConnectionLabel(conn.id)}
+                    onClick={() => setConexaoFiltro(conn.id)}
+                  >
+                    {getConnectionLabel(conn.id)}
+                    {' '}
+                    {chatList.filter(c => c.connection_id === conn.id && c.unreadmessages).length > 0 && (
+                      <span className="badge bg-primary rounded-pill" style={{ fontSize: '0.6rem' }}>
+                        {chatList.filter(c => c.connection_id === conn.id && c.unreadmessages).length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Lista filtrada */}
             <div className='p-3'>
               <div className='d-flex justify-content-between align-items-center'>
@@ -1766,6 +1825,32 @@ const handleImageUpload = async (event) => {
 >
   {getQueueName(chat.queue_id)}
 </span>
+{/* Por qual NÚMERO essa conversa entrou (só com 2+ conexões) */}
+{multiConexao && chat.connection_id && (
+  <span
+    title={`Conversa pelo número ${getConnectionNumber(chat.connection_id) || getConnectionLabel(chat.connection_id)}`}
+    style={{
+      background: '#d9f2e6',
+      color: '#0f6b45',
+      borderRadius: '6px',
+      padding: '0 6px',
+      fontSize: '0.65rem',
+      marginLeft: '4px',
+      whiteSpace: 'nowrap',
+      fontWeight: 500,
+      maxWidth: '110px',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      display: 'inline-block',
+      lineHeight: '18px',
+      height: '18px',
+      verticalAlign: 'middle'
+    }}
+  >
+    <i className="bi bi-whatsapp me-1" style={{ fontSize: '0.6rem' }}></i>
+    {getConnectionLabel(chat.connection_id)}
+  </span>
+)}
 </div>
 
                     <div className='d-flex flex-column align-items-center justify-content-center'>
@@ -1854,6 +1939,15 @@ const handleImageUpload = async (event) => {
 )}
       <div style={{ fontSize: '0.95rem', opacity: 0.8 }}>
         {selectedChat?.isgroup ? 'Grupo' : (selectedChat?.contact_phone || '')}
+        {/* Por qual número MEU essa conversa está acontecendo — evita responder pelo número errado */}
+        {selectedChat?.connection_id && getConnectionLabel(selectedChat.connection_id) && (
+          <span style={{ opacity: 0.85 }}>
+            {' · '}
+            <i className="bi bi-whatsapp me-1" style={{ fontSize: '0.85em' }}></i>
+            via {getConnectionLabel(selectedChat.connection_id)}
+            {getConnectionNumber(selectedChat.connection_id) ? ` (${getConnectionNumber(selectedChat.connection_id)})` : ''}
+          </span>
+        )}
       </div>
     </div>
 
