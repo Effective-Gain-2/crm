@@ -218,11 +218,23 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
     
     const baseDelay = Math.max(0, startDate - now);
     
-    let intervalEmSegundos;
-    if(!campaing.min){
-      intervalEmSegundos = Number(campaing.timer) || 30;
-    }
-    
+    // Intervalo entre mensagens do disparo — sorteado POR MENSAGEM quando há min/max
+    // (cadência irregular é o que não parece robô). O sorteio já existia dentro do laço;
+    // aqui ele fica em um lugar só e à prova de NaN: min sem max, campo vazio ou valor
+    // inválido resultariam em delay NaN, que a fila trata como "sem espera" — rajada
+    // silenciosa e risco real de bloqueio da conta.
+    const intervaloFixo = Number(campaing.timer) || 30;
+    const intervaloMin = Number(campaing.min) || 0;
+    const intervaloMax = Math.max(intervaloMin, Number(campaing.max) || intervaloMin);
+    // Sorteia por MENSAGEM (não uma vez só): cadência irregular é o que não parece robô.
+    const proximoIntervalo = () => {
+      const s = intervaloMin > 0
+        ? intervaloMin + Math.random() * (intervaloMax - intervaloMin)
+        : intervaloFixo;
+      // Piso de 1s: protege de configuração zerada/NaN virar rajada instantânea
+      return Math.max(1, Number.isFinite(s) ? s : 30);
+    };
+
     const connections = await getAllCampaingConnections(campaing.id, schema);
     if (!connections || connections.length === 0) {
       console.error('Nenhuma conexão encontrada para a campanha.');
@@ -263,12 +275,6 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
       const contactName = contact.contact_name;
       const message = messageList[messageIndex];
 
-      if(campaing.min){
-        const min = Number(campaing.min);
-        const max = Number(campaing.max);
-        intervalEmSegundos = Math.floor(Math.random() * (max - min + 1)) + min;
-      }
-
       // Buscar a instância da conexão
       const instance = await pool.query(
         `SELECT * FROM ${schema}.connections WHERE id=$1`, [connection.connection_id]
@@ -308,7 +314,7 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
       
       // O delay é calculado por job
       const messageDelay = accumulatedDelay;
-      accumulatedDelay += intervalEmSegundos * 1000;
+      accumulatedDelay += proximoIntervalo() * 1000;
       
       const job = await blastQueue.add('sendMessage', {
         instance: instance.rows[0].id,
