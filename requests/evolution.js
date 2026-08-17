@@ -188,6 +188,26 @@ const getGroupSubject = async (instanceName, groupJid) => {
   }
 };
 
+// Nome do perfil (inclui verifiedName de contas business — ex.: 0800 de empresas,
+// que não têm pushName nem entrada na agenda)
+const fetchProfileName = async (instanceName, number) => {
+  try {
+    const response = await fetch(
+      `${process.env.EVOLUTION_SERVER_URL}/chat/fetchProfile/${encodeURIComponent(instanceName)}`,
+      {
+        method: 'POST',
+        headers: { apikey: process.env.EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number }),
+      }
+    );
+    if (!response.ok) return null;
+    const result = await response.json();
+    return result?.name || result?.verifiedName || result?.pushName || null;
+  } catch (err) {
+    return null;
+  }
+};
+
 // Lista completa de contatos da instância (sync da agenda ao conectar)
 const listAllContacts = async (instanceName) => {
   try {
@@ -327,6 +347,7 @@ module.exports = {
   searchContact,
   getGroupSubject,
   listAllContacts,
+  fetchProfileName,
   sendAudioToWhatsApp,
   getBase64FromMediaMessage,
   sendImageToWhatsApp,

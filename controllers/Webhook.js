@@ -165,7 +165,55 @@ const lembrarLid = async (lid, jidTelefone, schema) => {
        ON CONFLICT (lid) DO UPDATE SET phone_jid = EXCLUDED.phone_jid, updated_at = now()`,
       [lid, jidTelefone]
     );
+    // Merge automático: chats criados antes de o par ser conhecido (só com o LID)
+    // são convertidos/fundidos AGORA, sem esperar backfill manual.
+    await fundirChatsDoLid(lid, jidTelefone, schema);
   } catch (e) { /* tabela ainda não migrada — segue com o LID mesmo */ }
+};
+
+// Converte/funde chats abertos cujo contact_phone é o LID (ou o LID "mutilado" —
+// uma versão antiga do webhook removia o 5º dígito de todo número).
+const fundirChatsDoLid = async (lid, jidTelefone, schema) => {
+  try {
+    const lidNum = lid.split('@')[0];
+    const lidMutilado = lidNum.slice(0, 4) + lidNum.slice(5);
+    const phoneNum = jidTelefone.split('@')[0];
+
+    const orfaos = await pool.query(
+      `SELECT id, connection_id FROM ${schema}.chats
+        WHERE contact_phone = ANY($1) AND status <> 'closed'`,
+      [[lidNum, lidMutilado]]
+    );
+    for (const chat of orfaos.rows) {
+      const alvo = await pool.query(
+        `SELECT id FROM ${schema}.chats
+          WHERE contact_phone = $1 AND connection_id = $2 AND status <> 'closed' AND id <> $3
+          ORDER BY created_at DESC LIMIT 1`,
+        [phoneNum, chat.connection_id, chat.id]
+      );
+      if (alvo.rows[0]) {
+        // já existe o chat do telefone: move as mensagens e fecha o órfão
+        await pool.query(`UPDATE ${schema}.messages SET chat_id = $1 WHERE chat_id = $2`, [alvo.rows[0].id, chat.id]);
+        await pool.query(`UPDATE ${schema}.lembretes SET chat_id = $1 WHERE chat_id = $2`, [alvo.rows[0].id, chat.id]).catch(() => {});
+        await pool.query(`UPDATE ${schema}.chats SET status = 'closed' WHERE id = $1`, [chat.id]);
+      } else {
+        // não existe: o próprio chat do LID vira o chat do telefone (herda nome da agenda se houver)
+        const nome = await pool.query(
+          `SELECT contact_name FROM ${schema}.contacts WHERE number = $1`, [phoneNum]
+        ).catch(() => ({ rows: [] }));
+        await pool.query(
+          `UPDATE ${schema}.chats SET contact_phone = $1, chat_id = $2
+                  ${nome.rows[0]?.contact_name ? ', contact_name = $4' : ''}
+            WHERE id = $3`,
+          nome.rows[0]?.contact_name
+            ? [phoneNum, jidTelefone, chat.id, nome.rows[0].contact_name]
+            : [phoneNum, jidTelefone, chat.id]
+        );
+      }
+    }
+  } catch (e) {
+    console.error('fundirChatsDoLid:', e.message);
+  }
 };
 
 const buscarLid = async (lid, schema) => {
@@ -227,6 +275,38 @@ const sincronizarAgenda = async (instanceName, schema) => {
   if (contatos.length === 0) return;
   await upsertContatosDaAgenda(contatos, schema);
   console.log(`Agenda sincronizada (${instanceName}): ${contatos.length} contatos processados`);
+};
+
+// Nome do contato 1:1 sem pushName: agenda (contacts) → perfil na Evolution
+// (verifiedName cobre contas business). Cache em memória evita repetir a consulta.
+const perfisConsultados = new Set();
+const resolverNomeDoPerfil = async (numero, instanceName, schema) => {
+  try {
+    const c = await pool.query(
+      `SELECT contact_name FROM ${schema}.contacts WHERE number = $1`, [numero]
+    );
+    const atual = c.rows[0]?.contact_name;
+    if (atual && !/^[\d\s()+\-]+$/.test(atual)) return atual;
+
+    const chaveCache = `${schema}:${numero}`;
+    if (perfisConsultados.has(chaveCache)) return null;
+    perfisConsultados.add(chaveCache);
+
+    const { fetchProfileName } = require('../requests/evolution');
+    const nome = await fetchProfileName(instanceName, numero);
+    if (nome && !/^[\d\s()+\-]+$/.test(nome)) {
+      await pool.query(
+        `INSERT INTO ${schema}.contacts (number, contact_name, push_name, is_saved)
+         VALUES ($1, $2, $2, false)
+         ON CONFLICT (number) DO UPDATE SET
+           contact_name = CASE WHEN ${schema}.contacts.is_saved THEN ${schema}.contacts.contact_name ELSE EXCLUDED.contact_name END,
+           push_name = EXCLUDED.push_name`,
+        [numero, nome]
+      ).catch(() => {});
+      return nome;
+    }
+    return null;
+  } catch (e) { return null; }
 };
 
 // Nome do grupo com cache em contacts (number = id do grupo).
@@ -366,6 +446,11 @@ module.exports = (broadcastMessage) => {
       contact = await resolverNomeGrupo(jidNormalizado, result.instance, schemaAlvo);
     } else {
       contact = (result.data.pushName && !key.fromMe) ? result.data.pushName : numberLimpo;
+      // Ainda sem nome real? Contas business (0800 etc.) não têm pushName —
+      // o nome vem do PERFIL (verifiedName). Consulta 1x com cache local.
+      if (contact === numberLimpo && schemaAlvo) {
+        contact = await resolverNomeDoPerfil(numberLimpo, result.instance, schemaAlvo) || numberLimpo;
+      }
     }
 
     try {

@@ -308,7 +308,11 @@ function ChatPage({ theme, chat_id} ) {
   const [imageUrl, setImageUrl] = useState('')
   const selectedChatIdRef = useRef(null);
   const { preferences, updateChatsTab } = useUserPreferences();
-  const [selectedTab, setSelectedTab] = useState(preferences.chatsTab || 'conversas');
+  // Chips estilo WhatsApp: 'tudo' | 'nao-lidas' | 'aguardando' | 'grupos'
+  // ('conversas' era o valor antigo persistido — normaliza para 'tudo')
+  const [selectedTab, setSelectedTab] = useState(
+    ['tudo', 'nao-lidas', 'aguardando', 'grupos'].includes(preferences.chatsTab) ? preferences.chatsTab : 'tudo'
+  );
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [connections, setConnections] = useState([]);
@@ -420,7 +424,8 @@ function ChatPage({ theme, chat_id} ) {
   }, schema)
 
   useEffect(() => {
-    if (preferences.chatsTab && preferences.chatsTab !== selectedTab) {
+    if (preferences.chatsTab && preferences.chatsTab !== selectedTab
+        && ['tudo', 'nao-lidas', 'aguardando', 'grupos'].includes(preferences.chatsTab)) {
       setSelectedTab(preferences.chatsTab);
     }
   }, [preferences.chatsTab, selectedTab]);
@@ -443,19 +448,14 @@ function ChatPage({ theme, chat_id} ) {
     setFiltrosAtivos(filtros);
   };
 
-  // Função para filtrar chats baseado nos filtros ativos
+  // Função para filtrar chats — CHIPS estilo WhatsApp (filtram, não escondem):
+  // Tudo = lista única (grupos e sala de espera juntos, como no WhatsApp)
   const getFilteredChats = () => {
     let filtered = chatList.filter(chat => {
-      // Filtro por aba (conversas / aguardando / grupos)
       const ehGrupo = !!(chat.isgroup || chat.isGroup);
-      if (selectedTab === 'grupos') {
-        if (!ehGrupo) return false;
-      } else {
-        // grupos ficam na própria aba (fora do atendimento/distribuição)
-        if (ehGrupo) return false;
-        if (selectedTab === 'conversas' && chat.status === 'waiting') return false;
-        if (selectedTab === 'aguardando' && chat.status !== 'waiting') return false;
-      }
+      if (selectedTab === 'grupos' && !ehGrupo) return false;
+      if (selectedTab === 'aguardando' && chat.status !== 'waiting') return false;
+      if (selectedTab === 'nao-lidas' && !chat.unreadmessages) return false;
 
       // Filtro por status
       if (filtrosAtivos.status && filtrosAtivos.status !== 'todos') {
@@ -1665,46 +1665,32 @@ const handleImageUpload = async (event) => {
             zIndex: 1,
             backgroundColor: `var(--bg-color-${theme})`
           }}>
-            {/* Botões de troca */}
-            <div className="d-flex gap-2 px-2" style={{ paddingTop: '8px' }}>
-              <button
-                className={`d-flex gap-2 btn btn-sm ${selectedTab === 'conversas' ? `btn-1-${theme}` : `btn-2-${theme}`}`}
-                onClick={() => handleTabChange('conversas')}
-              >
-                <i className="bi bi-chat-left-text"></i>
-                Conversas
-              </button>
-              <button
-                className={`d-flex gap-2 btn btn-sm ${selectedTab === 'aguardando' ? `btn-1-${theme}` : `btn-2-${theme}`}`}
-                onClick={() => handleTabChange('aguardando')}
-              >
-                <i className="bi bi-alarm"></i>
-                Aguardando
-              </button>
-              <button
-                className={`d-flex gap-2 btn btn-sm ${selectedTab === 'grupos' ? `btn-1-${theme}` : `btn-2-${theme}`}`}
-                onClick={() => handleTabChange('grupos')}
-                title="Conversas de grupo (fora da distribuição automática)"
-              >
-                <i className="bi bi-people"></i>
-                Grupos
-              </button>
-              {/* <button
-                className={`btn btn-sm btn-2-${theme}`}
-                onClick={() => setShowFiltros(true)}
-                title="Filtros Avançados"
-              >
-                <i className="bi bi-funnel"></i>
-              </button> */}
+            {/* Chips de filtro (estilo WhatsApp): filtram a lista única, não escondem conversas */}
+            <div className="d-flex gap-1 px-2 flex-wrap" style={{ paddingTop: '8px' }}>
+              {[
+                { id: 'tudo', rotulo: 'Tudo', total: null },
+                { id: 'nao-lidas', rotulo: 'Não lidas', total: chatList.filter(c => c.unreadmessages).length },
+                { id: 'aguardando', rotulo: 'Espera', total: chatList.filter(c => c.status === 'waiting').length },
+                { id: 'grupos', rotulo: 'Grupos', total: chatList.filter(c => c.isgroup || c.isGroup).length },
+              ].map((chip) => (
+                <button
+                  key={chip.id}
+                  className={`btn btn-sm rounded-pill px-3 ${selectedTab === chip.id ? `btn-1-${theme}` : `btn-2-${theme}`}`}
+                  style={{ fontSize: '0.8rem' }}
+                  onClick={() => handleTabChange(chip.id)}
+                >
+                  {chip.rotulo}{chip.total ? ` ${chip.total}` : ''}
+                </button>
+              ))}
             </div>
 
             {/* Lista filtrada */}
             <div className='p-3'>
               <div className='d-flex justify-content-between align-items-center'>
-                <h6 
+                <h6
                   className={`header-text-${theme} m-0`}
                 >
-                  {selectedTab === 'conversas' ? 'Conversas' : selectedTab === 'grupos' ? 'Grupos' : 'Sala de Espera'}
+                  {selectedTab === 'tudo' ? 'Conversas' : selectedTab === 'grupos' ? 'Grupos' : selectedTab === 'nao-lidas' ? 'Não lidas' : 'Sala de Espera'}
                 </h6>
                 {selectedTab === 'aguardando' && (
                   <button
@@ -1752,6 +1738,11 @@ const handleImageUpload = async (event) => {
   <strong>
     {chat.isgroup && <i className="bi bi-people-fill me-1" title="Grupo" style={{ fontSize: '0.85em', opacity: 0.7 }}></i>}
     {chat.contact_name || chat.contact_phone || 'Sem Nome'}
+    {chat.status === 'waiting' && (
+      <span className="badge bg-warning-subtle text-warning-emphasis ms-1" style={{ fontSize: '0.62em', verticalAlign: 'middle' }}>
+        Espera
+      </span>
+    )}
   </strong>
   <span
   title={getQueueName(chat.queue_id)}

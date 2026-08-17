@@ -85,9 +85,12 @@ const run = async () => {
       const lids = await pool.query(`SELECT lid, phone_jid FROM ${schema}.lid_map`).catch(() => ({ rows: [] }));
       for (const { lid, phone_jid } of lids.rows) {
         const lidNum = lid.split('@')[0];
+        // versão "mutilada": um webhook antigo removia o 5º dígito de todo número
+        const lidMutilado = lidNum.slice(0, 4) + lidNum.slice(5);
         const phoneNum = phone_jid.split('@')[0];
         const chatsLid = await pool.query(
-          `SELECT id, connection_id FROM ${schema}.chats WHERE contact_phone = $1`, [lidNum]
+          `SELECT id, connection_id FROM ${schema}.chats WHERE contact_phone = ANY($1) AND status <> 'closed'`,
+          [[lidNum, lidMutilado]]
         );
         for (const cl of chatsLid.rows) {
           const alvo = await pool.query(
