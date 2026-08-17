@@ -519,10 +519,17 @@ module.exports = (broadcastMessage) => {
         const schema = await resolveSchemaByInstance(result.instance);
         if (schema) {
           const lista = Array.isArray(result.data) ? result.data : [result.data];
+          let marcados = 0, ignorados = 0;
           for (const item of lista) {
-            if (!eventoIndicaLeitura(eventName, item)) continue;
-            await marcarLidoPeloCelular(jidDoEvento(item), result.instance, schema, serverTest.io);
+            if (!eventoIndicaLeitura(eventName, item)) {
+              ignorados++;
+              continue;
+            }
+            marcados += await marcarLidoPeloCelular(jidDoEvento(item), result.instance, schema, serverTest.io);
           }
+          // Observabilidade: sem isto não dá para saber se o WhatsApp sequer avisa da
+          // leitura, e o sintoma ("não atualiza sozinho") fica indistinguível de bug nosso.
+          console.log(`[leitura] ${eventName} inst=${result.instance} itens=${lista.length} chats_marcados=${marcados} ignorados=${ignorados} amostra=${JSON.stringify(lista[0] || {}).slice(0, 220)}`);
         }
       } catch (e) {
         console.error(`Erro no evento ${eventName}:`, e.message);

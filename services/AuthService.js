@@ -38,7 +38,10 @@ const ensureIdentityTables = async () => {
 // ---- Contas ----
 const findAccountByEmail = async (email) => {
     const res = await pool.query(
-        `SELECT * FROM effective_gain.user_accounts WHERE email = $1 AND active = true`,
+        // LOWER nos dois lados: o e-mail era comparado com caixa exata, então quem
+        // digitasse "Joana@..." em vez de "joana@..." levava "Credenciais inválidas"
+        // sem entender por quê (e-mail cadastrado com maiúscula tinha o mesmo efeito).
+        `SELECT * FROM effective_gain.user_accounts WHERE LOWER(email) = LOWER($1) AND active = true`,
         [email]
     );
     return res.rows[0] || null;
@@ -124,6 +127,8 @@ const resolveCompanySession = async (account, companyId) => {
 // Se o email já existe globalmente, apenas concede acesso; senão cria a conta.
 const createOrAttachUser = async ({ name, email, password, role, companyId, grantedBy }) => {
     if (!CLIENT_ROLES.includes(role)) throw new Error('Papel inválido');
+    // Grava sempre em minúsculo — e-mail não diferencia caixa, e o login também normaliza
+    email = String(email || '').trim().toLowerCase();
     const company = await getCompanyById(companyId);
     if (!company) throw new Error('Empresa não encontrada');
 
