@@ -343,7 +343,7 @@ const nomeEhRuim = (n) => {
 };
 
 const sincronizarLidsDaEvolution = async (instanceName, schema) => {
-  const { listAllChats, fetchProfileName, findMessagesOfChat } = require('../requests/evolution');
+  const { listAllChats, fetchProfileName, findMessagesOfChat, lookupWhatsappNumberName } = require('../requests/evolution');
   const chats = await listAllChats(instanceName);
   let pares = 0;
   const pushNamePorNumero = new Map();
@@ -397,6 +397,13 @@ const sincronizarLidsDaEvolution = async (instanceName, schema) => {
       if (!novo) {
         novo = await fetchProfileName(instanceName, chat.contact_phone).catch(() => null);
         if (nomeEhRuim(novo)) novo = null;
+      }
+      // Conta comercial: o verifiedName é público. Pessoa física não tem nome
+      // consultável por número — só o pushName que vem junto das mensagens dela.
+      if (!novo) {
+        novo = await lookupWhatsappNumberName(instanceName, chat.contact_phone).catch(() => null);
+        if (nomeEhRuim(novo)) novo = null;
+        else if (novo) console.log(`[nome] verifiedName recuperado para ${chat.contact_phone}: ${novo}`);
       }
       if (!novo) continue;
       await pool.query(`UPDATE ${schema}.chats SET contact_name = $1 WHERE id = $2`, [novo, chat.id]);

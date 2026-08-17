@@ -302,6 +302,30 @@ const findMessagesOfChat = async (instanceName, remoteJid) => {
   }
 };
 
+// Última tentativa de nome: POST /chat/whatsappNumbers. No Baileys esta consulta
+// devolve o verifiedName de contas COMERCIAIS (o nome público do negócio).
+// Para pessoa física não existe consulta de nome por número — o WhatsApp não expõe
+// isso a ninguém (seria um prato cheio para scraping); o nome de pessoa só chega
+// como pushName junto das mensagens que ela envia.
+const lookupWhatsappNumberName = async (instanceName, numero) => {
+  try {
+    const response = await fetch(
+      `${process.env.EVOLUTION_SERVER_URL}/chat/whatsappNumbers/${encodeURIComponent(instanceName)}`,
+      {
+        method: 'POST',
+        headers: { apikey: process.env.EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numbers: [String(numero)] }),
+      }
+    );
+    if (!response.ok) return null;
+    const d = await response.json();
+    const item = Array.isArray(d) ? d[0] : (d?.numbers?.[0] || d || null);
+    return item?.verifiedName || item?.name || item?.pushName || null;
+  } catch (err) {
+    return null;
+  }
+};
+
 const listAllContacts = async (instanceName) => {
   try {
     const response = await fetch(
@@ -444,6 +468,7 @@ module.exports = {
   listAllContacts,
   listAllChats,
   findMessagesOfChat,
+  lookupWhatsappNumberName,
   fetchProfileName,
   sendAudioToWhatsApp,
   getBase64FromMediaMessage,
