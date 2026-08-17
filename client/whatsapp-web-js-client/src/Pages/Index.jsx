@@ -604,11 +604,16 @@
       <div className={`bg-screen-${theme}`} style={{ height: '100vh', overflow: 'hidden' }}>
         {/* <div id="toast-container" className="toast-container position-fixed bottom-0 end-0 p-3" style={{ zIndex: 1060 }}></div> */}
         <div className="d-flex h-100">
-          <div id="sidebar" className={`bg-form-${theme} h-100 sidebar ${isSidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'} border-end border-${theme} card-${theme}`}>
-            <div id="sidebar-top" style={{ height: '10%', width: '100%', transition: '0.01s' }} className="p-2 d-flex flex-row align-items-center justify-content-evenly">
+          {/* O #sidebar precisa ser FLEX COLUMN: sem isso o flexGrow do #sidebar-body não
+              valia nada e os ~15 botões (≈950px) transbordavam a barra em telas de
+              ~750px de altura — o fundo branco terminava no botão do WhatsApp e os
+              últimos ícones ficavam fora/inacessíveis. */}
+          <div id="sidebar" className={`bg-form-${theme} h-100 sidebar ${isSidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'} border-end border-${theme} card-${theme}`}
+               style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div id="sidebar-top" style={{ flex: '0 0 auto', width: '100%', transition: '0.01s' }} className="p-2 d-flex flex-row align-items-center justify-content-evenly">
               <img src={isSidebarExpanded ? logo : shortlogo} alt="Logo" className="img-fluid" style={{ height: 'auto', width: isSidebarExpanded ? '80%' : '65%' }} />
             </div>
-            <div style={{ flexGrow: 1, width: '100%' }} id="sidebar-body" className="d-flex flex-column align-items-center justify-content-start my-5 gap-3">
+            <div style={{ flex: '1 1 auto', minHeight: 0, width: '100%', overflowY: 'auto', overflowX: 'hidden' }} id="sidebar-body" className="d-flex flex-column align-items-center justify-content-start py-3 gap-2 sidebar-scroll">
               <button
                 id="dashboard"
                 onClick={() => handlePageChange('dashboard')}

@@ -824,8 +824,12 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Colunas do Kanban (etapas) */}
-      <div style={{ width: '100%', height: '100%' }}>
+      {/* Colunas do Kanban (etapas).
+          height:100% aqui pedia a altura INTEIRA da coluna flex, somando-se à barra de
+          botões e às vinculações: o total estourava o container e a página rolava,
+          empurrando "Novo Funil / Gerir Etapas / Importar Contatos" para fora da tela.
+          Com flex:1 1 auto + minHeight:0 a barra fica fixa e só o quadro rola. */}
+      <div style={{ width: '100%', flex: '1 1 auto', minHeight: 0 }}>
         <div
           className="kanban-scroll-container"
           ref={scrollRef}

@@ -401,6 +401,40 @@ a {
     .chat-lista-conversas { max-width: 230px; }
 }
 
+/* ====== Barra lateral: rola dentro de si mesma, nunca vaza ======
+   Com 15 botões a barra pede ~950px de altura; em monitor com ~750px úteis os
+   últimos ícones (WhatsApp, lembretes, relatórios, ajuda) ficavam fora da área
+   branca e inacessíveis. */
+.sidebar-scroll {
+    scrollbar-width: thin;
+}
+.sidebar-scroll::-webkit-scrollbar {
+    width: 5px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(128, 128, 128, 0.35);
+    border-radius: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Telas baixas (notebook 768/800px, Windows a 125%): compacta para caber tudo sem rolar */
+@media (max-height: 900px) {
+    #sidebar-body {
+        gap: 0.35rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+    #sidebar-body .btn {
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+    }
+    #sidebar-top {
+        padding: 0.35rem !important;
+    }
+}
+
 /* Modais nunca maiores que a tela (em 768px de altura alguns cortavam os botões) */
 .modal-content {
     max-height: 92vh;
