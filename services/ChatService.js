@@ -323,8 +323,24 @@ const setUserChat = async (chatId, schema) => {
       [chatId]
     );
     const queueId = chatDb.rows[0].queue_id;
-    // Chat sem fila não tem distribuição — vai para a espera
+    // Chat sem fila: só é "sala de espera" se a CONEXÃO tiver fila configurada
+    // (aí sim alguém deveria pegar o atendimento e ainda não pegou).
+    // Conexão sem fila nenhuma — o WhatsApp pessoal do Luiz, por exemplo — não tem
+    // atendimento a distribuir: jogar tudo em 'waiting' fazia o painel anunciar
+    // "41 conversas aguardando" para conversas que ninguém está esperando atender.
     if (!queueId) {
+      const conexao = await pool.query(
+        `SELECT queue_id FROM ${schema}.connections WHERE id = $1`,
+        [chatDb.rows[0].connection_id]
+      ).catch(() => ({ rows: [] }));
+      const conexaoTemFila = !!conexao.rows[0]?.queue_id;
+      if (!conexaoTemFila) {
+        await pool.query(
+          `UPDATE ${schema}.chats SET status='open' WHERE id=$1 AND status <> 'closed'`,
+          [chatId]
+        );
+        return;
+      }
       await putChatInWaiting(chatId, schema);
       return;
     }

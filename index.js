@@ -318,10 +318,11 @@ setTimeout(async () => {
 const RECONCILIA_MS = 5 * 60 * 1000;
 const reconciliarWhatsapp = async () => {
   try {
-    const { sincronizarLidsDaEvolution, sincronizarNaoLidasDaEvolution } = require('./controllers/Webhook');
+    const { sincronizarLidsDaEvolution, sincronizarNaoLidasDaEvolution, corrigirEsperaSemFila } = require('./controllers/Webhook');
     const db = require('./db/queries');
     const companies = await db.query(`SELECT schema_name FROM effective_gain.companies`);
     for (const row of companies.rows) {
+      await corrigirEsperaSemFila(row.schema_name);
       let conns = { rows: [] };
       try {
         conns = await db.query(`SELECT name FROM ${row.schema_name}.connections WHERE status = 'connected'`);

@@ -334,11 +334,25 @@ const marcarLidoPeloCelular = async (jidBruto, instanceName, schema, io) => {
 // previousRemoteJid). Resultado: conversa em que só o Luiz falou ficava para sempre
 // com o LID de 15 dígitos no lugar do nome (ex.: "259605221372078" = ILABEL ETIQUETAS).
 // O findChats expõe o mesmo par no lastMessage.key de quem já respondeu alguma vez.
+const nomeEhRuim = (n) => {
+  const s = String(n || '').trim();
+  if (!s) return true;
+  if (/^[\d\s()+\-@.:]+$/.test(s)) return true; // número puro ou LID
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return true;
+  return false;
+};
+
 const sincronizarLidsDaEvolution = async (instanceName, schema) => {
-  const { listAllChats } = require('../requests/evolution');
+  const { listAllChats, fetchProfileName } = require('../requests/evolution');
   const chats = await listAllChats(instanceName);
   let pares = 0;
+  const pushNamePorNumero = new Map();
+
   for (const c of chats) {
+    const jid = String(c.remoteJid || c.id || '');
+    if (c.pushName && jid.endsWith('@s.whatsapp.net')) {
+      pushNamePorNumero.set(jid.split('@')[0], String(c.pushName).trim());
+    }
     const key = (c.lastMessage && c.lastMessage.key) || {};
     const lid = String(key.previousRemoteJid || '');
     const telefone = String(key.senderPn || c.remoteJid || '');
@@ -349,6 +363,43 @@ const sincronizarLidsDaEvolution = async (instanceName, schema) => {
     pares++;
   }
   if (pares) console.log(`LIDs sincronizados (${instanceName}): ${pares} pares aprendidos de ${chats.length} chats`);
+
+  // Fundir o LID resolve o TELEFONE do chat, mas o NOME só era corrigido quando o número
+  // estava na agenda. Contato não salvo (ex.: ILABEL ETIQUETAS) continuava exibindo o
+  // número. Aqui buscamos o melhor nome disponível: agenda > pushName do WhatsApp > perfil.
+  const connectionId = await conexaoIdPorInstancia(instanceName, schema);
+  if (!connectionId) return pares;
+  let renomeados = 0;
+  try {
+    const semNome = await pool.query(
+      `SELECT c.id, c.contact_phone, c.contact_name, ct.contact_name AS nome_agenda, ct.push_name
+         FROM ${schema}.chats c
+         LEFT JOIN ${schema}.contacts ct ON ct.number = c.contact_phone
+        WHERE c.connection_id = $1 AND c.status <> 'closed' AND COALESCE(c.isGroup, false) = false`,
+      [connectionId]
+    );
+    for (const chat of semNome.rows) {
+      if (!nomeEhRuim(chat.contact_name)) continue;
+      let novo = [chat.nome_agenda, chat.push_name, pushNamePorNumero.get(chat.contact_phone)]
+        .find((n) => !nomeEhRuim(n));
+      if (!novo) {
+        novo = await fetchProfileName(instanceName, chat.contact_phone).catch(() => null);
+        if (nomeEhRuim(novo)) novo = null;
+      }
+      if (!novo) continue;
+      await pool.query(`UPDATE ${schema}.chats SET contact_name = $1 WHERE id = $2`, [novo, chat.id]);
+      await pool.query(
+        `INSERT INTO ${schema}.contacts (number, contact_name, push_name, is_saved)
+         VALUES ($1, $2, $2, false)
+         ON CONFLICT (number) DO UPDATE SET contact_name = EXCLUDED.contact_name`,
+        [chat.contact_phone, novo]
+      ).catch(() => {});
+      renomeados++;
+    }
+  } catch (e) {
+    console.error(`Correção de nomes (${instanceName}):`, e.message);
+  }
+  if (renomeados) console.log(`Nomes recuperados (${instanceName}): ${renomeados} chat(s)`);
   return pares;
 };
 
@@ -386,6 +437,26 @@ const sincronizarNaoLidasDaEvolution = async (instanceName, schema, io) => {
   }
   if (r.rowCount) console.log(`Não lidas reconciliadas (${instanceName}): ${r.rowCount} chat(s) zerado(s)`);
   return r.rowCount;
+};
+
+// Conserta o passado da regra acima: chats marcados como "espera" em conexões que não
+// têm fila nenhuma. Idempotente, roda junto da reconciliação.
+const corrigirEsperaSemFila = async (schema) => {
+  try {
+    const r = await pool.query(
+      `UPDATE ${schema}.chats c SET status = 'open'
+         FROM ${schema}.connections cn
+        WHERE cn.id::text = c.connection_id
+          AND cn.queue_id IS NULL
+          AND c.status = 'waiting'
+        RETURNING c.id`
+    );
+    if (r.rowCount) console.log(`Sala de espera corrigida (${schema}): ${r.rowCount} chat(s) sem fila voltaram para 'open'`);
+    return r.rowCount;
+  } catch (e) {
+    console.error(`Correção da sala de espera (${schema}):`, e.message);
+    return 0;
+  }
 };
 
 // Sync completo da agenda de uma instância (chamado ao conectar)
@@ -648,7 +719,9 @@ module.exports = (broadcastMessage) => {
         isGrupo,                 // era key.fromMe aqui: isGroup no banco guardava "fromMe"
         contact,
         null,
-        result.data.status,
+        // Era result.data.status — o status de ENTREGA da mensagem (DELIVERY_ACK, PENDING…)
+        // acabava gravado como status do CHAT, que só deveria ser open/waiting/closed.
+        'open',
         timestamp,
         []
       );
@@ -1067,3 +1140,4 @@ app.post('/resposta', async(req, res)=>{
 // ATENÇÃO: tem de vir DEPOIS do "module.exports = (...)" acima, senão é sobrescrito.
 module.exports.sincronizarLidsDaEvolution = sincronizarLidsDaEvolution;
 module.exports.sincronizarNaoLidasDaEvolution = sincronizarNaoLidasDaEvolution;
+module.exports.corrigirEsperaSemFila = corrigirEsperaSemFila;
