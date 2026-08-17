@@ -142,7 +142,7 @@ const run = async () => {
       const grupos = await pool.query(
         `SELECT c.id, c.contact_phone, c.chat_id, c.contact_name, cn.name AS instancia
            FROM ${schema}.chats c
-           LEFT JOIN ${schema}.connections cn ON cn.id = c.connection_id
+           LEFT JOIN ${schema}.connections cn ON cn.id::text = c.connection_id
           WHERE c.status <> 'closed' AND c.chat_id LIKE '%@g.us'`
       );
       let gruposOk = 0, gruposFalha = 0;
