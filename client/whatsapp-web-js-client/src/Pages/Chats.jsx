@@ -321,6 +321,11 @@ function ChatPage({ theme, chat_id} ) {
   // Listas = as etiquetas do WhatsApp Business (tabela `tag`, já existente no backend)
   const [listas, setListas] = useState([]);
   const [listaFiltro, setListaFiltro] = useState('todas');
+  // Etiquetar a conversa aberta (marcar algo especial dela)
+  const [showEtiquetas, setShowEtiquetas] = useState(false);
+  const [novaEtiqueta, setNovaEtiqueta] = useState('');
+  const [corEtiqueta, setCorEtiqueta] = useState('#0082ca');
+  const [salvandoEtiqueta, setSalvandoEtiqueta] = useState(false);
   const [queues, setQueues] = useState([]);
   const nomeContatoRef = useRef(null);
   const [showNewContactModal, setShowNewContactModal] = useState(false);
@@ -619,6 +624,44 @@ useEffect(() => {
 
 // Rótulo curto da conexão: o nome da instância vem como "<schema>__Nome_Da_Conexao".
 // Com 2+ números na mesma empresa, é isto que responde "por qual número eu estou falando".
+const recarregarListas = async () => {
+  try {
+    const res = await axios.get(`${url}/tag/${schema}`, { withCredentials: true });
+    setListas(Array.isArray(res.data) ? res.data : (res.data?.result || []));
+  } catch (err) { /* toast global cuida do erro */ }
+};
+
+// Marca/desmarca etiqueta na conversa aberta. Atualiza a lista local na hora para o
+// chip de filtro e a marcacao no item responderem sem esperar recarga.
+const alternarEtiquetaDoChat = async (tagId) => {
+  if (!selectedChat) return;
+  const marcada = (selectedChat.tag_ids || []).includes(tagId);
+  setSalvandoEtiqueta(true);
+  try {
+    const rota = marcada ? 'remove-from-chat' : 'add-to-chat';
+    await axios.post(`${url}/tag/${rota}`, { chatId: selectedChat.id, tagId, schema }, { withCredentials: true });
+    const novas = marcada
+      ? (selectedChat.tag_ids || []).filter(t => t !== tagId)
+      : (selectedChat.tag_ids || []).concat([tagId]);
+    setSelectedChat({ ...selectedChat, tag_ids: novas });
+    setChats(prev => prev.map(c => c.id === selectedChat.id ? { ...c, tag_ids: novas } : c));
+  } catch (err) { /* toast global */ } finally { setSalvandoEtiqueta(false); }
+};
+
+const criarEtiqueta = async () => {
+  const nome = novaEtiqueta.trim();
+  if (!nome) return;
+  setSalvandoEtiqueta(true);
+  try {
+    const res = await axios.post(`${url}/tag/create`, { name: nome, color: corEtiqueta, schema }, { withCredentials: true });
+    setNovaEtiqueta('');
+    await recarregarListas();
+    // Já aplica na conversa aberta — quem cria a etiqueta aqui quer usá-la agora
+    const criada = res.data && (res.data.id || (res.data.result && res.data.result.id));
+    if (criada) await alternarEtiquetaDoChat(criada);
+  } catch (err) { /* toast global */ } finally { setSalvandoEtiqueta(false); }
+};
+
 const alternarFavorito = async (chat, e) => {
   e.stopPropagation();               // clicar na estrela não pode abrir a conversa
   const novo = !chat.is_favorite;
@@ -2024,6 +2067,20 @@ const handleImageUpload = async (event) => {
     <div className='d-flex flex-row gap-2'>
 
       <button
+        className={`btn btn-2-${theme} d-flex gap-2 position-relative`}
+        onClick={() => setShowEtiquetas(true)}
+        title="Etiquetar esta conversa"
+        disabled={!selectedChat}
+      >
+        <i className="bi bi-tag"></i>
+        {(selectedChat?.tag_ids || []).length > 0 && (
+          <span className="badge bg-primary rounded-pill position-absolute" style={{ top: -6, right: -6, fontSize: '0.6rem' }}>
+            {(selectedChat.tag_ids || []).length}
+          </span>
+        )}
+      </button>
+
+      <button
         className={`btn btn-2-${theme} d-flex gap-2`}
         onClick={() => setShowSearch(!showSearch)}
         title="Pesquisar na conversa"
@@ -2825,6 +2882,75 @@ const handleImageUpload = async (event) => {
         show={showNewContactModal} 
         onHide={() => setShowNewContactModal(false)}
       />
+
+      {/* Etiquetas da conversa: marcar algo especial (ex.: "cliente VIP", "reclamação",
+          "aguardando documento"). São as mesmas Listas que filtram a lista de conversas,
+          e valem para a EMPRESA — diferente do favorito, que é de cada usuário. */}
+      <Modal show={showEtiquetas} onHide={() => setShowEtiquetas(false)} centered>
+        <Modal.Header closeButton style={{ backgroundColor: `var(--bg-color-${theme})` }}>
+          <h5 className={`modal-title header-text-${theme} mb-0`}>
+            <i className="bi bi-tag me-2"></i>Etiquetas da conversa
+          </h5>
+        </Modal.Header>
+        <Modal.Body style={{ backgroundColor: `var(--bg-color-${theme})` }}>
+          <div className={`card-subtitle-${theme} mb-3`} style={{ fontSize: '0.85rem' }}>
+            {selectedChat?.contact_name || selectedChat?.contact_phone || ''}
+          </div>
+
+          {listas.length === 0 && (
+            <div className={`card-subtitle-${theme} mb-3`} style={{ fontSize: '0.85rem' }}>
+              Nenhuma etiqueta criada ainda. Crie a primeira abaixo.
+            </div>
+          )}
+
+          {listas.map((lista) => {
+            const marcada = (selectedChat?.tag_ids || []).includes(lista.id);
+            return (
+              <div
+                key={lista.id}
+                className="d-flex align-items-center justify-content-between py-2"
+                style={{ borderBottom: `1px solid var(--border-color-${theme})`, cursor: 'pointer' }}
+                onClick={() => !salvandoEtiqueta && alternarEtiquetaDoChat(lista.id)}
+              >
+                <span className={`card-subtitle-${theme}`}>
+                  <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: lista.color || '#0082ca', marginRight: 8 }} />
+                  {lista.name}
+                </span>
+                <i className={`bi ${marcada ? 'bi-check-square-fill text-primary' : 'bi-square'}`}></i>
+              </div>
+            );
+          })}
+
+          <div className="d-flex align-items-center gap-2 mt-3">
+            <input
+              type="color"
+              className="form-control form-control-color"
+              style={{ width: 46 }}
+              value={corEtiqueta}
+              onChange={(e) => setCorEtiqueta(e.target.value)}
+              title="Cor da etiqueta"
+            />
+            <input
+              type="text"
+              className={`form-control input-${theme}`}
+              placeholder="Nova etiqueta (ex.: reclamação, VIP)"
+              value={novaEtiqueta}
+              onChange={(e) => setNovaEtiqueta(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') criarEtiqueta(); }}
+            />
+            <button
+              className={`btn btn-1-${theme}`}
+              disabled={salvandoEtiqueta || !novaEtiqueta.trim()}
+              onClick={criarEtiqueta}
+            >
+              Criar
+            </button>
+          </div>
+          <small className={`card-subtitle-${theme} d-block mt-2`} style={{ fontSize: '0.75rem' }}>
+            A etiqueta vale para a equipe e vira filtro na lista de conversas.
+          </small>
+        </Modal.Body>
+      </Modal>
 
       <QuickMsgManageModal
         theme={theme}
