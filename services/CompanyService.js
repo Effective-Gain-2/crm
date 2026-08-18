@@ -148,6 +148,29 @@ const ensureSchemaTables = async (schema) => {
         );`);
 
     await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.envio_log (
+            id UUID PRIMARY KEY,
+            connection_id TEXT,
+            contact_phone TEXT,
+            tipo TEXT,
+            origem TEXT,
+            status TEXT,
+            motivo TEXT,
+            hash_mensagem TEXT,
+            created_at TIMESTAMP DEFAULT now()
+        );`);
+    // Auditoria de TODO envio (e de todo bloqueio): sem isto nao da para provar o
+    // que o sistema mandou, nem investigar um bloqueio depois que ele acontece.
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_${schema}_envio_log_conexao_data ON ${schema}.envio_log (connection_id, created_at DESC);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_${schema}_envio_log_hash ON ${schema}.envio_log (hash_mensagem);`);
+    // Controles por numero: idade (warm-up), teto manual, pausa automatica e lista fria
+    await pool.query(`ALTER TABLE ${schema}.connections ADD COLUMN IF NOT EXISTS criada_em TIMESTAMP DEFAULT now();`);
+    await pool.query(`ALTER TABLE ${schema}.connections ADD COLUMN IF NOT EXISTS limite_diario INT;`);
+    await pool.query(`ALTER TABLE ${schema}.connections ADD COLUMN IF NOT EXISTS bloqueado_ate TIMESTAMP;`);
+    await pool.query(`ALTER TABLE ${schema}.connections ADD COLUMN IF NOT EXISTS bloqueio_motivo TEXT;`);
+    await pool.query(`ALTER TABLE ${schema}.connections ADD COLUMN IF NOT EXISTS bloquear_frios BOOLEAN DEFAULT false;`);
+
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.chat_favorites (
             chat_id UUID NOT NULL REFERENCES ${schema}.chats(id) ON DELETE CASCADE,
             user_id UUID NOT NULL,

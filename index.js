@@ -36,6 +36,7 @@ const metaLeadsRoutes = require('./routes/MetaLeadsRoutes');
 const aiAgentRoutes = require('./routes/AiAgentRoutes');
 const attributionRoutes = require('./routes/AttributionRoutes');
 const quickMessagesRoutes = require('./routes/QuickMessagesRoutes');
+const complianceRoutes = require('./routes/ComplianceRoutes');
 
 const { setGlobalSocket } = require('./services/LembreteService');
 const { changeOnline, changeOffline } = require('./services/UserService');
@@ -246,6 +247,7 @@ app.use('/queue', bindAuthParams(queueRoutes));
 app.use('/connection', bindAuthParams(connRoutes));
 app.use('/evo', bindAuthParams(evoRoutes));
 app.use('/chat', bindAuthParams(chatRoutes));
+app.use('/compliance', complianceRoutes);
 app.use('/contact', bindAuthParams(contactRoutes));
 app.use('/kanban', bindAuthParams(kanbanRoutes));
 app.use('/files', bindAuthParams(filesRoutes));

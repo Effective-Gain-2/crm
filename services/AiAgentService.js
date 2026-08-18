@@ -191,7 +191,7 @@ const handleIncoming = async (schema, chat, number, instanceName, userText) => {
         const result = await generateConversationalReply(buildSystemPrompt(config, docsText), [], userText, keyInfo.key);
         if (!result?.text) return;
 
-        await sendTextMessage(instanceName, result.text, contactNumber);
+        await sendTextMessage(instanceName, result.text, contactNumber, null, 'agente_ia');
         await incrementSession(schema, contactNumber);
         // Medição de custo por empresa
         logAiUsage(schema, {

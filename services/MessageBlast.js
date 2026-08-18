@@ -75,7 +75,7 @@ const sendBlastMessage = async (instanceId, messageValue, number, chat_id, schem
     const message = new Message(uuidv4(), processedMessage, true, chat_id, getCurrentTimestamp())
     await saveMessage(chat_id, message, schema)
 
-    await sendTextMessage(instance.name, processedMessage, number);
+    await sendTextMessage(instance.name, processedMessage, number, null, 'disparo');
 
   } catch (error) {
     console.error(`Erro ao enviar mensagem para ${number}:`, error.message);

@@ -1,5 +1,9 @@
 require('dotenv').config();
-const axios = require('axios'); 
+const axios = require('axios');
+// Guarda de compliance: teto diario por numero, warm-up, texto repetido, lista fria
+// e ban monitor. Fica AQUI porque estas 4 funcoes sao o unico caminho de saida de
+// mensagem do CRM (atendente, agente de IA e disparo passam todos por elas).
+const compliance = require('../services/ComplianceService');
 
 // Eventos assinados no webhook — fonte ÚNICA (usada na criação e no re-registro).
 // MESSAGES_UPDATE + CHATS_UPDATE = leitura feita NO CELULAR chega ao CRM; sem eles a
@@ -140,7 +144,14 @@ const fetchInstanceEvo = async(instanceName)=>{
   }
 
 }
-const sendTextMessage = async(instanceId, text, number, replyToId)=>{
+const sendTextMessage = async(instanceId, text, number, replyToId, origem)=>{
+  const guarda = await compliance.podeEnviar({
+    instancia: instanceId, numero: number, texto: text, origem: origem || 'atendente', tipo: 'texto',
+  });
+  if (!guarda.ok) {
+    console.warn(`[COMPLIANCE] envio bloqueado para ${number}: ${guarda.motivo}`);
+    return { blocked: true, motivo: guarda.motivo };
+  }
   const payload = {
     text,
     number
@@ -160,10 +171,15 @@ const sendTextMessage = async(instanceId, text, number, replyToId)=>{
   try {
     const response = await fetch(`${process.env.EVOLUTION_SERVER_URL}/message/sendText/${instanceId}`, options);
     const result = await response.json();
-    
+    if (response.ok) {
+      await compliance.registrarEnviado(guarda.ctx, { numero: number, tipo: 'texto', origem: origem || 'atendente', hash: guarda.hash });
+    } else {
+      await compliance.avaliarResposta(guarda.ctx, Object.assign({ status: response.status }, result || {}));
+    }
     return result;
   } catch (err) {
     console.error('Erro ao enviar mensagem:', err);
+    await compliance.avaliarResposta(guarda.ctx, String(err && err.message));
   }
 }
 const getBase64FromMediaMessage = async (instanceId, mediaKey) => {
@@ -346,6 +362,11 @@ const listAllContacts = async (instanceName) => {
 };
 
 const sendImageToWhatsApp = async (number, imageBase64, instanceId) => {
+  const guarda = await compliance.podeEnviar({ instancia: instanceId, numero: number, origem: 'atendente', tipo: 'imagem' });
+  if (!guarda.ok) {
+    console.warn(`[COMPLIANCE] imagem bloqueada para ${number}: ${guarda.motivo}`);
+    return { blocked: true, motivo: guarda.motivo };
+  }
   try {
     if (!process.env.EVOLUTION_SERVER_URL) {
       throw new Error('EVOLUTION_SERVER_URL não está configurado no arquivo .env');
@@ -372,8 +393,10 @@ const sendImageToWhatsApp = async (number, imageBase64, instanceId) => {
       },
     });
 
+    await compliance.registrarEnviado(guarda.ctx, { numero: number, tipo: 'imagem', origem: 'atendente' });
     return response.data;
   } catch (error) {
+    await compliance.avaliarResposta(guarda.ctx, (error.response && Object.assign({ status: error.response.status }, error.response.data)) || String(error.message));
     if (error.response) {
       console.error('Erro ao enviar imagem para o WhatsApp:', error.response.data);
       console.error('Detalhes do erro:', JSON.stringify(error.response.data, null, 2));
@@ -385,6 +408,11 @@ const sendImageToWhatsApp = async (number, imageBase64, instanceId) => {
 };
 
 const sendAudioToWhatsApp = async (number, audioBase64, instanceId) => {
+  const guarda = await compliance.podeEnviar({ instancia: instanceId, numero: number, origem: 'atendente', tipo: 'audio' });
+  if (!guarda.ok) {
+    console.warn(`[COMPLIANCE] audio bloqueado para ${number}: ${guarda.motivo}`);
+    return { blocked: true, motivo: guarda.motivo };
+  }
   try {
     if (!process.env.EVOLUTION_SERVER_URL) {
       throw new Error('EVOLUTION_SERVER_URL não está configurado no arquivo .env');
@@ -426,6 +454,11 @@ const deleteInstance = async (instanceName) => {
 }
 
 const sendMediaForBlast = async (instanceId, text, image, number) => {
+  const guarda = await compliance.podeEnviar({ instancia: instanceId, numero: number, texto: text, origem: 'disparo', tipo: 'midia' });
+  if (!guarda.ok) {
+    console.warn(`[COMPLIANCE] disparo com midia bloqueado para ${number}: ${guarda.motivo}`);
+    return { blocked: true, motivo: guarda.motivo };
+  }
 
   const requestBody = { 
     number: number,
