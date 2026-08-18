@@ -2,6 +2,7 @@ const express = require('express');
 const {
   processReceivedAudio, updateContactNameController, setUserChatController, sendImageController, getChatsController, getMessagesController, setQueueController, getChatDataController, getChatByUserController, updateQueueController, sendAudioController, uploadImage, uploadAudio,
   setMessageAsReadController,
+  toggleFavoritoController,
   closeChatContoller,
   setSpecificUserController,
   scheduleMessageController,
@@ -35,6 +36,7 @@ router.post('/sendAudio', uploadAudio.single('audio'), verifyToken, enforceSchem
 router.post('/chat/processReceivedAudio', verifyToken, processReceivedAudio);
 router.post('/sendImage', uploadImage.single('image'), verifyToken, enforceSchema, sendImageController);
 router.post('/setAsRead', verifyToken, setMessageAsReadController)
+router.post('/toggle-favorito', verifyToken, toggleFavoritoController)
 router.post('/close', verifyToken, closeChatContoller)
 router.post('/setUser', verifyToken, setSpecificUserController)
 router.post('/schedule-message', verifyToken, scheduleMessageController)

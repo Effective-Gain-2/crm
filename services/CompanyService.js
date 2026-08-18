@@ -148,6 +148,16 @@ const ensureSchemaTables = async (schema) => {
         );`);
 
     await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.chat_favorites (
+            chat_id UUID NOT NULL REFERENCES ${schema}.chats(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL,
+            created_at TIMESTAMP DEFAULT now(),
+            PRIMARY KEY (chat_id, user_id)
+        );`);
+    // Favorito é POR USUÁRIO (decisão do Luiz): a estrela da Petra não aparece para a
+    // Joana. Por isso a PK é (chat, usuário) e não uma coluna booleana no chat.
+
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.chat_tag (
             chat_id UUID NOT NULL,
             tag_id UUID NOT NULL,

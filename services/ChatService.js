@@ -391,11 +391,40 @@ const setUserChat = async (chatId, schema) => {
 
 };
 
-const getChats = async (schema) => {
+const getChats = async (schema, userId = null) => {
+    // is_favorite é do USUÁRIO que está pedindo (favorito não é compartilhado);
+    // tag_ids traz as "Listas" de cada conversa numa consulta só — buscar tag por
+    // chat na tela seria N+1 com centenas de conversas.
     const { rows } = await pool.query(
-      `SELECT * FROM ${schema}.chats ORDER BY created_at ASC`
+      `SELECT c.*,
+              (f.user_id IS NOT NULL) AS is_favorite,
+              COALESCE(t.tag_ids, '{}') AS tag_ids
+         FROM ${schema}.chats c
+         LEFT JOIN ${schema}.chat_favorites f
+                ON f.chat_id = c.id AND f.user_id = $1
+         LEFT JOIN (
+              SELECT chat_id, array_agg(tag_id::text) AS tag_ids
+                FROM ${schema}.chat_tag GROUP BY chat_id
+         ) t ON t.chat_id = c.id
+        ORDER BY c.created_at ASC`,
+      [userId]
     );
     return rows;
+};
+
+const toggleFavorito = async (chatId, userId, schema) => {
+  const existe = await pool.query(
+    `SELECT 1 FROM ${schema}.chat_favorites WHERE chat_id=$1 AND user_id=$2`, [chatId, userId]
+  );
+  if (existe.rowCount > 0) {
+    await pool.query(`DELETE FROM ${schema}.chat_favorites WHERE chat_id=$1 AND user_id=$2`, [chatId, userId]);
+    return { chatId, is_favorite: false };
+  }
+  await pool.query(
+    `INSERT INTO ${schema}.chat_favorites (chat_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+    [chatId, userId]
+  );
+  return { chatId, is_favorite: true };
 };
 
 const setChatQueue = async (schema, chatId) => {
@@ -840,7 +869,8 @@ module.exports = {
   getChatById,
   createNewChat,
   setMessageIsUnread,
-  setMessageAsRead, 
+  setMessageAsRead,
+  toggleFavorito, 
   closeChat,
   setSpecificUser,
   getChatIfUserIsNull,

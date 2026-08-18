@@ -1,5 +1,5 @@
 
-const { setUserChat, getChats, getMessages, getChatData, getChatByUser, updateQueue, getChatById, saveMediaMessage, setMessageAsRead, closeChat, setSpecificUser, scheduleMessage, getScheduledMessages, deleteScheduledMessage, disableBot, closeChatContact, createStatus, getStatus, getClosedChats, getAverageTimeToClose } = require('../services/ChatService');
+const { setUserChat, getChats, toggleFavorito, getMessages, getChatData, getChatByUser, updateQueue, getChatById, saveMediaMessage, setMessageAsRead, closeChat, setSpecificUser, scheduleMessage, getScheduledMessages, deleteScheduledMessage, disableBot, closeChatContact, createStatus, getStatus, getClosedChats, getAverageTimeToClose } = require('../services/ChatService');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
@@ -154,7 +154,8 @@ const processReceivedAudio = async (req, res) => {
 const getChatsController = async (req, res) => {
   try {
     const schema = req.params?.schema || 'effective_gain';
-    const result = await getChats(schema);
+    // Favorito é por usuário: a lista sai marcada para QUEM pediu
+    const result = await getChats(schema, req.auth?.local_user_id || null);
     res.status(201).json(result);
   } catch (error) {
     console.error(error);
@@ -280,6 +281,19 @@ const sendAudioController = async (req, res) => {
   }
 
 };
+const toggleFavoritoController = async (req, res) => {
+  try {
+    const { chat_id, schema } = req.body;
+    const userId = req.auth?.local_user_id;
+    if (!chat_id || !userId) return res.status(400).json({ error: 'chat_id e sessão são obrigatórios' });
+    const result = await toggleFavorito(chat_id, userId, schema || req.auth?.schema);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Erro ao favoritar chat:', error.message);
+    res.status(500).json({ error: 'Não foi possível favoritar a conversa' });
+  }
+};
+
 const setMessageAsReadController = async(req, res)=>{
 try {
   const {chat_id} = req.body
@@ -528,6 +542,7 @@ const getAverageTimeToCloseController = async (req, res) => {
     uploadAudio,
     uploadImage,
     setMessageAsReadController,
+    toggleFavoritoController,
     closeChatContoller,
     setSpecificUserController,
     scheduleMessageController,

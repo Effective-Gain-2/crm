@@ -318,6 +318,9 @@ function ChatPage({ theme, chat_id} ) {
   const [connections, setConnections] = useState([]);
   // Filtro por número do WhatsApp (conexão). 'todas' = comportamento anterior.
   const [conexaoFiltro, setConexaoFiltro] = useState('todas');
+  // Listas = as etiquetas do WhatsApp Business (tabela `tag`, já existente no backend)
+  const [listas, setListas] = useState([]);
+  const [listaFiltro, setListaFiltro] = useState('todas');
   const [queues, setQueues] = useState([]);
   const nomeContatoRef = useRef(null);
   const [showNewContactModal, setShowNewContactModal] = useState(false);
@@ -458,6 +461,10 @@ function ChatPage({ theme, chat_id} ) {
       if (selectedTab === 'grupos' && !ehGrupo) return false;
       if (selectedTab === 'aguardando' && chat.status !== 'waiting') return false;
       if (selectedTab === 'nao-lidas' && !chat.unreadmessages) return false;
+      if (selectedTab === 'favoritas' && !chat.is_favorite) return false;
+
+      // Filtro por LISTA (etiqueta) — tag_ids vem agregado do backend
+      if (listaFiltro !== 'todas' && !(chat.tag_ids || []).includes(listaFiltro)) return false;
 
       // Filtro por CONEXÃO (número do WhatsApp) — só existe com 2+ conexões
       if (conexaoFiltro !== 'todas' && chat.connection_id !== conexaoFiltro) return false;
@@ -595,13 +602,35 @@ useEffect(() => {
     }
   };
   
+  const fetchListas = async () => {
+    try {
+      const res = await axios.get(`${url}/tag/${schema}`, { withCredentials: true });
+      setListas(Array.isArray(res.data) ? res.data : (res.data?.result || []));
+    } catch (err) {
+      setListas([]);
+    }
+  };
+
   fetchConnections();
   fetchQueues();
   fetchUsers();
+  fetchListas();
 }, [url, schema]);
 
 // Rótulo curto da conexão: o nome da instância vem como "<schema>__Nome_Da_Conexao".
 // Com 2+ números na mesma empresa, é isto que responde "por qual número eu estou falando".
+const alternarFavorito = async (chat, e) => {
+  e.stopPropagation();               // clicar na estrela não pode abrir a conversa
+  const novo = !chat.is_favorite;
+  setChats(prev => prev.map(c => c.id === chat.id ? { ...c, is_favorite: novo } : c));
+  try {
+    await axios.post(`${url}/chat/toggle-favorito`, { chat_id: chat.id, schema }, { withCredentials: true });
+  } catch (err) {
+    // desfaz se o servidor recusou — nada de estrela fantasma
+    setChats(prev => prev.map(c => c.id === chat.id ? { ...c, is_favorite: !novo } : c));
+  }
+};
+
 const getConnectionLabel = (connectionId) => {
   const conn = connections.find(c => c.id === connectionId);
   if (!conn) return '';
@@ -1698,6 +1727,7 @@ const handleImageUpload = async (event) => {
               {[
                 { id: 'tudo', rotulo: 'Tudo', total: null },
                 { id: 'nao-lidas', rotulo: 'Não lidas', total: chatList.filter(c => c.unreadmessages).length },
+                { id: 'favoritas', rotulo: 'Favoritas', total: chatList.filter(c => c.is_favorite).length },
                 { id: 'aguardando', rotulo: 'Espera', total: chatList.filter(c => c.status === 'waiting').length },
                 { id: 'grupos', rotulo: 'Grupos', total: chatList.filter(c => c.isgroup || c.isGroup).length },
               ].map((chip) => (
@@ -1711,6 +1741,35 @@ const handleImageUpload = async (event) => {
                 </button>
               ))}
             </div>
+
+            {/* Listas (etiquetas do WhatsApp Business). Só aparecem se existir alguma. */}
+            {listas.length > 0 && (
+              <div className="d-flex gap-1 px-2 flex-wrap align-items-center" style={{ paddingTop: '6px' }}>
+                <i className="bi bi-bookmarks" style={{ fontSize: '0.8rem', opacity: 0.6 }} title="Filtrar por lista"></i>
+                <button
+                  className={`btn btn-sm rounded-pill px-3 ${listaFiltro === 'todas' ? `btn-1-${theme}` : `btn-2-${theme}`}`}
+                  style={{ fontSize: '0.75rem' }}
+                  onClick={() => setListaFiltro('todas')}
+                >
+                  Todas as listas
+                </button>
+                {listas.map((lista) => (
+                  <button
+                    key={lista.id}
+                    className={`btn btn-sm rounded-pill px-3 ${listaFiltro === lista.id ? `btn-1-${theme}` : `btn-2-${theme}`}`}
+                    style={{ fontSize: '0.75rem', borderLeft: `4px solid ${lista.color || '#0082ca'}` }}
+                    onClick={() => setListaFiltro(lista.id)}
+                  >
+                    {lista.name}{' '}
+                    {chatList.filter(c => (c.tag_ids || []).includes(lista.id)).length > 0 && (
+                      <span className="badge bg-secondary rounded-pill" style={{ fontSize: '0.6rem' }}>
+                        {chatList.filter(c => (c.tag_ids || []).includes(lista.id)).length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Chips por NÚMERO (conexão) — aparecem só quando há 2+ números escaneados */}
             {multiConexao && (
@@ -1853,7 +1912,18 @@ const handleImageUpload = async (event) => {
 )}
 </div>
 
-                    <div className='d-flex flex-column align-items-center justify-content-center'>
+                    <div className='d-flex flex-column align-items-center justify-content-center gap-1'>
+                      <i
+                        className={`bi ${chat.is_favorite ? 'bi-star-fill' : 'bi-star'}`}
+                        title={chat.is_favorite ? 'Remover dos favoritos' : 'Favoritar (só você vê)'}
+                        onClick={(e) => alternarFavorito(chat, e)}
+                        style={{
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          color: chat.is_favorite ? '#f0b429' : 'var(--placeholder-color)',
+                          opacity: chat.is_favorite ? 1 : 0.45,
+                        }}
+                      ></i>
                       {chat.unreadmessages && selectedChatId !== chat.id && (
                         <span style={{
                           position: 'sticky',
