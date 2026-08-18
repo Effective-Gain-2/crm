@@ -15,6 +15,7 @@ import {
 import ChatViewModal from './Componentes/ChatViewModal';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Tooltip from 'react-bootstrap/Tooltip';
+import Modal from 'react-bootstrap/Modal';
 import useDashboardData from '../hooks/useDashboardData';
 import useDashboardFilters from '../hooks/useDashboardFilters';
 
@@ -46,6 +47,10 @@ function NewDashboard({ theme }) {
 
   // Papeis que atendem (recebem lead). 'user' fica so por compatibilidade com base antiga.
   const ATENDE_DASH = ['user', 'operacional', 'lider'];
+  // Quem pode ver a LISTA de quem esta online (operacional so ve o numero):
+  // supervisao e do lider para cima.
+  const PODE_VER_PRESENCA = ['lider', 'master', 'tecnico', 'admin'].includes(String(userData?.role || '').toLowerCase());
+  const [mostrarPresenca, setMostrarPresenca] = useState(false);
 
   // Usar hooks personalizados
   const { data, loading, error, lastUpdate, calculatedData } = useDashboardData(schema, url);
@@ -565,11 +570,20 @@ function NewDashboard({ theme }) {
                 <div className="d-flex align-items-center">
                   <h3 className={`header-text-${theme} mb-0 me-2`}>{liveOps.onlineUsers}</h3>
                   <small className={`header-text-${theme}`}>/ {data.users?.filter(u => ATENDE_DASH.includes(String(u.permission || '').toLowerCase())).length || 0}</small>
+                  {PODE_VER_PRESENCA && (
+                    <button
+                      className={`btn btn-sm btn-2-${theme} ms-auto`}
+                      onClick={() => setMostrarPresenca(true)}
+                      title="Ver quem está online"
+                    >
+                      <i className="bi bi-people-fill"></i>
+                    </button>
+                  )}
                 </div>
-                <div className="mt-2">
+                <div className="mt-2 text-truncate">
                   {data.users?.filter(u => u.online && ATENDE_DASH.includes(String(u.permission || '').toLowerCase())).slice(0, 3).map(user => (
                     <span key={user.id} className="badge bg-success me-1">
-                      {user.nome || user.username}
+                      {user.nome || user.username || user.name}
                     </span>
                   ))}
                 </div>
@@ -1009,6 +1023,59 @@ function NewDashboard({ theme }) {
         schema={schema}
         url={url}
       />
+
+      {/* Quem esta online — supervisao (lider/master/tecnico). O operacional ve so o
+          numero: saber quem esta logado e informacao de gestao, nao de atendimento.
+          A lista se atualiza sozinha porque o painel recarrega no evento presencaAtualizada. */}
+      <Modal show={mostrarPresenca} onHide={() => setMostrarPresenca(false)} centered>
+        <Modal.Header closeButton style={{ backgroundColor: `var(--bg-color-${theme})` }}>
+          <h5 className={`modal-title header-text-${theme} mb-0`}>
+            <i className="bi bi-people-fill me-2"></i>Quem está online
+          </h5>
+        </Modal.Header>
+        <Modal.Body style={{ backgroundColor: `var(--bg-color-${theme})` }}>
+          {(() => {
+            const equipe = (data.users || []).filter(u => ATENDE_DASH.includes(String(u.permission || '').toLowerCase()));
+            const online = equipe.filter(u => u.online);
+            const offline = equipe.filter(u => !u.online);
+            const nomeDe = (u) => u.nome || u.username || u.name || u.email || 'Sem nome';
+            const papelDe = (u) => String(u.permission || '').toLowerCase() === 'lider' ? 'líder' : 'operacional';
+            if (equipe.length === 0) {
+              return <span className={`card-subtitle-${theme}`}>Nenhum atendente cadastrado nesta empresa.</span>;
+            }
+            return (
+              <>
+                <div className={`card-subtitle-${theme} mb-2`} style={{ fontSize: '0.85rem' }}>
+                  {online.length} de {equipe.length} atendentes com o CRM aberto
+                </div>
+                {online.map(u => (
+                  <div key={u.id} className="d-flex align-items-center justify-content-between py-2"
+                       style={{ borderBottom: `1px solid var(--border-color-${theme})` }}>
+                    <span className={`card-subtitle-${theme}`}>
+                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#198754', marginRight: 8 }} />
+                      <strong>{nomeDe(u)}</strong> · {papelDe(u)}
+                    </span>
+                    <span className="badge bg-success">online</span>
+                  </div>
+                ))}
+                {offline.map(u => (
+                  <div key={u.id} className="d-flex align-items-center justify-content-between py-2"
+                       style={{ borderBottom: `1px solid var(--border-color-${theme})`, opacity: 0.6 }}>
+                    <span className={`card-subtitle-${theme}`}>
+                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#adb5bd', marginRight: 8 }} />
+                      {nomeDe(u)} · {papelDe(u)}
+                    </span>
+                    <span className={`badge bg-secondary`}>offline</span>
+                  </div>
+                ))}
+                <small className={`card-subtitle-${theme} d-block mt-3`} style={{ fontSize: '0.75rem' }}>
+                  Online = CRM aberto. Só quem está online entra no rodízio de distribuição de leads.
+                </small>
+              </>
+            );
+          })()}
+        </Modal.Body>
+      </Modal>
     </div>
   );
 }

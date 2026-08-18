@@ -169,6 +169,22 @@ const ensureSchemaTables = async (schema) => {
     await pool.query(`ALTER TABLE ${schema}.connections ADD COLUMN IF NOT EXISTS bloqueado_ate TIMESTAMP;`);
     await pool.query(`ALTER TABLE ${schema}.connections ADD COLUMN IF NOT EXISTS bloqueio_motivo TEXT;`);
     await pool.query(`ALTER TABLE ${schema}.connections ADD COLUMN IF NOT EXISTS bloquear_frios BOOLEAN DEFAULT false;`);
+    // CORRECAO DE DADO: o ADD COLUMN com DEFAULT now() carimbou "hoje" nas conexoes
+    // que ja existiam ha semanas — elas passaram a ser tratadas como numero NOVO e
+    // caíram no teto de aquecimento (50/dia), o que bloquearia conversa real.
+    // A idade verdadeira vem da conversa mais antiga da conexao. Idempotente: so
+    // move a data para TRAS, nunca para frente.
+    await pool.query(`
+        UPDATE ${schema}.connections c
+           SET criada_em = sub.primeira
+          FROM (
+            SELECT connection_id, to_timestamp(MIN(created_at) / 1000) AS primeira
+              FROM ${schema}.chats
+             WHERE created_at IS NOT NULL AND created_at > 0
+             GROUP BY connection_id
+          ) sub
+         WHERE sub.connection_id = c.id::text
+           AND (c.criada_em IS NULL OR c.criada_em > sub.primeira);`).catch((e) => console.error('backfill criada_em:', e.message));
 
     await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.chat_favorites (
