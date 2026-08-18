@@ -78,6 +78,81 @@ const getIp = async(req)=>{
     return result.rows[0]
   }
 
+  // ---- Elegibilidade para receber lead ----
+  // Regra definida pelo Luiz: manda a JORNADA, nao o CRM aberto. Quem esta escalado
+  // hoje neste horario recebe lead mesmo com o CRM fechado; quem o lider/master
+  // inativou (falta) fica de fora. Sem jornada cadastrada = disponivel sempre, para
+  // nao parar a distribuicao de quem ainda nao teve horario configurado.
+  const getAvailableUsers = async (schema) => {
+    const result = await pool.query(
+      `SELECT u.* FROM ${schema}.users u
+        WHERE COALESCE(u.inativo, false) = false
+          AND (u.inativo_ate IS NULL OR u.inativo_ate < now())
+          AND (
+                NOT EXISTS (SELECT 1 FROM ${schema}.user_schedule s WHERE s.user_id = u.id)
+                OR EXISTS (
+                     SELECT 1 FROM ${schema}.user_schedule s
+                      WHERE s.user_id = u.id
+                        AND s.dia_semana = EXTRACT(DOW FROM (now() AT TIME ZONE 'America/Sao_Paulo'))
+                        AND (now() AT TIME ZONE 'America/Sao_Paulo')::time BETWEEN s.hora_inicio AND s.hora_fim
+                   )
+              )`
+    ).catch(async (e) => {
+      // Base sem as colunas/tabela novas ainda: cai no comportamento antigo
+      console.error('getAvailableUsers (fallback para online):', e.message);
+      return await pool.query(`SELECT * FROM ${schema}.users WHERE online = true`);
+    });
+    return result.rows;
+  };
+
+  const getSchedule = async (schema, userId) => {
+    const r = await pool.query(
+      `SELECT dia_semana, to_char(hora_inicio,'HH24:MI') AS hora_inicio, to_char(hora_fim,'HH24:MI') AS hora_fim
+         FROM ${schema}.user_schedule WHERE user_id = $1 ORDER BY dia_semana, hora_inicio`, [userId]
+    ).catch(() => ({ rows: [] }));
+    return r.rows;
+  };
+
+  // Substitui a jornada inteira do usuario (mais simples e previsivel que diffs)
+  const setSchedule = async (schema, userId, faixas) => {
+    await pool.query(`DELETE FROM ${schema}.user_schedule WHERE user_id = $1`, [userId]);
+    for (const f of (faixas || [])) {
+      if (f.dia_semana === undefined || !f.hora_inicio || !f.hora_fim) continue;
+      await pool.query(
+        `INSERT INTO ${schema}.user_schedule (user_id, dia_semana, hora_inicio, hora_fim) VALUES ($1,$2,$3,$4)`,
+        [userId, Number(f.dia_semana), f.hora_inicio, f.hora_fim]
+      );
+    }
+    return getSchedule(schema, userId);
+  };
+
+  // Ao inativar, os leads do colaborador nao podem ficar orfaos: voltam para o
+  // rodizio (setUserChat escolhe entre quem esta escalado agora). Devolve o que moveu
+  // para o lider ver o efeito da acao que acabou de tomar.
+  const redistribuirLeadsDoUsuario = async (schema, userId) => {
+    const { setUserChat } = require('./ChatService');
+    const abertos = await pool.query(
+      `SELECT id FROM ${schema}.chats WHERE assigned_user = $1 AND status <> 'closed'`, [userId]
+    ).catch(() => ({ rows: [] }));
+    let movidos = 0;
+    for (const chat of abertos.rows) {
+      await pool.query(`UPDATE ${schema}.chats SET assigned_user = NULL WHERE id = $1`, [chat.id]).catch(() => {});
+      const r = await setUserChat(chat.id, schema).catch(() => null);
+      if (r && r.assigned_user) movidos++;
+    }
+    return { total: abertos.rows.length, movidos };
+  };
+
+  const setInativo = async (schema, userId, { inativo, ate, motivo }) => {
+    const r = await pool.query(
+      `UPDATE ${schema}.users
+          SET inativo = $2, inativo_ate = $3, inativo_motivo = $4
+        WHERE id = $1 RETURNING id, name, inativo, inativo_ate, inativo_motivo`,
+      [userId, !!inativo, ate || null, motivo || null]
+    );
+    return r.rows[0];
+  };
+
   const getOnlineUsers = async(schema)=>{
     const result = await pool.query(`SELECT * FROM ${schema}.users WHERE online=true`);
     return result.rows;
@@ -114,7 +189,12 @@ module.exports = { createUser,
   getAllUsers, 
     changeOnline, 
   changeOffline, 
-  getOnlineUsers, 
+  getOnlineUsers,
+  getAvailableUsers,
+  getSchedule,
+  setSchedule,
+  setInativo,
+  redistribuirLeadsDoUsuario, 
   getLastAssignedUser, 
   updateLastAssignedUser,
   deleteUser,

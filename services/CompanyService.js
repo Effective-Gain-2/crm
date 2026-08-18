@@ -148,6 +148,24 @@ const ensureSchemaTables = async (schema) => {
         );`);
 
     await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.user_schedule (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES ${schema}.users(id) ON DELETE CASCADE,
+            dia_semana SMALLINT NOT NULL,
+            hora_inicio TIME NOT NULL,
+            hora_fim TIME NOT NULL
+        );`);
+    // Jornada do colaborador: uma linha por FAIXA (duas linhas no mesmo dia cobrem
+    // manha e tarde com intervalo de almoco no meio). Quem NAO tem jornada cadastrada
+    // continua disponivel sempre — senao a distribuicao pararia no dia do deploy.
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_${schema}_user_schedule_user ON ${schema}.user_schedule (user_id, dia_semana);`);
+    // Inativacao por falta: lider/master tira o colaborador do rodizio por um periodo
+    // (inativo_ate) ou por tempo indeterminado (inativo = true sem data).
+    await pool.query(`ALTER TABLE ${schema}.users ADD COLUMN IF NOT EXISTS inativo BOOLEAN DEFAULT false;`);
+    await pool.query(`ALTER TABLE ${schema}.users ADD COLUMN IF NOT EXISTS inativo_ate TIMESTAMP;`);
+    await pool.query(`ALTER TABLE ${schema}.users ADD COLUMN IF NOT EXISTS inativo_motivo TEXT;`);
+
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.envio_log (
             id UUID PRIMARY KEY,
             connection_id TEXT,

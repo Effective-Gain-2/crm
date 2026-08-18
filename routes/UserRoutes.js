@@ -8,6 +8,9 @@ const {
     updateUserController,
     changeMyPasswordController,
     searchUserByIdController,
+    getScheduleController,
+    setScheduleController,
+    setInativoController,
 } = require('../controllers/UserController');
 const {
     loginController,
@@ -37,5 +40,10 @@ router.get('/search-user/:schema/:user_id', searchUserByIdController);
 router.post('/users', requireRole('master'), createUserController);
 router.put('/update-user', requireRole('master'), updateUserController);
 router.delete('/delete-user', requireRole('master'), deleteUserController);
+
+// ---- Jornada de trabalho e ausencia (lider e master) ----
+router.get('/users/schedule/:schema/:user_id', requireRole('lider'), getScheduleController);
+router.put('/users/schedule', requireRole('lider'), setScheduleController);
+router.post('/users/inativar', requireRole('lider'), setInativoController);
 
 module.exports = router;

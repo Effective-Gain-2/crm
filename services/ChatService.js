@@ -1,6 +1,6 @@
 const pool = require('../db/queries');
 const { v4: uuid4 } = require('uuid');
-const { getOnlineUsers, updateLastAssignedUser, getLastAssignedUser } = require('./UserService');
+const { getAvailableUsers, updateLastAssignedUser, getLastAssignedUser } = require('./UserService');
 const { getCurrentTimestamp } = require('./getCurrentTimestamp');
 const { Queue, Worker } = require('bullmq');
 const createRedisConnection = require('../config/Redis');
@@ -348,7 +348,9 @@ const setUserChat = async (chatId, schema) => {
       `SELECT * FROM ${schema}.queues WHERE id=$1 `, [queueId]
     )
     if (isDistributionOn.rows[0]?.distribution === true) {
-      const onlineUsers = await getOnlineUsers(schema);
+      // Elegivel = escalado agora (jornada) e nao inativado. NAO depende mais de estar
+      // com o CRM aberto: o lead vai para quem esta de trabalho no dia.
+      const onlineUsers = await getAvailableUsers(schema);
       if(onlineUsers.length === 0) {
         await putChatInWaiting(chatId, schema);
         return;

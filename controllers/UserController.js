@@ -1,5 +1,6 @@
 const pool = require('../db/queries');
-const { getAllUsers, getOnlineUsers, changeOffline, getUserById } = require('../services/UserService');
+const { getAllUsers, getOnlineUsers, changeOffline, getUserById,
+        getSchedule, setSchedule, setInativo, redistribuirLeadsDoUsuario } = require('../services/UserService');
 const { createOrAttachUser, revokeAccess, updateAccountBasics, setAccountPassword, verifyPassword, getMembership, ensureMirrorUser, findAccountById, CLIENT_ROLES } = require('../services/AuthService');
 const { auth } = require('../middlewares/auth');
 
@@ -176,6 +177,49 @@ const getOnlineUsersController = async (req, res) => {
   }
 };
 
+// Jornada de trabalho do colaborador (quem ve/edita: lider e master)
+const getScheduleController = async (req, res) => {
+  try {
+    const schema = req.auth?.schema || req.params.schema;
+    const faixas = await getSchedule(schema, req.params.user_id);
+    res.status(200).json({ schedule: faixas });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao buscar a jornada' });
+  }
+};
+
+const setScheduleController = async (req, res) => {
+  try {
+    const schema = req.auth?.schema;
+    const { user_id, schedule } = req.body || {};
+    if (!user_id) return res.status(400).json({ error: 'user_id obrigatorio' });
+    const faixas = await setSchedule(schema, user_id, schedule);
+    res.status(200).json({ schedule: faixas });
+  } catch (e) {
+    console.error('setSchedule:', e.message);
+    res.status(500).json({ error: 'Erro ao salvar a jornada' });
+  }
+};
+
+// Inativar por falta (horas, dias ou indeterminado) e, opcionalmente, redistribuir
+// os leads do colaborador na hora.
+const setInativoController = async (req, res) => {
+  try {
+    const schema = req.auth?.schema;
+    const { user_id, inativo, ate, motivo, redistribuir } = req.body || {};
+    if (!user_id) return res.status(400).json({ error: 'user_id obrigatorio' });
+    const usuario = await setInativo(schema, user_id, { inativo, ate, motivo });
+    let redistribuicao = null;
+    if (inativo && redistribuir !== false) {
+      redistribuicao = await redistribuirLeadsDoUsuario(schema, user_id);
+    }
+    res.status(200).json({ usuario, redistribuicao });
+  } catch (e) {
+    console.error('setInativo:', e.message);
+    res.status(500).json({ error: 'Erro ao alterar a situacao do colaborador' });
+  }
+};
+
 const changeOfflineController = async (req, res) => {
   const { userID } = req.query;
   try {
@@ -192,6 +236,9 @@ module.exports = {
   getAllUsersController,
   getOnlineUsersController,
   changeOfflineController,
+  getScheduleController,
+  setScheduleController,
+  setInativoController,
   deleteUserController,
   updateUserController,
   changeMyPasswordController,
