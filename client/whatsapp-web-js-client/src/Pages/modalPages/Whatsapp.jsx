@@ -34,8 +34,36 @@ function WhatsappModal({ theme, show, onHide }) {
   const [qrImg, setQrImg] = useState(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrErro, setQrErro] = useState('');
+  // Painel de risco: quanto ja saiu hoje por numero, teto, pausa automatica e ajustes
+  const [risco, setRisco] = useState([]);
+  const [salvandoRisco, setSalvandoRisco] = useState(null);
 
   const url = process.env.REACT_APP_URL;
+
+  const carregarRisco = useCallback(async () => {
+    try {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const { data } = await axios.get(`${url}/compliance/status/${userData?.schema}`, { withCredentials: true });
+      setRisco(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setRisco([]);
+    }
+  }, [url]);
+
+  const configurarRisco = async (connectionId, mudanca) => {
+    setSalvandoRisco(connectionId);
+    try {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const { data } = await axios.post(`${url}/compliance/configurar`,
+        Object.assign({ connection_id: connectionId, schema: userData?.schema }, mudanca),
+        { withCredentials: true });
+      setRisco(Array.isArray(data) ? data : []);
+    } catch (err) {
+      // erro ja aparece pelo toast global do axiosConfig
+    } finally {
+      setSalvandoRisco(null);
+    }
+  };
 
   const abrirQr = useCallback(async (contato) => {
     setQrConn(contato); setQrImg(null); setQrErro(''); setQrLoading(true);
@@ -68,8 +96,15 @@ function WhatsappModal({ theme, show, onHide }) {
   }, [url]);
 
   useEffect(() => {
-    if (show) loadConns();
-  }, [show, loadConns]);
+    if (show) { loadConns(); carregarRisco(); }
+  }, [show, loadConns, carregarRisco]);
+
+  // Pausa automática / teto atingido chegam por socket: o painel se atualiza sozinho
+  useEffect(() => {
+    const handleAlerta = () => { if (show) carregarRisco(); };
+    socketInstance.on('alertaCompliance', handleAlerta);
+    return () => { socketInstance.off('alertaCompliance', handleAlerta); };
+  }, [socketInstance, show, carregarRisco]);
 
   // Status em tempo real
   useEffect(() => {
@@ -163,6 +198,103 @@ function WhatsappModal({ theme, show, onHide }) {
               <i className="bi bi-plus-lg me-2"></i> Nova Conexão
             </button>
           </div>
+
+          {/* ---- Painel de risco de bloqueio ----
+              Mostra ao OPERADOR o que antes só existia na API: quanto já saiu hoje por
+              número, o teto (automático pelo aquecimento ou manual), pausas automáticas
+              e o interruptor de lista fria. Sem isso o controle existe e ninguém vê. */}
+          {risco.length > 0 && (
+            <div className={`card card-${theme} p-3 mb-3`}>
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <span className="d-flex align-items-center gap-2">
+                  <i className="bi bi-shield-check text-success"></i>
+                  <strong className={`header-text-${theme}`}>Risco de bloqueio</strong>
+                </span>
+                <button className={`btn btn-sm btn-2-${theme}`} onClick={carregarRisco} title="Atualizar">
+                  <i className="bi bi-arrow-clockwise"></i>
+                </button>
+              </div>
+
+              {risco.map((r) => {
+                const pct = r.limite_diario ? Math.min(100, Math.round((r.enviados_hoje / r.limite_diario) * 100)) : 0;
+                const cor = pct >= 100 ? '#dc3545' : pct >= 80 ? '#ffc107' : '#198754';
+                const emPausa = r.em_pausa_ate && new Date(r.em_pausa_ate) > new Date();
+                return (
+                  <div key={r.id} className="mb-3 pb-3" style={{ borderBottom: `1px solid var(--border-color-${theme})` }}>
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                      <span className={`card-subtitle-${theme}`}>
+                        <strong>{displayName(r.nome)}</strong>{r.numero ? ` · ${r.numero}` : ''}
+                      </span>
+                      <span className={`card-subtitle-${theme}`} style={{ fontSize: '0.85rem' }}>
+                        {r.enviados_hoje} / {r.limite_diario} hoje
+                        {r.limite_automatico && <span title="Teto calculado pela idade do número (aquecimento)"> · aquecimento</span>}
+                        {r.bloqueados_hoje > 0 && <span style={{ color: '#dc3545' }}> · {r.bloqueados_hoje} bloqueado(s)</span>}
+                      </span>
+                    </div>
+
+                    <div style={{ background: 'var(--border-color-light)', borderRadius: 6, height: 8, marginTop: 6, overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: cor, transition: 'width .3s' }} />
+                    </div>
+
+                    {emPausa && (
+                      <div className="alert alert-danger py-2 px-3 mt-2 mb-0 d-flex align-items-center justify-content-between gap-2" style={{ fontSize: '0.85rem' }}>
+                        <span>
+                          <i className="bi bi-exclamation-triangle me-2"></i>
+                          Envio pausado até {new Date(r.em_pausa_ate).toLocaleTimeString('pt-BR')} — {r.motivo_pausa || 'proteção automática'}
+                        </span>
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          disabled={salvandoRisco === r.id}
+                          onClick={() => configurarRisco(r.id, { retomar: true })}
+                        >
+                          Retomar agora
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="d-flex align-items-center gap-3 flex-wrap mt-2">
+                      <div className="d-flex align-items-center gap-2">
+                        <label className={`card-subtitle-${theme}`} style={{ fontSize: '0.8rem' }}>Teto diário</label>
+                        <input
+                          type="number"
+                          min="0"
+                          className={`form-control form-control-sm input-${theme}`}
+                          style={{ width: 110 }}
+                          placeholder="automático"
+                          defaultValue={r.limite_automatico ? '' : r.limite_diario}
+                          disabled={salvandoRisco === r.id}
+                          onBlur={(e) => {
+                            const v = e.target.value.trim();
+                            const atual = r.limite_automatico ? '' : String(r.limite_diario);
+                            if (v !== atual) configurarRisco(r.id, { limite_diario: v === '' ? null : Number(v) });
+                          }}
+                          title="Vazio = teto automático pelo aquecimento do número"
+                        />
+                      </div>
+
+                      <div className="form-check form-switch d-flex align-items-center gap-2">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id={`frios-${r.id}`}
+                          checked={!!r.bloquear_frios}
+                          disabled={salvandoRisco === r.id}
+                          onChange={(e) => configurarRisco(r.id, { bloquear_frios: e.target.checked })}
+                        />
+                        <label className={`form-check-label card-subtitle-${theme}`} htmlFor={`frios-${r.id}`} style={{ fontSize: '0.8rem' }}>
+                          Bloquear disparo para quem nunca respondeu
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <small className={`card-subtitle-${theme}`} style={{ fontSize: '0.75rem' }}>
+                O teto protege contra bloqueio da conta. Número novo começa baixo e sobe sozinho ao longo de 30 dias.
+              </small>
+            </div>
+          )}
 
           <div className="table-responsive" style={{ maxHeight: 'calc(100vh - 250px)' }}>
             <table className={`custom-table-${theme} align-middle w-100`}>
