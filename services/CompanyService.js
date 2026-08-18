@@ -398,6 +398,16 @@ const ensureSchemaTables = async (schema) => {
     // mas também não pode ser descartado — fica na oportunidade até casar com um telefone.
     await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS contact_email TEXT;`);
 
+    // "Já contatado": o CRM é a fonte de verdade disso. O HubSpot do usuário é
+    // somente-leitura (não dá para marcar lá), então o registro do primeiro contato
+    // automático (WhatsApp de boas-vindas) mora aqui. Alimenta o "somente novos" e
+    // impede reenvio mesmo que a varredura repita a mesma janela.
+    await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS contacted_at TIMESTAMP;`);
+    await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS contacted_channel TEXT;`);
+    // Espelho da marcação no sistema de origem: fica pendente enquanto não há escopo
+    // de escrita no HubSpot; vira 'synced' quando (e se) o Private App for concedido.
+    await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS external_contacted_sync TEXT DEFAULT 'pending';`);
+
     // Auditoria de webhooks: sem isto, um erro no processamento perde o lead sem rastro
     // (o padrão atual responde 200 e processa depois). Guarda o payload cru para replay.
     await pool.query(`

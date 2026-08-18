@@ -1,3 +1,7 @@
 server/.wwebjs_auth/
 .env
 node_modules
+# Coletor HubSpot: perfil do navegador (cookies de sessao) e env local
+collector/.hubspot-profile/
+.hubspot-profile/
+collector/.env

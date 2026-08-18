@@ -33,6 +33,7 @@ const expensesRoutes = require('./routes/ExpensesRoutes');
 const receitaRoutes = require('./routes/ReceitaRouter');
 const opportunityRoutes = require('./routes/OpportunityRoutes');
 const metaLeadsRoutes = require('./routes/MetaLeadsRoutes');
+const hubspotLeadsRoutes = require('./routes/HubSpotLeadsRoutes');
 const aiAgentRoutes = require('./routes/AiAgentRoutes');
 const attributionRoutes = require('./routes/AttributionRoutes');
 const quickMessagesRoutes = require('./routes/QuickMessagesRoutes');
@@ -266,6 +267,7 @@ app.use('/expenses', requireRole('master'), bindAuthParams(expensesRoutes));
 app.use('/receita', requireRole('master'), bindAuthParams(receitaRoutes));
 app.use('/opportunity', bindAuthParams(opportunityRoutes));
 app.use('/meta-leads', metaLeadsRoutes);
+app.use('/hubspot-leads', hubspotLeadsRoutes);
 app.use('/ai-agent', requireRole('master'), bindAuthParams(aiAgentRoutes));
 app.use('/attribution', requireRole('lider'), bindAuthParams(attributionRoutes));
 

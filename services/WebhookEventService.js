@@ -5,19 +5,22 @@
 // inexistente, provedor fora do ar — o lead some sem deixar rastro. Aqui fica o
 // payload cru, o erro e o contador de tentativas, para auditoria e replay.
 const pool = require('../db/queries');
+const { maskSensitive } = require('../utils/maskSensitive');
 
 // Grava o evento como 'pending'. Devolve { id, duplicate }.
 // duplicate = true quando o provedor reenviou um evento já recebido (timeout do nosso
 // lado, por exemplo) — o chamador deve responder 200 e NÃO reprocessar.
 const record = async (schema, { provider, event_type, external_id, payload }) => {
     try {
+        // CPF/dados sensíveis NUNCA vão para o log de auditoria (regra CLAUDE.md).
+        const safePayload = payload ? maskSensitive(payload) : null;
         const res = await pool.query(
             `INSERT INTO ${schema}.webhook_events (provider, event_type, external_id, payload)
              VALUES ($1, $2, $3, $4)
              ON CONFLICT (provider, event_type, external_id) WHERE external_id IS NOT NULL AND external_id <> ''
              DO NOTHING
              RETURNING id`,
-            [provider, event_type || null, external_id || null, payload ? JSON.stringify(payload) : null]
+            [provider, event_type || null, external_id || null, safePayload ? JSON.stringify(safePayload) : null]
         );
         if (res.rows[0]) return { id: res.rows[0].id, duplicate: false };
 
