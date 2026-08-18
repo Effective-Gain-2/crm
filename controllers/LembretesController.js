@@ -5,11 +5,11 @@ const { google } = require('googleapis');
 const createLembreteController = async (req, res) => {
     const {lembrete_name, tag, message, date, icone, filas, contact_number, chat_id, opportunity_id, recurrence} = req.body
     const schema = req.auth.schema;
-    // Alvo do lembrete: operacional só cria para si; líder para a equipe; master/técnico livre
+    // Alvo do lembrete: operacional/visualizador só cria para si; líder para a equipe; master/técnico livre
     let user_id = req.body.user_id || req.auth.local_user_id;
     try {
         if (user_id !== req.auth.local_user_id) {
-            if (req.auth.role === 'operacional') {
+            if (req.auth.role === 'operacional' || req.auth.role === 'visualizador') {
                 user_id = req.auth.local_user_id;
             } else if (req.auth.role === 'lider') {
                 const { getTeamUserIds } = require('../services/QueueService');

@@ -5,7 +5,10 @@ const { v4: uuidv4 } = require('uuid');
 const { hash, compare } = require('bcrypt');
 const { assertSchema } = require('../utils/validateSchema');
 
-const CLIENT_ROLES = ['master', 'lider', 'operacional'];
+// 'visualizador' = perfil só de visualização: vê os leads/conversas das próprias
+// filas mas não atende (não envia mensagem) e nunca entra no rodízio automático de
+// distribuição — usado para estagiário/observador em treinamento.
+const CLIENT_ROLES = ['master', 'lider', 'operacional', 'visualizador'];
 
 // ---- Infra (tabelas globais) ----
 const ensureIdentityTables = async () => {
@@ -33,6 +36,10 @@ const ensureIdentityTables = async () => {
             UNIQUE (company_id, local_user_id)
         );`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_uc_company ON effective_gain.user_companies(company_id);`);
+
+    // Tabela já existia com CHECK sem 'visualizador' — solta e recria com o papel novo.
+    await pool.query(`ALTER TABLE effective_gain.user_companies DROP CONSTRAINT IF EXISTS user_companies_role_check`).catch(() => {});
+    await pool.query(`ALTER TABLE effective_gain.user_companies ADD CONSTRAINT user_companies_role_check CHECK (role IN ('master','lider','operacional','visualizador'))`).catch(() => {});
 };
 
 // ---- Contas ----

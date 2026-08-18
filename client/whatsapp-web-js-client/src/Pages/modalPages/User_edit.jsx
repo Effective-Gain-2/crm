@@ -82,7 +82,7 @@ function EditUserModal({ theme, user }) {
   const normalizeRole = (r) => {
     if (r === 'admin') return 'master';
     if (r === 'user') return 'operacional';
-    return ['master', 'lider', 'operacional'].includes(r) ? r : '';
+    return ['master', 'lider', 'operacional', 'visualizador'].includes(r) ? r : '';
   };
   setUserRole(normalizeRole(user?.role) || normalizeRole(user?.permission));
   setNovaSenha('');
@@ -168,6 +168,7 @@ function EditUserModal({ theme, user }) {
                 onChange={(e) => setUserRole(e.target.value)}
                 >
                 <option value="" disabled>Selecione um perfil</option>
+                <option value="visualizador">Visualização (não atende)</option>
                 <option value="operacional">Operacional</option>
                 <option value="lider">Líder</option>
                 <option value="master">Master</option>

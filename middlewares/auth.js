@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const ACCESS_SECRET = () => process.env.JWT_SECRET;
 const REFRESH_SECRET = () => process.env.JWT_REFRESH_SECRET || `${process.env.JWT_SECRET}.refresh`;
 
-const ROLE_LEVEL = { operacional: 1, lider: 2, master: 3, tecnico: 4 };
+const ROLE_LEVEL = { visualizador: 0, operacional: 1, lider: 2, master: 3, tecnico: 4 };
 
 function auth(req, res, next) {
     const { token } = req.cookies || {};

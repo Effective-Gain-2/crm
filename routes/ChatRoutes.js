@@ -32,14 +32,15 @@ router.post('/setChat', verifyToken, setUserChatController);
 router.post('/getMessages', verifyToken, getMessagesController);
 router.post('/setQueue', verifyToken, updateQueueController);
 const { enforceSchema } = require('../middlewares/enforceSchema');
-router.post('/sendAudio', uploadAudio.single('audio'), verifyToken, enforceSchema, sendAudioController);
+const { blockAttendance } = require('../middlewares/blockAttendance');
+router.post('/sendAudio', uploadAudio.single('audio'), verifyToken, enforceSchema, blockAttendance, sendAudioController);
 router.post('/chat/processReceivedAudio', verifyToken, processReceivedAudio);
-router.post('/sendImage', uploadImage.single('image'), verifyToken, enforceSchema, sendImageController);
+router.post('/sendImage', uploadImage.single('image'), verifyToken, enforceSchema, blockAttendance, sendImageController);
 router.post('/setAsRead', verifyToken, setMessageAsReadController)
 router.post('/toggle-favorito', verifyToken, toggleFavoritoController)
 router.post('/close', verifyToken, closeChatContoller)
 router.post('/setUser', verifyToken, setSpecificUserController)
-router.post('/schedule-message', verifyToken, scheduleMessageController)
+router.post('/schedule-message', verifyToken, blockAttendance, scheduleMessageController)
 router.post('/disable-bot', verifyToken, disableBotController)
 router.post('/redistribute-waiting', verifyToken, redistributeWaitingChatsController)
 router.delete('/scheduled-message/:id/:schema', verifyToken, deleteScheduledMessageController)

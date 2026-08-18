@@ -293,6 +293,9 @@ function ChatPage({ theme, chat_id} ) {
   const mediaStreamRef = useRef(null);
   const messagesEndRef = useRef(null);
   const userData = JSON.parse(localStorage.getItem('user'));
+  // Perfil de visualização vê os leads/conversas mas não atende (não envia mensagem) —
+  // backend já bloqueia nas rotas de envio; aqui só evita o usuário tentar em vão.
+  const souVisualizador = userData?.role === 'visualizador';
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [audioChunks, setAudioChunks] = useState([]);
@@ -2476,8 +2479,8 @@ const handleImageUpload = async (event) => {
   <button
     id="imagem"
     className={`btn btn-2-${theme}`}
-    onClick={() => document.getElementById('imageInput').click()} 
-    disabled={!selectedChat}
+    onClick={() => document.getElementById('imageInput').click()}
+    disabled={!selectedChat || souVisualizador}
   >
     <i className="bi bi-image"></i>
   </button>
@@ -2711,7 +2714,7 @@ const handleImageUpload = async (event) => {
         ref={inputRef}
         className={`form-control input-${theme} d-flex flex-row gap-2 px-0 py-0`}
         type="text"
-        placeholder={isRecording ? '' : 'Digite sua mensagem...'}
+        placeholder={isRecording ? '' : souVisualizador ? 'Perfil de visualização — você não pode enviar mensagens' : 'Digite sua mensagem...'}
         value={isRecording ? '' : newMessage}
         onChange={e => {
           setNewMessage(e.target.value);
@@ -2744,7 +2747,7 @@ const handleImageUpload = async (event) => {
           backgroundColor: 'transparent',
           border: 'none',
         }}
-        disabled={!selectedChat}
+        disabled={!selectedChat || souVisualizador}
       />
       {isRecording && (
         <div
@@ -2791,7 +2794,7 @@ const handleImageUpload = async (event) => {
         color: isRecording ? 'var(--error-color)' : '',
         borderColor: isRecording ? 'var(--error-color)' : '',
       }}
-      disabled={!selectedChat}
+      disabled={!selectedChat || souVisualizador}
     >
       <i className={`bi ${isRecording ? 'bi-x' : 'bi-mic'}`}></i>
     </button>
@@ -2811,7 +2814,7 @@ const handleImageUpload = async (event) => {
           handleSendMessage();
         }
       }}
-      disabled={!selectedChat}
+      disabled={!selectedChat || souVisualizador}
     >
       <i className="bi bi-send"></i>
     </button>

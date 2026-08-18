@@ -36,8 +36,8 @@ const createReport = async(chat_id, gpt_response, status, schema)=>{
 }
 
 const getReports = async(schema, user_id, user_role)=>{
-    // operacional (legado 'user') → só os próprios relatórios
-    if(user_role === 'user' || user_role === 'operacional'){
+    // operacional (legado 'user') e visualizador → só os próprios relatórios
+    if(user_role === 'user' || user_role === 'operacional' || user_role === 'visualizador'){
         const result = await pool.query(`SELECT * FROM ${schema}.reports WHERE user_id=$1`, [user_id]);
         return result.rows;
     }

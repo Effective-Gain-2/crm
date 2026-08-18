@@ -112,6 +112,7 @@ function NewUserModal({ theme, type }) {
                 onChange={(e) => setUserRole(e.target.value)}
               >
                 <option value="" disabled>Selecione um perfil</option>
+                <option value="visualizador">Visualização — vê os leads/conversas, não atende</option>
                 <option value="operacional">Operacional — atende os próprios chats/leads</option>
                 <option value="lider">Líder — gerencia as filas que lidera</option>
                 <option value="master">Master — administra toda a empresa</option>
