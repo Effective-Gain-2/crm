@@ -191,6 +191,8 @@ function KanbanPage({ theme }) {
   const url = process.env.REACT_APP_URL;
   const [socketInstance] = useState(socket)
   const [leadSelecionado, setLeadSelecionado] = useState(null);
+  // O card e arrastavel: sem esta guarda, todo drag terminaria abrindo a conversa.
+  const arrastando = useRef(false);
   const [showImportarContatosModal, setShowImportarContatosModal] = useState(false);
   const [dropdownStates, setDropdownStates] = useState({});
   const dropdownRefs = useRef({});
@@ -624,7 +626,24 @@ useEffect(() => {
 
   const renderPage = () => {
   if (!leadSelecionado) return null;
-  return <ChatPage theme={theme} chat_id={leadSelecionado.id} />;
+  // A conversa abre COMPLETA (a mesma tela de Chats, onde da para responder) e nao
+  // no painel somente-leitura do Dashboard. A barra de voltar e obrigatoria: sem ela
+  // o operador entra na conversa pelo funil e nao tem como retornar.
+  return (
+    <div className="d-flex flex-column h-100 w-100" style={{ minHeight: 0 }}>
+      <div className={`d-flex align-items-center gap-2 px-3 py-2 border-bottom border-${theme}`} style={{ flex: '0 0 auto' }}>
+        <button className={`btn btn-sm btn-2-${theme}`} onClick={() => setLeadSelecionado(null)}>
+          <i className="bi bi-arrow-left me-2"></i>Voltar ao funil
+        </button>
+        <span className={`card-subtitle-${theme}`} style={{ fontSize: '0.85rem' }}>
+          {leadSelecionado.contact_name || maskPhone(leadSelecionado.number) || ''}
+        </span>
+      </div>
+      <div style={{ flex: '1 1 auto', minHeight: 0 }}>
+        <ChatPage theme={theme} chat_id={leadSelecionado.id} />
+      </div>
+    </div>
+  );
 };
 
   const handleDropdownToggle = useCallback((id, isOpen) => {
@@ -922,7 +941,11 @@ useEffect(() => {
                         .map(lead => (
                         <div key={lead.number} className={`kanban-card card-${theme} border border-${theme} mb-2 py-2 px-3`}
                           draggable
-                          onDragStart={() => onDragStart(lead)}
+                          onDragStart={() => { arrastando.current = true; onDragStart(lead); }}
+                          onDragEnd={() => { setTimeout(() => { arrastando.current = false; }, 150); }}
+                          title="Abrir conversa"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => { if (!arrastando.current) setLeadSelecionado(lead); }}
                         >
                           <div className="d-flex justify-content-between align-items-center mb-2">
                             <span className={`fw-bold header-text-${theme} me-1`} style={{ fontSize: '0.8rem' }}>{lead.contact_name}</span>
