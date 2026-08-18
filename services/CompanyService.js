@@ -2,6 +2,7 @@ const { Users } = require('../entities/Users');
 const { v4: uuidv4 } = require('uuid');
 const { createUser } = require('./UserService');
 const pool = require('../db/queries');
+const { SOURCE_CANONICAL } = require('../utils/normalizeSource');
 
 // Nome de schema permitido (minúsculo, começa com letra, só [a-z0-9_], até 41 chars).
 // Barreira contra SQL injection — schema é interpolado nas queries.
@@ -373,6 +374,62 @@ const ensureSchemaTables = async (schema) => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_${schema}_opp_funnel_stage ON ${schema}.opportunities (funnel, stage_id);`);
     // Normaliza funil para minúsculo (consistência com pg_tables/kanban_<sector>)
     await pool.query(`UPDATE ${schema}.opportunities SET funnel = lower(funnel) WHERE funnel <> lower(funnel);`);
+
+    // ---- Ingestão de leads externos (HubSpot, Meta, e o que vier depois) ----
+
+    // E-mail no contato: CRMs externos dedupam por e-mail, o nosso dedupa por telefone.
+    // Sem isso, lead que chega só com e-mail não tem como ser reconciliado depois.
+    // Índice único é PARCIAL e em lower(): vazio/NULL não conflita e "A@x.com" = "a@x.com".
+    await pool.query(`ALTER TABLE ${schema}.contacts ADD COLUMN IF NOT EXISTS email TEXT;`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_${schema}_contacts_email
+                        ON ${schema}.contacts (lower(email))
+                     WHERE email IS NOT NULL AND email <> '';`);
+
+    // Identidade externa da oportunidade. Genérico (provider + id) em vez de hubspot_id:
+    // o Meta também tem leadgen_id e hoje reprocessa duplicado pelo mesmo motivo.
+    // TEXT, não UUID — o id do HubSpot é numérico ("701"), o do Meta também.
+    await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS external_provider TEXT;`);
+    await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS external_id TEXT;`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_${schema}_opp_external
+                        ON ${schema}.opportunities (external_provider, external_id)
+                     WHERE external_id IS NOT NULL AND external_id <> '';`);
+
+    // Lead que chega só com e-mail não pode virar contato (contacts.number é a PK),
+    // mas também não pode ser descartado — fica na oportunidade até casar com um telefone.
+    await pool.query(`ALTER TABLE ${schema}.opportunities ADD COLUMN IF NOT EXISTS contact_email TEXT;`);
+
+    // Auditoria de webhooks: sem isto, um erro no processamento perde o lead sem rastro
+    // (o padrão atual responde 200 e processa depois). Guarda o payload cru para replay.
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.webhook_events (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            provider TEXT NOT NULL,
+            event_type TEXT,
+            external_id TEXT,
+            payload JSONB,
+            status TEXT NOT NULL DEFAULT 'pending',
+            error_message TEXT,
+            retry_count INTEGER NOT NULL DEFAULT 0,
+            received_at TIMESTAMP DEFAULT now(),
+            processed_at TIMESTAMP
+        );`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_${schema}_webhook_events_pending
+                        ON ${schema}.webhook_events (provider, status, received_at);`);
+    // Dedupe na porta de entrada: o HubSpot reenvia o mesmo evento em caso de timeout.
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_${schema}_webhook_events_event
+                        ON ${schema}.webhook_events (provider, event_type, external_id)
+                     WHERE external_id IS NOT NULL AND external_id <> '';`);
+
+    // Fonte canônica: "hubspot" e "HUBSPOT" viravam duas linhas na tela de Atribuição.
+    // Backfill por dicionário (preserva o rótulo legível) em vez de lower() geral,
+    // que transformaria "Meta ADs" em "meta ads" na tela do cliente.
+    await pool.query(`UPDATE ${schema}.opportunities SET source = trim(source) WHERE source <> trim(source);`);
+    for (const [key, label] of Object.entries(SOURCE_CANONICAL)) {
+        await pool.query(
+            `UPDATE ${schema}.opportunities SET source = $1 WHERE lower(trim(source)) = $2 AND source <> $1;`,
+            [label, key]
+        );
+    }
 
     // Regras de lead scoring (pontuação por atributo da oportunidade)
     await pool.query(`

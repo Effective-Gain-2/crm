@@ -241,13 +241,27 @@ function UsuariosPage({ theme }) {
         <h2 className={`mb-0 ms-3 header-text-${theme}`} style={{ fontWeight: 400 }}>Usuários</h2>
         
         <div className="input-group" style={{width: '40%'}}>
+          {/* type=search + autoComplete/name neutros: o Chrome reconhecia este campo como
+              e-mail e o AUTOPREENCHIA com o login do usuario. O filtro entrava sozinho e
+              a lista aparecia com uma linha so — parecia que os usuarios tinham sumido. */}
           <input
-            type="text"
+            type="search"
+            name="busca-usuarios"
+            autoComplete="off"
             className={`form-control input-${theme}`}
             placeholder="Pesquisar..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+          {searchTerm && (
+            <button
+              className={`btn btn-2-${theme}`}
+              title="Limpar busca"
+              onClick={() => setSearchTerm('')}
+            >
+              <i className="bi bi-x-lg"></i>
+            </button>
+          )}
           {canManageUsers && (
             <button 
               className={`btn btn-1-${theme}`} 

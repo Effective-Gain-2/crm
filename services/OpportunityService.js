@@ -1,20 +1,49 @@
 const pool = require('../db/queries');
 const { v4: uuidv4 } = require('uuid');
+const { normalizeSource } = require('../utils/normalizeSource');
+const { resolveLeadIdentity } = require('./LeadIdentityService');
 
 // Cria uma oportunidade no pipeline.
+//
+// external_provider + external_id (opcionais): identidade do lead no sistema de origem.
+// Quando informados, a criação vira idempotente — o HubSpot reenvia o mesmo evento em
+// caso de timeout e o Meta reprocessa o mesmo leadgen_id, e nenhum dos dois pode virar
+// card duplicado. Reenvio devolve a oportunidade que já existe, sem erro.
 const createOpportunity = async (
-    { contact_number, funnel, stage_id, title, source, value, owner_id, utm_source, utm_medium, utm_campaign, ad_id, campaign_name },
+    { contact_number, contact_email, funnel, stage_id, title, source, value, owner_id, utm_source, utm_medium, utm_campaign, ad_id, campaign_name, external_provider, external_id },
     schema
 ) => {
     const id = uuidv4();
+    // provider nunca fica NULL quando há id: NULL não conflita em índice único,
+    // e a idempotência sumiria justamente no caso que ela existe para cobrir.
+    const extProvider = external_id ? (external_provider || 'external') : null;
+    const extId = external_id || null;
+
     const result = await pool.query(
         `INSERT INTO ${schema}.opportunities
-            (id, contact_number, funnel, stage_id, title, source, value, owner_id, utm_source, utm_medium, utm_campaign, ad_id, campaign_name)
-         VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 0), $8, $9, $10, $11, $12, $13)
+            (id, contact_number, contact_email, funnel, stage_id, title, source, value, owner_id, utm_source, utm_medium, utm_campaign, ad_id, campaign_name, external_provider, external_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, 0), $9, $10, $11, $12, $13, $14, $15, $16)
+         ON CONFLICT (external_provider, external_id) WHERE external_id IS NOT NULL AND external_id <> ''
+         DO NOTHING
          RETURNING *`,
-        [id, contact_number || null, (funnel || '').toLowerCase(), stage_id || null, title || null, source || null, value, owner_id || null,
-         utm_source || null, utm_medium || null, utm_campaign || null, ad_id || null, campaign_name || null]
+        [id, contact_number || null, contact_email || null, (funnel || '').toLowerCase(), stage_id || null, title || null,
+         normalizeSource(source), value, owner_id || null,
+         utm_source || null, utm_medium || null, utm_campaign || null, ad_id || null, campaign_name || null,
+         extProvider, extId]
     );
+
+    // DO NOTHING não devolve linha: o lead já tinha sido processado. Busca o card
+    // existente para que o chamador receba sempre uma oportunidade válida.
+    if (!result.rows[0]) {
+        const existing = await pool.query(
+            `SELECT * FROM ${schema}.opportunities
+              WHERE external_provider IS NOT DISTINCT FROM $1 AND external_id = $2 LIMIT 1`,
+            [extProvider, extId]
+        );
+        if (existing.rows[0]) return { ...existing.rows[0], deduplicated: true };
+        throw new Error('Falha ao criar oportunidade');
+    }
+
     const opp = result.rows[0];
     // Relogio do lead: marca a ENTRADA nesta etapa (updated_at nao serve — muda em
     // qualquer edicao e faria o lead parecer trabalhado quando nao foi).
@@ -171,15 +200,16 @@ const importLeads = async ({ funnel, stages, leads }, schema) => {
     let imported = 0, skipped = 0;
     for (const lead of (leads || [])) {
         try {
-            const phone = (lead.phone || '').replace(/\D/g, '') || null;
             const stageId = stageIds[lead.stage] || null;
+            // Telefone continua sendo a chave; e-mail entra como identidade secundária
+            // (import do HubSpot traz lead sem telefone, que antes era descartado).
+            const { contact_number: phone, contact_email: email } = await resolveLeadIdentity(schema, {
+                phone: lead.phone,
+                email: lead.email,
+                name: lead.contact_name || lead.title,
+            });
 
             if (phone) {
-                await poolq.query(
-                    `INSERT INTO ${schema}.contacts (number, contact_name) VALUES ($1, $2)
-                     ON CONFLICT (number) DO UPDATE SET contact_name = COALESCE(NULLIF(EXCLUDED.contact_name, ''), ${schema}.contacts.contact_name)`,
-                    [phone, lead.contact_name || lead.title || '']
-                );
                 if (stageId) {
                     await poolq.query(`DELETE FROM ${schema}.contacts_stage WHERE contact_number = $1`, [phone]);
                     await poolq.query(
@@ -189,20 +219,38 @@ const importLeads = async ({ funnel, stages, leads }, schema) => {
                 }
             }
 
-            // idempotência: não duplica oportunidade com mesmo título+contato
-            const dup = await poolq.query(
-                `SELECT 1 FROM ${schema}.opportunities WHERE title = $1 AND contact_number IS NOT DISTINCT FROM $2 LIMIT 1`,
-                [lead.title || lead.contact_name || phone || 'Lead', phone]
-            );
-            if (dup.rows[0]) { skipped++; continue; }
+            const title = lead.title || lead.contact_name || phone || email || 'Lead';
+            const extId = lead.external_id || null;
+            const extProvider = extId ? (lead.external_provider || 'external') : null;
+
+            // Idempotência: quando o lead traz id de origem, ELE é a chave (o mesmo
+            // contato pode legitimamente ter dois negócios com o mesmo título).
+            // Sem id de origem, mantém o critério antigo título+contato.
+            if (extId) {
+                const dup = await poolq.query(
+                    `SELECT 1 FROM ${schema}.opportunities
+                      WHERE external_provider IS NOT DISTINCT FROM $1 AND external_id = $2 LIMIT 1`,
+                    [extProvider, extId]
+                );
+                if (dup.rows[0]) { skipped++; continue; }
+            } else {
+                const dup = await poolq.query(
+                    `SELECT 1 FROM ${schema}.opportunities WHERE title = $1 AND contact_number IS NOT DISTINCT FROM $2 LIMIT 1`,
+                    [title, phone]
+                );
+                if (dup.rows[0]) { skipped++; continue; }
+            }
 
             await poolq.query(
                 `INSERT INTO ${schema}.opportunities
-                    (contact_number, funnel, stage_id, title, source, value, status, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, COALESCE($6, 0), COALESCE($7, 'open'),
-                         COALESCE($8::timestamp, now()), COALESCE($9::timestamp, now()))`,
-                [phone, sector, stageId, lead.title || lead.contact_name || phone || 'Lead',
-                 lead.source || null, lead.value, lead.status, lead.created_at || null, lead.updated_at || null]
+                    (contact_number, contact_email, funnel, stage_id, title, source, value, status, created_at, updated_at, external_provider, external_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 0), COALESCE($8, 'open'),
+                         COALESCE($9::timestamp, now()), COALESCE($10::timestamp, now()), $11, $12)
+                 ON CONFLICT (external_provider, external_id) WHERE external_id IS NOT NULL AND external_id <> ''
+                 DO NOTHING`,
+                [phone, email, sector, stageId, title,
+                 normalizeSource(lead.source), lead.value, lead.status, lead.created_at || null, lead.updated_at || null,
+                 extProvider, extId]
             );
             imported++;
         } catch (e) {
