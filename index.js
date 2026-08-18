@@ -135,9 +135,25 @@ const roomAllowed = (socket, room) => {
 
 io.use(socketAuth);
 
-io.on('connection', (socket) => {
+// Presença: avisa a empresa inteira que alguém entrou/saiu, para os painéis
+// atualizarem TODOS ao mesmo tempo (antes cada tela só sabia do próprio estado).
+const emitirPresenca = (schema, userId, online) => {
+  io.to(`schema_${schema}`).emit('presencaAtualizada', { userId, online, ts: Date.now() });
+};
+
+io.on('connection', async (socket) => {
   socket.join(`schema_${socket.auth.schema}`);
   socket.join(`user_${socket.auth.local_user_id}`);
+
+  // Marca online já na CONEXÃO (handshake é autenticado). Antes dependia do
+  // cliente emitir 'user_login': se o evento se perdesse, o atendente ficava
+  // invisível para a distribuição automática e para o painel.
+  try {
+    await changeOnline(socket.auth.local_user_id, socket.auth.schema);
+    emitirPresenca(socket.auth.schema, socket.auth.local_user_id, true);
+  } catch (error) {
+    console.error('Erro ao marcar online na conexão:', error.message);
+  }
 
   socket.on('contatosImportados', (data) => {
     socket.broadcast.to(`schema_${socket.auth.schema}`).emit('contatosImportados', data);
@@ -146,6 +162,7 @@ io.on('connection', (socket) => {
   socket.on('user_login', async () => {
     try {
       await changeOnline(socket.auth.local_user_id, socket.auth.schema);
+      emitirPresenca(socket.auth.schema, socket.auth.local_user_id, true);
     } catch (error) {
       console.error('Erro ao marcar online:', error.message);
     }
@@ -162,6 +179,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', async () => {
     try {
       await changeOffline(socket.auth.local_user_id, socket.auth.schema);
+      emitirPresenca(socket.auth.schema, socket.auth.local_user_id, false);
     } catch (error) {
       console.error('Erro ao marcar offline:', error.message);
     }

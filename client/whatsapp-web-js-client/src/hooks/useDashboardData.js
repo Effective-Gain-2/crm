@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
+import { socket } from '../socket';
 
 const useDashboardData = (schema, url) => {
   const [data, setData] = useState({
@@ -203,6 +204,47 @@ const useDashboardData = (schema, url) => {
       fetchConnections();
     }
   }, [schema, url, fetchConnections]);
+
+  // ---- Painel AO VIVO ----
+  // Antes os dados eram buscados UMA vez, no mount: cada usuário ficava congelado
+  // no horário em que abriu a tela (dois operadores viam números e "Atualizado às"
+  // diferentes, sem nunca convergir). Agora o servidor avisa por socket e todos
+  // recarregam no MESMO evento; o intervalo é só rede de segurança.
+  const socketRef = useRef(null);
+  const recarregarRef = useRef(null);
+
+  recarregarRef.current = () => {
+    fetchBasicData();
+    fetchActiveChats();
+  };
+
+  useEffect(() => {
+    if (!schema || !url) return;
+    if (!socketRef.current) socketRef.current = socket();
+    const s = socketRef.current;
+
+    // Debounce: uma rajada de eventos (mensagens em sequência) vira uma recarga só
+    let timer = null;
+    const recarregar = () => {
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        if (recarregarRef.current) recarregarRef.current();
+      }, 1500);
+    };
+
+    const eventos = ['presencaAtualizada', 'chats_updated', 'chatRead', 'message', 'chatTransferred', 'removeChat'];
+    eventos.forEach((evento) => s.on(evento, recarregar));
+
+    // Rede de segurança: se algum evento se perder, o painel converge em 1 min
+    const intervalo = setInterval(() => recarregarRef.current && recarregarRef.current(), 60000);
+
+    return () => {
+      eventos.forEach((evento) => s.off(evento, recarregar));
+      if (timer) clearTimeout(timer);
+      clearInterval(intervalo);
+    };
+  }, [schema, url]);
 
   // Memoizar dados calculados
   const calculatedData = useMemo(() => {

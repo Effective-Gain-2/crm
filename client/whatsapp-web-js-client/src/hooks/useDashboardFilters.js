@@ -195,7 +195,11 @@ const useDashboardFilters = (data, selectedPeriod, selectedSector, selectedChann
 
   // Calcular Live Ops
   const liveOps = useMemo(() => {
-    const onlineUsers = data.users?.filter(u => u.online && u.permission === 'user').length || 0;
+    // ATENDE: papeis que de fato atendem. Era `permission === 'user'` — papel LEGADO
+    // que ninguem mais tem (hoje sao operacional/lider), entao o painel mostrava
+    // sempre 0 atendentes online mesmo com gente logada.
+    const ATENDE = ['user', 'operacional', 'lider'];
+    const onlineUsers = data.users?.filter(u => u.online && ATENDE.includes(String(u.permission || '').toLowerCase())).length || 0;
     const activeQueues = data.queues?.length || 0;
     
     return {

@@ -44,6 +44,9 @@ function NewDashboard({ theme }) {
   const [showChatModal, setShowChatModal] = useState(false);
   const [modalChatId, setModalChatId] = useState(null);
 
+  // Papeis que atendem (recebem lead). 'user' fica so por compatibilidade com base antiga.
+  const ATENDE_DASH = ['user', 'operacional', 'lider'];
+
   // Usar hooks personalizados
   const { data, loading, error, lastUpdate, calculatedData } = useDashboardData(schema, url);
   const { kpis, liveOps, performance, dailyVolume } = useDashboardFilters(
@@ -561,10 +564,10 @@ function NewDashboard({ theme }) {
                 </div>
                 <div className="d-flex align-items-center">
                   <h3 className={`header-text-${theme} mb-0 me-2`}>{liveOps.onlineUsers}</h3>
-                  <small className={`header-text-${theme}`}>/ {data.users?.filter(u => u.permission === 'user').length || 0}</small>
+                  <small className={`header-text-${theme}`}>/ {data.users?.filter(u => ATENDE_DASH.includes(String(u.permission || '').toLowerCase())).length || 0}</small>
                 </div>
                 <div className="mt-2">
-                  {data.users?.filter(u => u.online && u.permission === 'user').slice(0, 3).map(user => (
+                  {data.users?.filter(u => u.online && ATENDE_DASH.includes(String(u.permission || '').toLowerCase())).slice(0, 3).map(user => (
                     <span key={user.id} className="badge bg-success me-1">
                       {user.nome || user.username}
                     </span>
