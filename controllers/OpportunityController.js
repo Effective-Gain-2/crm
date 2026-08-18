@@ -47,6 +47,17 @@ const getOpportunitiesByStageController = async (req, res) => {
         const { stage_id, schema } = req.params;
         const { limit, offset } = req.query;
         const opportunities = await getOpportunitiesByStage(stage_id, schema, { limit, offset });
+        // Relogio do lead junto da lista: uma consulta so para o lote inteiro
+        // (buscar por card seria N+1 com centenas de leads por etapa).
+        try {
+            const { relogioDasOportunidades } = require('../services/LeadClockService');
+            const relogio = await relogioDasOportunidades(schema, opportunities.map((o) => o.id));
+            opportunities.forEach((o) => {
+                const r = relogio[o.id] || {};
+                o.etapa_desde = r.etapa_desde || null;
+                o.ultima_tratativa = r.ultima_tratativa || null;
+            });
+        } catch (e) { /* sem relogio a lista ainda funciona */ }
         res.status(200).json({ opportunities, limit: Number(limit) || 50, offset: Number(offset) || 0 });
     } catch (error) {
         console.error('Erro ao buscar oportunidades da etapa:', error);

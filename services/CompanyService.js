@@ -148,6 +148,34 @@ const ensureSchemaTables = async (schema) => {
         );`);
 
     await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.etapa_historico (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tipo TEXT NOT NULL,
+            ref_id UUID NOT NULL,
+            etapa_id UUID,
+            entrou_em TIMESTAMP NOT NULL DEFAULT now(),
+            movido_por UUID
+        );`);
+    // Relogio do lead. Sem isto, o unico dado disponivel era updated_at — que muda a
+    // cada edicao qualquer (corrigir telefone, mudar valor) e por isso mentiria sobre
+    // "ha quanto tempo este lead esta parado nesta etapa".
+    // tipo: 'oportunidade' (opportunities.stage_id) ou 'contato' (chats.etapa_id).
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_${schema}_etapa_hist_ref ON ${schema}.etapa_historico (tipo, ref_id, entrou_em DESC);`);
+
+    // Semente para o que ja existe: sem isso todo lead antigo apareceria "sem relogio".
+    // Usa created_at da oportunidade como entrada na etapa atual (aproximacao honesta:
+    // nao da para inventar quando ele entrou de fato, e assumir 'agora' seria pior).
+    await pool.query(`
+        INSERT INTO ${schema}.etapa_historico (tipo, ref_id, etapa_id, entrou_em)
+        SELECT 'oportunidade', o.id, o.stage_id, COALESCE(o.updated_at, o.created_at, now())
+          FROM ${schema}.opportunities o
+         WHERE o.stage_id IS NOT NULL
+           AND NOT EXISTS (
+                SELECT 1 FROM ${schema}.etapa_historico h
+                 WHERE h.tipo = 'oportunidade' AND h.ref_id = o.id
+           );`).catch((e) => console.error('semente etapa_historico:', e.message));
+
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.user_schedule (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id UUID NOT NULL REFERENCES ${schema}.users(id) ON DELETE CASCADE,

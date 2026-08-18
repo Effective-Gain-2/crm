@@ -176,7 +176,11 @@ const changeKanbanStage = async (chat_id, stage_id, schema) => {
     `UPDATE ${schema}.chats set etapa_id=$1 where id=$2`,
     [stage_id, chat_id]
   )
-
+  // Mesma marcacao de entrada em etapa do funil de oportunidades
+  try {
+    const { registrarEtapa } = require('./LeadClockService');
+    await registrarEtapa(schema, 'contato', chat_id, stage_id);
+  } catch (e) { /* relogio nao pode derrubar a movimentacao */ }
 }
 
 const updateStageName = async (etapa_id, etapa_nome, color, sector, schema) => {

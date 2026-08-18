@@ -5,6 +5,27 @@ import LembreteRapido from './modalPages/LembreteRapido';
 
 const url = process.env.REACT_APP_URL;
 
+// Relogio do lead: transforma data em "há 2h", "há 3d". Cor cresce com o abandono —
+// o objetivo e o operador BATER O OLHO e ver o que esta parado.
+const tempoDesde = (data) => {
+  if (!data) return null;
+  const ms = Date.now() - new Date(data).getTime();
+  if (ms < 0) return null;
+  const min = Math.floor(ms / 60000);
+  if (min < 60) return { texto: `há ${min}min`, horas: min / 60 };
+  const h = Math.floor(min / 60);
+  if (h < 24) return { texto: `há ${h}h`, horas: h };
+  const d = Math.floor(h / 24);
+  return { texto: `há ${d}d`, horas: h };
+};
+
+const corDoTempo = (horas) => {
+  if (horas === null || horas === undefined) return 'text-muted';
+  if (horas >= 72) return 'text-danger fw-semibold';
+  if (horas >= 24) return 'text-warning';
+  return 'text-muted';
+};
+
 const formatBRL = (v) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v || 0));
 
@@ -347,6 +368,27 @@ export default function Opportunities({ theme }) {
                         <small className="text-muted text-truncate">{o.owner_name}</small>
                       </div>
                     )}
+                    {/* Relogio do lead: tempo NESTA etapa e tempo desde a ultima tratativa
+                        (mover de etapa ou o atendente ter enviado mensagem). */}
+                    {(() => {
+                      const naEtapa = tempoDesde(o.etapa_desde);
+                      const semTratativa = tempoDesde(o.ultima_tratativa);
+                      if (!naEtapa && !semTratativa) return null;
+                      return (
+                        <div className="d-flex align-items-center gap-2 mt-1" style={{ fontSize: '0.72rem' }}>
+                          {naEtapa && (
+                            <span className="text-muted" title="Tempo nesta etapa">
+                              <i className="bi bi-hourglass-split me-1"></i>{naEtapa.texto}
+                            </span>
+                          )}
+                          {semTratativa && (
+                            <span className={corDoTempo(semTratativa.horas)} title="Desde a última tratativa (movimentação ou mensagem enviada)">
+                              <i className="bi bi-chat-left-dots me-1"></i>{semTratativa.texto}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <div className="d-flex justify-content-end mt-1">
                       <button
                         className="btn btn-sm btn-outline-warning py-0 px-1"

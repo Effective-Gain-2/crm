@@ -16,6 +16,12 @@ const createOpportunity = async (
          utm_source || null, utm_medium || null, utm_campaign || null, ad_id || null, campaign_name || null]
     );
     const opp = result.rows[0];
+    // Relogio do lead: marca a ENTRADA nesta etapa (updated_at nao serve — muda em
+    // qualquer edicao e faria o lead parecer trabalhado quando nao foi).
+    try {
+        const { registrarEtapa } = require('./LeadClockService');
+        await registrarEtapa(schema, 'oportunidade', id, stage_id);
+    } catch (e) { /* relogio nao pode derrubar a movimentacao */ }
     try {
         const { recomputeOpportunity } = require('./LeadScoreService');
         opp.score = await recomputeOpportunity(schema, opp);
