@@ -358,6 +358,12 @@ const ensureSchemaTables = async (schema) => {
             updated_at TIMESTAMP DEFAULT now()
         );`);
 
+    // Agente POR NUMERO: connection_id NULL = configuracao padrao da empresa, usada
+    // pelos numeros que nao tem agente proprio. Assim da para ter um robo so em um
+    // numero, robos diferentes por numero, ou nenhum robo nos demais.
+    await pool.query(`ALTER TABLE ${schema}.ai_agent_config ADD COLUMN IF NOT EXISTS connection_id TEXT;`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_${schema}_ai_agent_conn ON ${schema}.ai_agent_config (connection_id) WHERE connection_id IS NOT NULL;`);
+
     // Estado por conversa (contagem de mensagens do bot + hibernação no handoff)
     await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.ai_agent_sessions (

@@ -1,12 +1,17 @@
-const { getConfig, upsertConfig, addDocument, listDocuments, deleteDocument } = require('../services/AiAgentService');
+const { getConfig, listConfigs, upsertConfig, addDocument, listDocuments, deleteDocument } = require('../services/AiAgentService');
 
 const VALID_STATUS = ['disabled', 'suggestive', 'autopilot'];
 
 const getConfigController = async (req, res) => {
     try {
         const { schema } = req.params;
-        const config = await getConfig(schema);
-        res.status(200).json({ config });
+        // ?connection_id=<id> devolve o agente daquele numero (com fallback no padrao).
+        // Sem o parametro, devolve o padrao da empresa + a lista de todos os agentes,
+        // para a tela montar o seletor de numero.
+        const connectionId = req.query?.connection_id || null;
+        const config = await getConfig(schema, connectionId);
+        const configs = await listConfigs(schema).catch(() => []);
+        res.status(200).json({ config, configs });
     } catch (error) {
         console.error('Erro ao buscar config do agente:', error);
         res.status(500).json({ error: 'Erro ao buscar configuração do agente' });

@@ -33,17 +33,36 @@ export default function AiAgent({ theme }) {
   const [integrations, setIntegrations] = useState({ keys: [], usage: null, has_env_fallback: false });
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [savingKey, setSavingKey] = useState(false);
+  // Agente POR NUMERO: 'padrao' = configuracao da empresa, herdada por quem nao tem a sua
+  const [conexaoSel, setConexaoSel] = useState('padrao');
+  const [conexoes, setConexoes] = useState([]);
+  const [agentes, setAgentes] = useState([]);
 
   const load = useCallback(() => {
     if (!schema) return;
     setLoading(true);
+    const query = conexaoSel && conexaoSel !== 'padrao' ? `?connection_id=${encodeURIComponent(conexaoSel)}` : '';
     axios
-      .get(`${url}/ai-agent/config/${schema}`, { withCredentials: true })
+      .get(`${url}/ai-agent/config/${schema}${query}`, { withCredentials: true })
       .then((res) => {
-        if (res.data?.config) setForm({ ...empty, ...res.data.config });
+        setAgentes(Array.isArray(res.data?.configs) ? res.data.configs : []);
+        const cfg = res.data?.config;
+        // Numero ainda sem agente proprio: mostra o padrao herdado, mas zera o id para
+        // que salvar CRIE a config daquele numero em vez de sobrescrever o padrao.
+        const proprio = cfg && String(cfg.connection_id || '') === String(conexaoSel);
+        if (cfg) setForm({ ...empty, ...cfg, herdado: conexaoSel !== 'padrao' && !proprio });
+        else setForm({ ...empty });
       })
       .catch((e) => console.error('Erro ao carregar config do agente:', e))
       .finally(() => setLoading(false));
+  }, [schema, conexaoSel]);
+
+  const loadConexoes = useCallback(() => {
+    if (!schema) return;
+    axios
+      .get(`${url}/connection/get-all-connections/${schema}`, { withCredentials: true })
+      .then((res) => setConexoes(Array.isArray(res.data) ? res.data : (res.data?.connections || [])))
+      .catch(() => setConexoes([]));
   }, [schema]);
 
   const loadDocs = useCallback(() => {
@@ -66,7 +85,8 @@ export default function AiAgent({ theme }) {
     load();
     loadDocs();
     loadIntegrations();
-  }, [load, loadDocs, loadIntegrations]);
+    loadConexoes();
+  }, [load, loadDocs, loadIntegrations, loadConexoes]);
 
   const saveApiKey = async () => {
     if (!apiKeyInput.trim()) return;
@@ -122,6 +142,7 @@ export default function AiAgent({ theme }) {
     try {
       const payload = {
         schema,
+        connection_id: conexaoSel === 'padrao' ? null : conexaoSel,
         name: form.name,
         status: form.status,
         business_name: form.business_name,
@@ -165,7 +186,42 @@ export default function AiAgent({ theme }) {
           {saving ? 'Salvando…' : 'Salvar'}
         </button>
       </div>
-      <p className="text-muted mb-4">Configure o assistente que responde os leads no WhatsApp.</p>
+      <p className="text-muted mb-3">Configure o assistente que responde os leads no WhatsApp.</p>
+
+      {/* Seletor de NUMERO: cada conexao pode ter o seu proprio agente — ou nenhum.
+          'Padrao da empresa' vale para os numeros que nao tiverem agente proprio. */}
+      <div className="card p-3 mb-4" style={{ maxWidth: 900 }}>
+        <div className="d-flex align-items-center gap-3 flex-wrap">
+          <label className="mb-0 fw-semibold">
+            <i className="bi bi-whatsapp me-2"></i>Este agente atende:
+          </label>
+          <select
+            className="form-select"
+            style={{ maxWidth: 320 }}
+            value={conexaoSel}
+            onChange={(e) => setConexaoSel(e.target.value)}
+          >
+            <option value="padrao">Padrão da empresa (todos os números sem agente próprio)</option>
+            {conexoes.map((c) => {
+              const nome = String(c.name || '').includes('__') ? String(c.name).split('__').slice(1).join('__') : c.name;
+              const temProprio = agentes.some((a) => String(a.connection_id || '') === String(c.id));
+              return (
+                <option key={c.id} value={c.id}>
+                  {nome}{c.number ? ` · ${c.number}` : ''}{temProprio ? ' — agente próprio' : ' — usa o padrão'}
+                </option>
+              );
+            })}
+          </select>
+          {form.herdado && (
+            <span className="badge bg-secondary">
+              mostrando o padrão da empresa — salvar cria um agente só para este número
+            </span>
+          )}
+        </div>
+        <small className="text-muted mt-2">
+          Para um número ficar <strong>sem robô</strong>, selecione-o aqui e salve com o modo “Desativado”.
+        </small>
+      </div>
 
       {savedMsg && (
         <div className={`alert ${savedMsg.startsWith('Erro') ? 'alert-danger' : 'alert-success'} py-2`}>{savedMsg}</div>

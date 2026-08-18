@@ -7,18 +7,57 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const DEFAULT_CONFIG = { status: 'disabled', max_messages: 10, wait_seconds: 0, reactivate_seconds: 0 };
 
-// ---- Config (1 linha "principal" por tenant) ----
-const getConfig = async (schema) => {
-    const res = await pool.query(`SELECT * FROM ${schema}.ai_agent_config ORDER BY created_at ASC LIMIT 1`);
-    return res.rows[0] || null;
+// ---- Config POR NUMERO, com padrao da empresa como fallback ----
+// connection_id preenchido = agente daquele numero; NULL = padrao da empresa.
+// Numero sem agente proprio herda o padrao; se o padrao estiver 'disabled', aquele
+// numero simplesmente nao tem robo — que e o cenario pedido pelo Luiz.
+const getConfig = async (schema, connectionId = null) => {
+    if (connectionId) {
+        const doNumero = await pool.query(
+            `SELECT * FROM ${schema}.ai_agent_config WHERE connection_id = $1 LIMIT 1`, [String(connectionId)]
+        ).catch(() => ({ rows: [] }));
+        if (doNumero.rows[0]) return doNumero.rows[0];
+    }
+    const padrao = await pool.query(
+        `SELECT * FROM ${schema}.ai_agent_config WHERE connection_id IS NULL ORDER BY created_at ASC LIMIT 1`
+    ).catch(() => ({ rows: [] }));
+    if (padrao.rows[0]) return padrao.rows[0];
+    // Base antiga: a linha unica existente vira o padrao da empresa
+    const legado = await pool.query(`SELECT * FROM ${schema}.ai_agent_config ORDER BY created_at ASC LIMIT 1`);
+    return legado.rows[0] || null;
 };
 
+// Lista todas as configuracoes (padrao + por numero) para a tela
+const listConfigs = async (schema) => {
+    const res = await pool.query(`SELECT * FROM ${schema}.ai_agent_config ORDER BY connection_id NULLS FIRST, created_at ASC`);
+    return res.rows;
+};
+
+const CAMPOS_CONFIG = ['name', 'status', 'persona', 'business_name', 'knowledge_base', 'wait_seconds', 'max_messages', 'reactivate_seconds'];
+
+// Salva a config de UM numero (connection_id) ou a PADRAO da empresa (connection_id nulo).
 const upsertConfig = async (schema, fields) => {
-    const existing = await getConfig(schema);
-    const allowed = ['name', 'status', 'persona', 'business_name', 'knowledge_base', 'wait_seconds', 'max_messages', 'reactivate_seconds'];
+    const connectionId = fields.connection_id && fields.connection_id !== 'padrao'
+        ? String(fields.connection_id)
+        : null;
+
+    const busca = connectionId
+        ? await pool.query(`SELECT * FROM ${schema}.ai_agent_config WHERE connection_id = $1 LIMIT 1`, [connectionId]).catch(() => ({ rows: [] }))
+        : await pool.query(`SELECT * FROM ${schema}.ai_agent_config WHERE connection_id IS NULL ORDER BY created_at ASC LIMIT 1`).catch(() => ({ rows: [] }));
+
+    let existing = busca.rows[0] || null;
+
+    // Base antiga (linha unica criada antes do agente por numero): vira o padrao da empresa
+    if (!existing && !connectionId) {
+        const legado = await pool.query(`SELECT * FROM ${schema}.ai_agent_config ORDER BY created_at ASC LIMIT 1`);
+        existing = legado.rows[0] || null;
+    }
+
     if (!existing) {
-        const cols = allowed.filter((k) => fields[k] !== undefined);
+        const cols = CAMPOS_CONFIG.filter((k) => fields[k] !== undefined);
         const vals = cols.map((k) => fields[k]);
+        cols.push('connection_id');
+        vals.push(connectionId);
         const placeholders = cols.map((_, i) => `$${i + 1}`);
         const res = await pool.query(
             `INSERT INTO ${schema}.ai_agent_config (${cols.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *`,
@@ -26,10 +65,11 @@ const upsertConfig = async (schema, fields) => {
         );
         return res.rows[0];
     }
+
     const sets = [];
     const vals = [];
     let i = 1;
-    for (const k of allowed) {
+    for (const k of CAMPOS_CONFIG) {
         if (fields[k] !== undefined) {
             sets.push(`${k} = $${i++}`);
             vals.push(fields[k]);
@@ -169,7 +209,8 @@ const handleIncoming = async (schema, chat, number, instanceName, userText) => {
         const contactNumber = onlyDigits(number);
         if (!contactNumber || !userText) return;
 
-        const config = await getConfig(schema);
+        // Config do NUMERO por onde a mensagem entrou (cai no padrao da empresa se nao houver)
+        const config = await getConfig(schema, chat && chat.connection_id);
         if (!config || config.status !== 'autopilot') return;        // só responde em piloto automático
         if (chat && chat.isboton === false) return;                  // handoff manual (bot desligado no chat)
 
@@ -208,6 +249,7 @@ const handleIncoming = async (schema, chat, number, instanceName, userText) => {
 };
 
 module.exports = {
+    listConfigs,
     getConfig,
     upsertConfig,
     getSession,
