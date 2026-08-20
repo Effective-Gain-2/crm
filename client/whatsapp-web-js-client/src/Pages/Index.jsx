@@ -805,16 +805,18 @@
           </div>
           <div className="d-flex flex-column flex-grow-1" style={{ flex: 1, minWidth: 0 }}>
             {/* altura fixa em px: com 10% o cabeçalho encolhia/estourava conforme a tela */}
-            <div className={`header-${theme} ps-3 pe-4 d-flex align-items-center justify-content-between`} style={{ flex: '0 0 auto', minHeight: 64 }}>
+            <div className={`header-${theme} ps-3 pe-4 d-flex align-items-center justify-content-between`} style={{ flex: '0 0 auto', minHeight: 64, position: 'relative' }}>
               <button data-bs-toggle="tooltip" data-bs-placement="right" data-bs-title="Expandir/Retrair" id="toggleSidebar" className={`btn btn-3-${theme} p-1`} onClick={toggleSidebar}>
                 <i className={`bi ${isSidebarExpanded ? 'bi-arrow-bar-left' : 'bi-arrow-bar-right'}`}></i>
               </button>
-              <div id="header-title" className="d-flex flex-column align-items-center justify-content-start">
+              {/* Centralizado no header inteiro via position absolute — com justify-content-between,
+                  a largura desigual dos botões à esquerda/direita empurrava o título fora do centro real. */}
+              <div id="header-title" className="d-flex flex-column align-items-center justify-content-start" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none' }}>
                 <h4 className={`header-text-${theme} mb-0`}><span style={{ fontWeight: 400 }}>Bem vindo</span>, <span id="username">{username}</span></h4>
                 <h6 className={`header-text-${theme}`} style={{ fontWeight: 400 }}><span id="role">{role}</span> | <span id="empresa">{empresa}</span></h6>
               </div>
 
-              <div className="d-flex flex-row align-items-center gap-2">
+              <div className="d-flex flex-row align-items-center gap-2" style={{ marginLeft: 'auto' }}>
                 {meCompanies.length > 1 && (
                   <select
                     data-bs-toggle="tooltip"

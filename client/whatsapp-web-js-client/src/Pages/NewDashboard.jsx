@@ -580,9 +580,16 @@ function NewDashboard({ theme }) {
                     </button>
                   )}
                 </div>
-                <div className="mt-2 text-truncate">
+                {/* Faixa própria com scroll horizontal: badges são nomes de quem está online
+                    (não um botão) — antes o overflow:hidden do card cortava o texto no meio
+                    e parecia um botão verde sem rótulo. */}
+                <div className="mt-2 d-flex align-items-center" style={{ overflowX: 'auto', whiteSpace: 'nowrap' }}>
                   {data.users?.filter(u => u.online && ATENDE_DASH.includes(String(u.permission || '').toLowerCase())).slice(0, 3).map(user => (
-                    <span key={user.id} className="badge bg-success me-1">
+                    <span
+                      key={user.id}
+                      className="badge bg-success me-1"
+                      title={`${user.nome || user.username || user.name} está online`}
+                    >
                       {user.nome || user.username || user.name}
                     </span>
                   ))}

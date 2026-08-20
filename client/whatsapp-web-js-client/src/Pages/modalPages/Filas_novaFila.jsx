@@ -112,6 +112,13 @@ function NewQueueModal({ theme, superUsers = [] }) {
                 Distribuição automática
               </label>
             </div>
+            {autoDistribution && (
+              <small className={`d-block header-text-${theme}`} style={{ opacity: 0.75 }}>
+                Os leads são distribuídos em rodízio entre os membros da fila que estão
+                de jornada no dia e não foram inativados. Depois de salvar, adicione os
+                atendentes em <strong>Gerir filas</strong> — sem membros, ninguém recebe.
+              </small>
+            )}
           </div>
           <div className="modal-footer">
             <button
