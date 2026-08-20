@@ -233,6 +233,7 @@ app.use((req, res, next) => {
   if (PUBLIC_PATHS.has(key)) return next();
   if (req.path.startsWith('/webhook')) return requireEvolutionKey(req, res, next);
   if (req.path.startsWith('/meta-leads')) return next(); // valida HMAC internamente
+  if (req.path.startsWith('/hubspot-leads')) return next(); // valida assinatura/bearer internamente
   return auth(req, res, () => enforceSchema(req, res, next));
 });
 
