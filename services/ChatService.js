@@ -186,6 +186,18 @@ const createChat = async (chat, instance, message, etapa, io) => {
       await setChatQueue(schema, result.rows[0].id)
     }
 
+    // Grupo não é lead (mesma regra da distribuição automática) — não entra no funil.
+    if (!chat.getIsGroup()) {
+      const { createOpportunityFromWhatsApp } = require('./OpportunityService');
+      createOpportunityFromWhatsApp(schema, { contact_number: contactNumber, title: contactName })
+        .then((opp) => {
+          if (opp && !opp.deduplicated && global.socketIoServer) {
+            global.socketIoServer.to(`schema_${schema}`).emit('opportunityCreated', { schema, opportunity: opp });
+          }
+        })
+        .catch((e) => console.error('createOpportunityFromWhatsApp (chat novo):', e.message));
+    }
+
     if (io) {
       io.to(schema).emit("chat:new-message", {
         chatId: chat.getChatId(),

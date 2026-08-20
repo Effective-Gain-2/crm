@@ -260,9 +260,49 @@ const importLeads = async ({ funnel, stages, leads }, schema) => {
     return { imported, skipped, stages: Object.keys(stageIds).length };
 };
 
+// Toda conversa NOVA do WhatsApp (não vinda de Meta Ads/HubSpot) também entra no funil —
+// senão o contato só existe em Chats e nunca aparece como lead em Oportunidades/Kanban.
+// Não duplica: se o contato já tem oportunidade aberta neste funil, não cria outra.
+// Se o funil ainda não tem etapas configuradas nesta empresa, não cria card órfão sem etapa.
+const WHATSAPP_LEAD_FUNNEL = 'vendas';
+const WHATSAPP_LEAD_STAGE = 'Novo Lead';
+
+const createOpportunityFromWhatsApp = async (schema, { contact_number, title }) => {
+    if (!contact_number) return null;
+    try {
+        const existing = await pool.query(
+            `SELECT id FROM ${schema}.opportunities WHERE funnel = $1 AND contact_number = $2 LIMIT 1`,
+            [WHATSAPP_LEAD_FUNNEL, contact_number]
+        );
+        if (existing.rows[0]) return null;
+
+        const byName = await pool.query(
+            `SELECT id FROM ${schema}.kanban_${WHATSAPP_LEAD_FUNNEL} WHERE LOWER(etapa) = LOWER($1) LIMIT 1`,
+            [WHATSAPP_LEAD_STAGE]
+        ).catch(() => ({ rows: [] }));
+        let stageId = byName.rows[0]?.id;
+        if (!stageId) {
+            const first = await pool.query(
+                `SELECT id FROM ${schema}.kanban_${WHATSAPP_LEAD_FUNNEL} ORDER BY pos ASC NULLS LAST LIMIT 1`
+            ).catch(() => ({ rows: [] }));
+            stageId = first.rows[0]?.id;
+        }
+        if (!stageId) return null;
+
+        return await createOpportunity(
+            { contact_number, funnel: WHATSAPP_LEAD_FUNNEL, stage_id: stageId, title: title || contact_number, source: 'WhatsApp', value: 0 },
+            schema
+        );
+    } catch (e) {
+        console.error('createOpportunityFromWhatsApp:', e.message);
+        return null;
+    }
+};
+
 module.exports = {
     importLeads,
     createOpportunity,
+    createOpportunityFromWhatsApp,
     getOpportunitiesByFunnel,
     getOpportunitiesByStage,
     getOpportunityById,
