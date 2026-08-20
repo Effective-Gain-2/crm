@@ -643,14 +643,14 @@ const createCompany = async (company, schema) => {
     const superAdminId = uuidv4();
     const superAdminData = company.superAdmin;
 
-    // Verifica se o schema já existe
-    const schemaExists = await pool.query(`
-        SELECT schema_name
-        FROM information_schema.schemata
-        WHERE schema_name = $1
-    `, [schema]);
-
-    const isNewSchema = schemaExists.rows.length === 0;
+    // Fonte de verdade é effective_gain.companies, não information_schema: uma tentativa
+    // anterior pode ter criado o schema/tabelas e falhado antes do INSERT em companies,
+    // deixando um schema órfão que information_schema veria como "já existente".
+    const companyExists = await pool.query(
+        `SELECT id FROM effective_gain.companies WHERE schema_name = $1`,
+        [schema]
+    );
+    const isNewSchema = companyExists.rows.length === 0;
 
     await pool.query(`CREATE SCHEMA IF NOT EXISTS ${schema}`);
     await ensureSchemaTables(schema);
