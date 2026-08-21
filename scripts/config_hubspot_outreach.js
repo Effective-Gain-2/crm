@@ -13,7 +13,7 @@
 const crypto = require('crypto');
 const pool = require('../db/queries');
 const { setSetting, getSetting } = require('../services/IntegrationService');
-const { DEFAULT_TEMPLATE } = require('../services/LeadOutreachService');
+const { MESSAGE_VARIANTS } = require('../services/LeadOutreachService');
 
 const SCHEMA_RE = /^[a-z][a-z0-9_]{1,40}$/;
 
@@ -54,7 +54,8 @@ async function main() {
         await setSetting(schema, 'welcome_instance', conn.name, 'config-script');
         await setSetting(schema, 'welcome_atendente', atendente, 'config-script');
         await setSetting(schema, 'welcome_unidade', unidade, 'config-script');
-        await setSetting(schema, 'welcome_template', DEFAULT_TEMPLATE, 'config-script');
+        // 5 variações do primeiro contato (rotacionadas por lead — anti-repetição).
+        await setSetting(schema, 'welcome_templates', JSON.stringify(MESSAGE_VARIANTS), 'config-script');
 
         // Token que o coletor usa para autenticar o POST /hubspot-leads/:schema.
         // Gera uma vez e reaproveita — não sobrescreve se já existir.
@@ -68,7 +69,8 @@ async function main() {
         console.log('  welcome_instance :', conn.name, `(número ${conn.number}, status ${conn.status})`);
         console.log('  welcome_atendente:', atendente);
         console.log('  welcome_unidade  :', unidade);
-        console.log('  welcome_template : (mensagem B padrão)');
+        console.log('  welcome_templates:', MESSAGE_VARIANTS.length, 'variações (rotação por lead)');
+        console.log('  welcome_media_urls: (vazio — suba as logos aqui p/ sair imagem+legenda)');
         console.log('\n  Token do coletor (coloque em CRM_PUSH_TOKEN no .env do coletor):');
         console.log('  CRM_PUSH_TOKEN=' + pushToken);
 
