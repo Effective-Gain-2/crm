@@ -48,7 +48,9 @@ async function main() {
 
     const atendente = process.env.WELCOME_ATENDENTE || 'Hiago';
     const unidade = process.env.WELCOME_UNIDADE || 'Nova Iguaçu';
-    const unitPhone = process.env.WELCOME_PHONE || ''; // telefone da unidade no corpo (fallback anti-ban)
+    const unitPhone = process.env.WELCOME_PHONE || '';     // WhatsApp da unidade (fallback anti-ban)
+    const unitAddress = process.env.WELCOME_ADDRESS
+        || 'R. Cel. Bernardino de Melo, 2201 - Centro, Nova Iguaçu - RJ, 26255-140'; // atendimento presencial
 
     try {
         const conn = await pickConnection(schema);
@@ -56,8 +58,9 @@ async function main() {
         await setSetting(schema, 'welcome_instance', conn.name, 'config-script');
         await setSetting(schema, 'welcome_atendente', atendente, 'config-script');
         await setSetting(schema, 'welcome_unidade', unidade, 'config-script');
-        // Telefone da unidade no corpo de toda mensagem (fallback clicável se o número banir).
+        // Rodapé fixo de toda mensagem: WhatsApp da unidade (fallback anti-ban) + endereço presencial.
         if (unitPhone) await setSetting(schema, 'welcome_unit_phone', unitPhone, 'config-script');
+        await setSetting(schema, 'welcome_unit_address', unitAddress, 'config-script');
 
         // 3 categorias de mensagem (todas com nome + telefone da unidade).
         await setSetting(schema, 'welcome_templates', JSON.stringify(CATALOG.welcome), 'config-script');
@@ -77,6 +80,7 @@ async function main() {
         console.log('  welcome_atendente:', atendente);
         console.log('  welcome_unidade  :', unidade);
         console.log('  welcome_unit_phone:', unitPhone || '(VAZIO — passe WELCOME_PHONE p/ o fallback anti-ban)');
+        console.log('  welcome_unit_address:', unitAddress);
         console.log('  welcome_templates :', CATALOG.welcome.length, 'variações (boas-vindas)');
         console.log('  birthday_templates:', CATALOG.birthday.length, 'variações (aniversário)');
         console.log('  relationship_templates:', CATALOG.relationship.length, 'variações (relacionamento)');

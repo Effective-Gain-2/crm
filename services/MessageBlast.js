@@ -5,6 +5,7 @@ const { searchConnById } = require('./ConnectionService');
 const { Message } = require('../entities/Message');
 const { getCurrentTimestamp } = require('./getCurrentTimestamp');
 const { saveMessage } = require('./MessageService');
+const { primeiroNome } = require('./MessageTemplates');
 
 const replacePlaceholders = async (message, number, schema) => {
   try {
@@ -18,6 +19,17 @@ const replacePlaceholders = async (message, number, schema) => {
 
     for (const placeholder of placeholders) {
       const key = placeholder.replace(/{{\s*|\s*}}/g, '');
+
+      // Token especial: {{primeiro_nome}} = só o primeiro nome, capitalizado
+      // ("MARIA DE FATIMA" -> "Maria"). Lê de contact_name, não de uma coluna homônima.
+      if (key === 'primeiro_nome') {
+        const r = await pool.query(
+          `SELECT contact_name FROM ${schema}.contacts WHERE number = $1`, [number]
+        );
+        const nome = r.rows[0] && r.rows[0].contact_name;
+        updatedMessage = updatedMessage.replace(placeholder, nome ? primeiroNome(nome) : '');
+        continue;
+      }
 
       const result = await pool.query(
         `SELECT ${key} FROM ${schema}.contacts WHERE number = $1`,
