@@ -66,7 +66,8 @@ const enviarPrimeiroContato = async (schema, opp) => {
     const instancia = await getSetting(schema, 'welcome_instance');
     const atendente = await getSetting(schema, 'welcome_atendente');
     const unidade = await getSetting(schema, 'welcome_unidade');
-    const telefone = await getSetting(schema, 'welcome_unit_phone'); // fallback anti-ban no corpo
+    const telefone = await getSetting(schema, 'welcome_unit_phone');   // fallback anti-ban (WhatsApp)
+    const endereco = await getSetting(schema, 'welcome_unit_address'); // atendimento presencial
 
     if (!instancia) {
         await pool.query(
@@ -79,7 +80,7 @@ const enviarPrimeiroContato = async (schema, opp) => {
     const variacoes = await carregarVariacoes(schema);
     const midias = await carregarMidias(schema);
     const idx = variantIndex(opp.external_id || opp.id, variacoes.length);
-    const texto = renderMessage(variacoes[idx], { nome: opp.title, atendente, unidade, telefone });
+    const texto = renderMessage(variacoes[idx], { nome: opp.title, atendente, unidade, telefone, endereco });
     const logo = midias[idx] || null;
 
     const r = logo
