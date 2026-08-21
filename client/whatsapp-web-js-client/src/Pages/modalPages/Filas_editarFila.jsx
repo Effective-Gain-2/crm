@@ -1,12 +1,16 @@
 import axios from 'axios';
 import React, { useState, useEffect } from 'react';
+import * as bootstrap from 'bootstrap';
+import { useToast } from '../../contexts/ToastContext';
 
-function EditQueueModal({ theme, fila }) {
+function EditQueueModal({ theme, fila, onQueueUpdated }) {
   const [title, setTitle] = useState('');
   const [superUser, setSuperUser] = useState('');
   const [users, setUser] = useState([]);
   const [autoDistribution, setAutoDistribution] = useState(false);
-  const userData = JSON.parse(localStorage.getItem('user')); 
+  const [isSaving, setIsSaving] = useState(false);
+  const { showError, showSuccess } = useToast();
+  const userData = JSON.parse(localStorage.getItem('user'));
   const schema = userData?.schema;
 
   useEffect(() => {
@@ -33,28 +37,41 @@ function EditQueueModal({ theme, fila }) {
   }, [schema]);
 
   const handleSave = async () => {
-    if (!title || !superUser) {
-      console.error('Preencha todos os campos obrigatórios.');
+    // Só o título é obrigatório: superuser é nullable (ON DELETE SET NULL), então uma fila
+    // cujo líder foi removido volta com o select vazio e precisa continuar editável.
+    if (!title.trim()) {
+      showError('Informe o título da fila.');
+      return;
+    }
+    if (!fila?.id) {
+      showError('Nenhuma fila selecionada.');
       return;
     }
 
+    setIsSaving(true);
     try {
       const response = await axios.put(`${process.env.REACT_APP_URL}/queue/update-queue`, {
         queueId: fila.id,
-        name: title,
-        super_user: superUser,
+        name: title.trim(),
+        super_user: superUser || null,
         distribution: autoDistribution,
         schema: schema,
       }, {
         withCredentials: true
       });
 
-      if (response.data.success) {
-        // Recarregar a página para atualizar os dados
-        window.location.reload();
+      if (response.data?.success) {
+        showSuccess('Fila atualizada com sucesso.');
+        if (typeof onQueueUpdated === 'function') {
+          onQueueUpdated(response.data.result);
+        }
+        bootstrap.Modal.getInstance(document.getElementById('EditQueueModal'))?.hide();
       }
     } catch (error) {
+      // O interceptor global do axios já exibe o toast com a mensagem devolvida pela API.
       console.error('Erro ao atualizar a fila:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -96,8 +113,8 @@ function EditQueueModal({ theme, fila }) {
                 value={superUser}
                 onChange={(e) => setSuperUser(e.target.value)}
               >
-                <option value="" disabled>
-                  Escolha um usuário
+                <option value="">
+                  Nenhum
                 </option>
                 {users.map((user) => (
                   <option key={user.id} value={user.id}>
@@ -133,8 +150,9 @@ function EditQueueModal({ theme, fila }) {
               type="button"
               className={`btn btn-1-${theme}`}
               onClick={handleSave}
+              disabled={isSaving}
             >
-              Atualizar Fila
+              {isSaving ? 'Salvando...' : 'Atualizar Fila'}
             </button>
           </div>
         </div>
