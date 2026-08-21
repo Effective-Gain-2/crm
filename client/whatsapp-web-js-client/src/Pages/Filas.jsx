@@ -6,13 +6,17 @@ import DeleteQueueModal from './modalPages/Filas_delete';
 import FilasWebhookModal from './modalPages/Filas_webhook';
 import {socket} from '../socket'
 import EditQueueModal from './modalPages/Filas_editarFila';
+import FilasAtendentesModal from './modalPages/Filas_atendentes';
 
 function FilaPage({ theme }) {
   const [filas, setFilas] = useState([]);
-  const [fila, setFila] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [showWebhookModal, setShowWebhookModal] = useState(false);
+  const [showAtendentesModal, setShowAtendentesModal] = useState(false);
   const [selectedFila, setSelectedFila] = useState(null);
+  // queueId -> nº de atendentes. Sem isso, uma fila com distribuição automática e zero
+  // membros parece configurada e manda todo chat para espera em silêncio.
+  const [contagemAtendentes, setContagemAtendentes] = useState({});
   const userData = JSON.parse(localStorage.getItem('user'));
   const [socketInstance] = useState(socket)  
   const schema = userData?.schema;
@@ -43,7 +47,19 @@ function FilaPage({ theme }) {
         {
       withCredentials: true
     });
-      setFilas(response.data.result || []);
+      const lista = response.data.result || [];
+      setFilas(lista);
+
+      // Contagem de atendentes por fila, para o card avisar quando a fila está vazia.
+      const contagens = await Promise.all(lista.map(async (f) => {
+        try {
+          const r = await axios.get(`${url}/queue/get-users-in-queue/${f.id}/${schema}`, { withCredentials: true });
+          return [f.id, (r.data.data || []).length];
+        } catch (e) {
+          return [f.id, null];
+        }
+      }));
+      setContagemAtendentes(Object.fromEntries(contagens));
     } catch (error) {
       console.error('Erro ao buscar filas:', error);
     }
@@ -99,6 +115,10 @@ useEffect(() => {
     setFilas(prevFilas => prevFilas.filter(fila => fila.id !== queueId));
   };
 
+  const handleAtendentesSalvos = (filaId, total) => {
+    setContagemAtendentes(prev => ({ ...prev, [filaId]: total }));
+  };
+
   return (
     <div className="h-100 w-100 mx-2 pt-3">
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -132,9 +152,25 @@ useEffect(() => {
                   <h6 className={`card-title mb-2 header-text-${theme}`} style={{ fontSize: '0.9rem' }}>
                     {fila.name}
                   </h6>
-                  <small className={`card-subtitle-${theme}`}>
+                  <small className={`card-subtitle-${theme} d-block`}>
                     {fila.distribution ? 'Distribuição automática' : 'Distribuição manual'}
                   </small>
+                  {contagemAtendentes[fila.id] != null && (
+                    <small className={`card-subtitle-${theme} d-block`} style={{ fontSize: '0.75rem' }}>
+                      {contagemAtendentes[fila.id]} atendente{contagemAtendentes[fila.id] === 1 ? '' : 's'}
+                    </small>
+                  )}
+                  {fila.distribution && contagemAtendentes[fila.id] === 0 && (
+                    <small
+                      className="d-block text-warning"
+                      style={{ fontSize: '0.75rem' }}
+                      data-bs-toggle="tooltip"
+                      title="Distribuição automática ligada sem nenhum atendente: todo chat desta fila vai para espera."
+                    >
+                      <i className="bi bi-exclamation-triangle-fill me-1"></i>
+                      Sem atendentes
+                    </small>
+                  )}
                 </div>
                 
                 <div className="d-flex gap-1 mt-2 justify-content-center">
@@ -154,6 +190,18 @@ useEffect(() => {
                   <button
                     className={`btn btn-sm btn-2-${theme}`}
                     data-bs-toggle="tooltip"
+                    title="Atendentes"
+                    onClick={() => {
+                      setSelectedFila(fila);
+                      setShowAtendentesModal(true);
+                    }}
+                  >
+                    <i className="bi bi-people-fill" style={{ fontSize: '0.8rem' }}></i>
+                  </button>
+
+                  <button
+                    className={`btn btn-sm btn-2-${theme}`}
+                    data-bs-toggle="tooltip"
                     title="Webhook"
                     onClick={() => {
                       setSelectedFila(fila);
@@ -168,9 +216,9 @@ useEffect(() => {
                     data-bs-toggle="tooltip"
                     title="Excluir"
                     onClick={() => {
+                      setSelectedFila(fila);
                       const modal = new bootstrap.Modal(document.getElementById('DeleteQueueModal'));
                       modal.show();
-                      setFila(fila)
                     }}
                   >
                     <i className="bi bi-trash-fill" style={{ fontSize: '0.8rem' }}></i>
@@ -184,9 +232,19 @@ useEffect(() => {
 
       <div>
         <NewQueueModal theme={theme}/>
-                 <DeleteQueueModal theme={theme} fila={fila} onQueueDeleted={handleQueueDeleted}/>
+                 <DeleteQueueModal theme={theme} fila={selectedFila} onQueueDeleted={handleQueueDeleted}/>
         <EditQueueModal theme={theme} fila={selectedFila} onQueueUpdated={handleQueueUpdated}/>
       </div>
+
+      {showAtendentesModal && selectedFila && (
+        <FilasAtendentesModal
+          theme={theme}
+          show={showAtendentesModal}
+          onHide={() => setShowAtendentesModal(false)}
+          fila={selectedFila}
+          onSave={handleAtendentesSalvos}
+        />
+      )}
 
       {showWebhookModal && selectedFila && (
         <FilasWebhookModal 

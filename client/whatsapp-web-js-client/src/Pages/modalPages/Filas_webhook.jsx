@@ -47,7 +47,11 @@ function FilasWebhookModal({ theme, show, onHide, fila, onSave }) {
       }
     } catch (error) {
       console.error('Erro ao salvar webhook:', error);
-      showError('Erro ao salvar webhook. Tente novamente.');
+      // O interceptor global já exibe a mensagem da API (ex.: "Webhook recusado: Host
+      // aponta para endereço interno"); o genérico só entra quando não veio nenhuma.
+      if (!error.response?.data?.error) {
+        showError('Erro ao salvar webhook. Tente novamente.');
+      }
     } finally {
       setIsLoading(false);
     }

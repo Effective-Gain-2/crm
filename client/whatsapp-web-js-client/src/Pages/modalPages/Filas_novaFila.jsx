@@ -1,11 +1,15 @@
 import axios from 'axios';
 import React, { useState, useEffect } from 'react';
+import * as bootstrap from 'bootstrap';
+import { useToast } from '../../contexts/ToastContext';
 
 function NewQueueModal({ theme, superUsers = [] }) {
   const [title, setTitle] = useState('');
   const [superUser, setSuperUser] = useState('');
   const [users, setUser] = useState([]);
   const [autoDistribution, setAutoDistribution] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { showError, showSuccess } = useToast();
   const userData = JSON.parse(localStorage.getItem('user')); 
   const schema = userData?.schema
 
@@ -23,17 +27,21 @@ function NewQueueModal({ theme, superUsers = [] }) {
     };
 
     fetchUsuarios();
-  }, []);
+  }, [schema]);
 
   const handleSave = async () => {
-    if (!title || !superUser) {
-      console.error('Preencha todos os campos obrigatórios.');
+    // Só o título é obrigatório: superuser é nullable (ON DELETE SET NULL), então uma fila
+    // pode nascer sem líder e ganhar um depois.
+    if (!title.trim()) {
+      showError('Informe o título da fila.');
       return;
     }
+
+    setIsSaving(true);
     try{
-      const response = await axios.post(`${process.env.REACT_APP_URL}/queue/create-queue`,{
-        name: title,
-        super_user: superUser,
+      await axios.post(`${process.env.REACT_APP_URL}/queue/create-queue`,{
+        name: title.trim(),
+        super_user: superUser || null,
         schema: schema,
         distribution: autoDistribution,
       },
@@ -41,12 +49,18 @@ function NewQueueModal({ theme, superUsers = [] }) {
       withCredentials: true
     })
     }catch(error){
+      // O interceptor global do axios já exibe o toast com a mensagem devolvida pela API
+      // (nome duplicado vira 409 "Já existe uma fila com esse nome").
       console.error('Erro ao salvar a fila:', error);
       return;
+    }finally{
+      setIsSaving(false);
     }
+    showSuccess('Fila criada com sucesso.');
     setTitle('');
     setSuperUser('');
     setAutoDistribution(false);
+    bootstrap.Modal.getInstance(document.getElementById('NewQueueModal'))?.hide();
   };
 
   return (
@@ -87,8 +101,8 @@ function NewQueueModal({ theme, superUsers = [] }) {
                 value={superUser}
                 onChange={(e) => setSuperUser(e.target.value)}
               >
-                <option value="" disabled>
-                  Escolha um usuário
+                <option value="">
+                  Nenhum
                 </option>
                 {users.map((user) => (
                   <option key={user.id} value={user.id}>
@@ -132,8 +146,9 @@ function NewQueueModal({ theme, superUsers = [] }) {
               type="button"
               className={`btn btn-1-${theme}`}
               onClick={handleSave}
+              disabled={isSaving}
             >
-              Salvar Fila
+              {isSaving ? 'Salvando...' : 'Salvar Fila'}
             </button>
           </div>
         </div>

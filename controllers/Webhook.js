@@ -17,6 +17,7 @@ const express = require('express');
 const createRedisConnection = require('../config/Redis');
 const { Queue, Worker } = require('bullmq');
 const { getQueueById } = require('../services/QueueService');
+const { dispararWebhookDaFila } = require('../services/QueueWebhookService');
 const { setConnectionStatusByName } = require('../services/ConnectionService');
 const { isValidSchema } = require('../utils/validateSchema');
 
@@ -623,6 +624,14 @@ module.exports = (broadcastMessage) => {
 
   const chatQueue = new Queue('chat', {connection: bullConn });
 
+  // Disparo do webhook da fila fora do caminho da Evolution: uma URL de terceiro
+  // lenta não pode atrasar a resposta do handler de mensagens.
+  const filaWebhookQueue = new Queue('fila-webhook', { connection: bullConn });
+
+  new Worker('fila-webhook', async (job) => {
+    await dispararWebhookDaFila(job.data.webhookUrl, job.data.payload);
+  }, { connection: bullConn });
+
   new Worker('chat', async(job)=>{
     try{
       if(job.data.chatId){
@@ -1061,13 +1070,15 @@ module.exports = (broadcastMessage) => {
       };
 
       const queueById = chatDb.queue_id ? await getQueueById(chatDb.queue_id, schema) : [];
+      const fila = queueById[0];
 
-      if(queueById[0] && queueById[0].is_webhook_on === true && queueById[0].webhook_url !== null){
-        try {
-          await axios.post(queueById[0].webhook_url, data)
-        } catch (error) {
-          console.error(error);
-        }
+      // webhook_url vazio ('') contava como configurado no teste !== null.
+      if (fila?.is_webhook_on === true && fila.webhook_url) {
+        await filaWebhookQueue.add(
+          'disparo',
+          { webhookUrl: fila.webhook_url, payload: data },
+          { removeOnComplete: true, attempts: 3, backoff: { type: 'exponential', delay: 2000 } }
+        );
       }
 
 

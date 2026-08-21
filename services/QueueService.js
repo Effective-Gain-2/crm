@@ -15,35 +15,6 @@ const createQueue=async(queue, super_user, distribution, schema)=>{
     return result.rows[0]
 };
 
-const addUserinQueue = async (username, queue, schema) => {
-    const usuario = await pool.query(
-        `SELECT * FROM ${schema}.users WHERE name=$1`,
-        [username]
-    );
-    
-    const userData = usuario.rows[0];
-
-    if (!userData) {
-        console.log("Usuário não encontrado.");
-        return;
-    }
-
-    const queueExist = await pool.query(
-        `SELECT * FROM ${schema}.queues WHERE name=$1`,
-        [queue]
-    )
-    
-    if (queueExist.rowCount > 0) {
-        const result = await pool.query(
-            `INSERT INTO ${schema}.queue_users (user_id, queue_id) VALUES ($1, $2)
-     ON CONFLICT DO NOTHING`, [userData.id, queueExist.rows[0].id] 
-        )
-        return result.rows[0];
-    } else {
-        console.log('Fila não encontrada');
-    }
-};
-
 const getUserQueues = async(user_id, schema)=>{
     const queue = await pool.query(
         `SELECT * FROM ${schema}.queue_users where user_id=$1`,[user_id]
@@ -122,6 +93,34 @@ const updateUserQueues = async (userId, queueIds, schema) => {
   }
 };
 
+// Simétrico ao updateUserQueues, mas do lado da fila: troca o conjunto de
+// atendentes DESTA fila sem tocar nas outras filas de cada usuário.
+// Em transação: sem isso, uma falha entre o DELETE e os INSERTs deixaria a fila VAZIA —
+// que é justamente o estado em que a distribuição automática manda tudo para espera.
+const setQueueUsers = async (queueId, userIds, schema) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `DELETE FROM ${schema}.queue_users WHERE queue_id = $1`, [queueId]
+    );
+    for (const userId of userIds || []) {
+      await client.query(
+        `INSERT INTO ${schema}.queue_users (user_id, queue_id) VALUES ($1, $2)
+           ON CONFLICT DO NOTHING`,
+        [userId, queueId]
+      );
+    }
+    await client.query('COMMIT');
+    return { success: true };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 const updateWebhookUrl = async(queue_id, webhook_url, schema)=>{
     const result = await pool.query(
         `UPDATE ${schema}.queues SET webhook_url=$1 WHERE id=$2 RETURNING *`,[webhook_url, queue_id]
@@ -185,7 +184,6 @@ const getTeamUserIds = async (userId, schema) => {
 
 module.exports = {
     createQueue,
-    addUserinQueue,
     getUserQueues,
     getChatsInQueue,
     getAllQueues,
@@ -193,6 +191,7 @@ module.exports = {
     getQueueById,
     transferQueue,
     updateUserQueues,
+    setQueueUsers,
     updateWebhookUrl,
     toggleWebhookStatus,
     getUsersInQueue,
