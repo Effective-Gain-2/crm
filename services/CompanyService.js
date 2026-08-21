@@ -60,6 +60,12 @@ const ensureSchemaTables = async (schema) => {
             superuser uuid REFERENCES ${schema}.users(id) ON DELETE SET NULL
         );`);
 
+    // Webhook por fila: as colunas nunca foram criadas aqui, então update-webhook-url e
+    // toggle-webhook-status morriam com 42703 (column does not exist) e o Webhook.js nunca
+    // disparava. Idempotente: todo boot garante o shape em todos os tenants.
+    await pool.query(`ALTER TABLE ${schema}.queues ADD COLUMN IF NOT EXISTS webhook_url TEXT;`);
+    await pool.query(`ALTER TABLE ${schema}.queues ADD COLUMN IF NOT EXISTS is_webhook_on BOOLEAN DEFAULT false;`);
+
     await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.connections (
             id UUID PRIMARY KEY,

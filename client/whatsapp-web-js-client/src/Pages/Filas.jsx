@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import * as bootstrap from 'bootstrap';
 import axios from 'axios';
 import NewQueueModal from './modalPages/Filas_novaFila';
@@ -51,6 +51,15 @@ function FilaPage({ theme }) {
   fetchFilas();
 }, [url, schema]);
 
+// Substitui a fila editada na lista (e no selectedFila, se for a mesma) sem recarregar a página.
+const handleQueueUpdated = useCallback((queueAtualizada) => {
+  if (!queueAtualizada?.id) return;
+  setFilas(prevFilas =>
+    prevFilas.map(f => (f.id === queueAtualizada.id ? { ...f, ...queueAtualizada } : f))
+  );
+  setSelectedFila(prev => (prev && prev.id === queueAtualizada.id ? { ...prev, ...queueAtualizada } : prev));
+}, []);
+
 useEffect(() => {
   if (socketInstance) {
     socketInstance.emit('join', `schema_${userData.schema}`);
@@ -58,14 +67,18 @@ useEffect(() => {
     const handleNewQueue = (queue) => {
       setFilas(prevFilas => [...prevFilas, queue]);
     };
-    
+
+    // Emitido pelo updateQueueController: mantém a lista em dia para todos os usuários
+    // do schema quando alguém edita uma fila.
     socketInstance.on('new_queue', handleNewQueue);
-    
+    socketInstance.on('queue_updated', handleQueueUpdated);
+
     return () => {
       socketInstance.off('new_queue', handleNewQueue);
+      socketInstance.off('queue_updated', handleQueueUpdated);
     };
   }
-}, [socketInstance, userData.schema]);
+}, [socketInstance, userData.schema, handleQueueUpdated]);
 
   const filasFiltradas = filas.filter(fila => {
     const nome = fila?.name || '';
@@ -76,7 +89,7 @@ useEffect(() => {
     setFilas(prevFilas => 
       prevFilas.map(fila => 
         fila.id === filaId 
-          ? { ...fila, webhook_url: webhookUrl, webhook_enabled: webhookEnabled }
+          ? { ...fila, webhook_url: webhookUrl, is_webhook_on: webhookEnabled }
           : fila
       )
     );
@@ -172,7 +185,7 @@ useEffect(() => {
       <div>
         <NewQueueModal theme={theme}/>
                  <DeleteQueueModal theme={theme} fila={fila} onQueueDeleted={handleQueueDeleted}/>
-        <EditQueueModal theme={theme} fila={selectedFila}/>
+        <EditQueueModal theme={theme} fila={selectedFila} onQueueUpdated={handleQueueUpdated}/>
       </div>
 
       {showWebhookModal && selectedFila && (
