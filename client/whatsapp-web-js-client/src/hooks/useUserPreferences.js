@@ -1,6 +1,25 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
+// As preferências são gravadas como texto no banco (coluna value text).
+// Converte de volta para o tipo original ao carregar.
+const parsePreferenceValue = (value) => {
+  if (typeof value !== 'string') return value;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+
+  const trimmed = value.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      return JSON.parse(trimmed);
+    } catch (error) {
+      return value;
+    }
+  }
+
+  return value;
+};
+
 const useUserPreferences = () => {
   const [preferences, setPreferences] = useState(() => {
     try {
@@ -32,16 +51,30 @@ const useUserPreferences = () => {
           withCredentials:true
         }
       );
-      const dbPreferences = response.data || {};
-      
-      // Mesclar preferências do banco com localStorage
-      const mergedPreferences = {
-        ...preferences,
-        ...dbPreferences
-      };
-      
-      setPreferences(mergedPreferences);
-      localStorage.setItem('userPreferences', JSON.stringify(mergedPreferences));
+
+      // A API responde { success, data } — as preferências ficam em data
+      const payload = response.data?.data;
+      const rawPreferences = (payload && typeof payload === 'object') ? payload : {};
+
+      const dbPreferences = Object.entries(rawPreferences).reduce((acc, [key, value]) => {
+        acc[key] = parsePreferenceValue(value);
+        return acc;
+      }, {});
+
+      // Mesclar preferências do banco com localStorage (banco tem prioridade)
+      setPreferences(prev => {
+        const mergedPreferences = {
+          ...prev,
+          ...dbPreferences
+        };
+
+        // Resíduo de versões anteriores, que mesclavam a resposta crua da API
+        delete mergedPreferences.success;
+        delete mergedPreferences.data;
+
+        localStorage.setItem('userPreferences', JSON.stringify(mergedPreferences));
+        return mergedPreferences;
+      });
     } catch (error) {
       console.error('Erro ao carregar preferências do banco:', error);
     }
@@ -102,6 +135,10 @@ const useUserPreferences = () => {
     savePreferences({ kanbanFunnel: funnel });
   };
 
+  const updateNotificationMuted = (muted) => {
+    savePreferences({ notificationSoundMuted: Boolean(muted) });
+  };
+
   const clearPreferences = () => {
     try {
       localStorage.removeItem('userPreferences');
@@ -117,6 +154,7 @@ const useUserPreferences = () => {
     updatePage,
     updateChatsTab,
     updateKanbanFunnel,
+    updateNotificationMuted,
     clearPreferences,
     loadPreferencesFromDB
   };

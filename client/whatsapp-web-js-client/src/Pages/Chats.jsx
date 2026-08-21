@@ -310,7 +310,7 @@ function ChatPage({ theme, chat_id} ) {
   const [audioUrl, setAudioUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('')
   const selectedChatIdRef = useRef(null);
-  const { preferences, updateChatsTab } = useUserPreferences();
+  const { preferences, updateChatsTab, updateNotificationMuted } = useUserPreferences();
   // Chips estilo WhatsApp: 'tudo' | 'nao-lidas' | 'aguardando' | 'grupos'
   // ('conversas' era o valor antigo persistido — normaliza para 'tudo')
   const [selectedTab, setSelectedTab] = useState(
@@ -339,7 +339,10 @@ function ChatPage({ theme, chat_id} ) {
   const [sideMenuActive, setSideMenuActive] = useState(false);
   const [showFiltros, setShowFiltros] = useState(false);
   const [filtrosAtivos, setFiltrosAtivos] = useState(preferences.chatFilters || {});
-  const { playNotificationSound, audioRef, isMuted, toggleMute } = useNotificationSound();
+  const { playNotificationSound, audioRef, isMuted, toggleMute } = useNotificationSound({
+    mutedPreference: preferences.notificationSoundMuted,
+    onMutedChange: updateNotificationMuted
+  });
   const navigate = useNavigate();
   const [userQueues, setUserQueues] = useState([])
   const [showQuickMsgPopover, setShowQuickMsgPopover] = useState(false);
