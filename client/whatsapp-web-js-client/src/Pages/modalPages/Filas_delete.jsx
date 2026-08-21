@@ -7,6 +7,7 @@ function DeleteQueueModal({ theme, fila, onDelete, onQueueDeleted }) {
   const [superUser, setSuperUser] = useState(null);
   
   const handleDelete = async()=>{
+    if (!fila?.id) return;
     try {
       await axios.delete(`${process.env.REACT_APP_URL}/queue/delete-queue/${fila.id}/${schema}`,
         {
@@ -26,7 +27,8 @@ function DeleteQueueModal({ theme, fila, onDelete, onQueueDeleted }) {
     const modal = document.getElementById('DeleteQueueModal');
     const handleShow = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_URL}/api/search-user/${schema}/${fila.superuser}`, {
+        if (!fila?.superuser) { setSuperUser(null); return; }
+      const response = await axios.get(`${process.env.REACT_APP_URL}/api/search-user/${schema}/${fila.superuser}`, {
   withCredentials: true
 });
         setSuperUser(response.data.user); 
@@ -42,7 +44,7 @@ function DeleteQueueModal({ theme, fila, onDelete, onQueueDeleted }) {
         modal.removeEventListener('shown.bs.modal', handleShow);
       }
     };
-  }, [schema, fila.superuser]);
+  }, [schema, fila?.superuser]);
   return (
     <div className="modal fade" id="DeleteQueueModal" tabIndex="-1" aria-labelledby="DeleteQueueModalLabel" aria-hidden="true">
       <div className="modal-dialog modal-md">
@@ -62,7 +64,7 @@ function DeleteQueueModal({ theme, fila, onDelete, onQueueDeleted }) {
             <p className="text-danger-true fw-bold mb-1">
               Título:
               <span className={`fw-bold header-text-${theme} ms-1`}>
-                {fila.name}
+                {fila?.name}
               </span>
             </p>
             <p className="text-danger-true fw-bold mb-3">
