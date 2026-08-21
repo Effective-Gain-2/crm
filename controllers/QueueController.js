@@ -1,8 +1,10 @@
     const Queue = require("../entities/Queue");
 const { v4: uuidv4 } = require('uuid');
-const { createQueue, addUserinQueue, getUserQueues, getAllQueues, deleteQueue, getQueueById, transferQueue, updateUserQueues, toggleWebhookStatus, updateWebhookUrl, getUsersInQueue } = require("../services/QueueService");
+const { createQueue, addUserinQueue, getUserQueues, getAllQueues, deleteQueue, getQueueById, transferQueue, updateQueue, updateUserQueues, toggleWebhookStatus, updateWebhookUrl, getUsersInQueue } = require("../services/QueueService");
 const { setUserChat } = require("../services/ChatService");
 const { getUserById } = require("../services/UserService");
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 
 const createQueueController = async(req, res)=>{
@@ -218,6 +220,50 @@ const getUsersInQueueController = async (req, res) => {
     }
 };
 
+// PUT /queue/update-queue — edição da fila pela tela de Filas.
+// A rota não existia: o modal "Editar Fila" chamava este endpoint e recebia 404,
+// virando o toast "Não foi possível concluir a ação (erro 404)".
+const updateQueueController = async (req, res) => {
+    try {
+        const { queueId, name, color, super_user, distribution } = req.body;
+        const schema = req.schema || req.body.schema;
+
+        if (!queueId || !UUID_RE.test(String(queueId))) {
+            return res.status(400).json({ error: 'Fila inválida' });
+        }
+        if (!name || !String(name).trim()) {
+            return res.status(400).json({ error: 'O nome da fila é obrigatório' });
+        }
+
+        const result = await updateQueue(
+            queueId,
+            String(name).trim(),
+            color,
+            super_user,
+            distribution === true || distribution === 'true',
+            schema
+        );
+
+        if (!result) {
+            return res.status(404).json({ error: 'Fila não encontrada' });
+        }
+
+        global.socketIoServer?.to(`schema_${schema}`).emit('queue_updated', result);
+
+        res.status(200).json({ success: true, result });
+    } catch (error) {
+        // 23505 = nome duplicado (queues.name é UNIQUE); 23503 = superusuário inexistente
+        if (error.code === '23505') {
+            return res.status(409).json({ error: 'Já existe uma fila com esse nome' });
+        }
+        if (error.code === '23503') {
+            return res.status(400).json({ error: 'Super-usuário informado não existe' });
+        }
+        console.error('Erro ao atualizar fila:', error.message);
+        res.status(500).json({ error: 'Erro ao atualizar fila' });
+    }
+};
+
 module.exports = {
     createQueueController,
     addUserinQueueController,
@@ -226,6 +272,7 @@ module.exports = {
     deleteQueueController,
     getQueueByIdController,
     transferQueueController,
+    updateQueueController,
     updateUserQueuesController,
     updateWebhookUrlController,
     toggleWebhookStatusController,

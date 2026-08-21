@@ -143,10 +143,19 @@ const getUsersInQueue = async (queue_id, schema) => {
     return result.rows
 }
 
+// Edição da fila. A tela de Filas manda só nome/superusuário/distribuição — a cor não
+// aparece no formulário, então COALESCE preserva a que já está gravada em vez de apagá-la
+// a cada salvamento. superuser é nullable (ON DELETE SET NULL): '' vira NULL.
 const updateQueue = async (queueId, name, color, super_user, distribution, schema) => {
     const result = await pool.query(
-        `UPDATE ${schema}.queues SET name=$1, color=$2, superuser=$3, distribution=$4 WHERE id=$5 RETURNING *`,
-        [name, color, super_user, distribution, queueId]
+        `UPDATE ${schema}.queues
+            SET name = $1,
+                color = COALESCE($2, color),
+                superuser = $3,
+                distribution = COALESCE($4, false)
+          WHERE id = $5
+      RETURNING *`,
+        [name, color ?? null, super_user || null, distribution, queueId]
     );
     return result.rows[0];
 };

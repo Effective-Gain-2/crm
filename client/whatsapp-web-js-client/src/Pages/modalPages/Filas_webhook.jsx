@@ -6,7 +6,8 @@ import { useToast } from '../../contexts/ToastContext';
 function FilasWebhookModal({ theme, show, onHide, fila, onSave }) {
   const { showError } = useToast();
   const [webhookUrl, setWebhookUrl] = useState(fila?.webhook_url || '');
-  const [webhookEnabled, setWebhookEnabled] = useState(fila?.webhook_enabled || false);
+  // A coluna no banco é is_webhook_on — ler webhook_enabled deixava o switch sempre desligado.
+  const [webhookEnabled, setWebhookEnabled] = useState(fila?.is_webhook_on || false);
   const [isLoading, setIsLoading] = useState(false);
   const userData = JSON.parse(localStorage.getItem('user')); 
   const schema = userData?.schema;
