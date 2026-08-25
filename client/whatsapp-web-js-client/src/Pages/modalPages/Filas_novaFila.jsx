@@ -12,7 +12,10 @@ function NewQueueModal({ theme, superUsers = [] }) {
   const [isSaving, setIsSaving] = useState(false);
   const [conexoesIds, setConexoesIds] = useState([]);
   const { showError, showSuccess } = useToast();
-  const userData = JSON.parse(localStorage.getItem('user')); 
+  const userData = JSON.parse(localStorage.getItem('user'));
+  // Líder não escolhe o superusuário: o servidor grava ele mesmo como dono da fila.
+  const escolheSuperUsuario = ['tecnico', 'master', 'admin']
+    .includes(String(userData?.role || '').toLowerCase()); 
   const schema = userData?.schema
 
   useEffect(() => {
@@ -104,27 +107,29 @@ function NewQueueModal({ theme, superUsers = [] }) {
               />
             </div>
 
-            {/* Super-usuário */}
-            <div className="mb-3">
-              <label htmlFor="superUser" className={`form-label card-subtitle-${theme}`}>
-                Super-usuário
-              </label>
-              <select
-                className={`form-select input-${theme}`}
-                id="superUser"
-                value={superUser}
-                onChange={(e) => setSuperUser(e.target.value)}
-              >
-                <option value="">
-                  Nenhum
-                </option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user ? user.name:'...'}
+            {/* Super-usuário — só para quem escolhe o dono da fila */}
+            {escolheSuperUsuario && (
+              <div className="mb-3">
+                <label htmlFor="superUser" className={`form-label card-subtitle-${theme}`}>
+                  Super-usuário
+                </label>
+                <select
+                  className={`form-select input-${theme}`}
+                  id="superUser"
+                  value={superUser}
+                  onChange={(e) => setSuperUser(e.target.value)}
+                >
+                  <option value="">
+                    Nenhum
                   </option>
-                ))}
-              </select>
-            </div>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user ? user.name:'...'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Números (conexões) que atendem a fila */}
             <CamposConexoes
