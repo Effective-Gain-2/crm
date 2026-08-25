@@ -2,6 +2,7 @@ import axios from 'axios';
 import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
 import { useToast } from '../../contexts/ToastContext';
+import CamposConexoes from './Filas_camposConexoes';
 
 function NewQueueModal({ theme, superUsers = [] }) {
   const [title, setTitle] = useState('');
@@ -9,6 +10,7 @@ function NewQueueModal({ theme, superUsers = [] }) {
   const [users, setUser] = useState([]);
   const [autoDistribution, setAutoDistribution] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [conexoesIds, setConexoesIds] = useState([]);
   const { showError, showSuccess } = useToast();
   const userData = JSON.parse(localStorage.getItem('user')); 
   const schema = userData?.schema
@@ -39,7 +41,7 @@ function NewQueueModal({ theme, superUsers = [] }) {
 
     setIsSaving(true);
     try{
-      await axios.post(`${process.env.REACT_APP_URL}/queue/create-queue`,{
+      const resposta = await axios.post(`${process.env.REACT_APP_URL}/queue/create-queue`,{
         name: title.trim(),
         super_user: superUser || null,
         schema: schema,
@@ -48,6 +50,17 @@ function NewQueueModal({ theme, superUsers = [] }) {
         {
       withCredentials: true
     })
+
+      // O vínculo número->fila mora em connections.queue_id, então só dá para gravar
+      // depois que a fila existe e tem id.
+      const novaFilaId = resposta.data?.result?.id;
+      if (novaFilaId && conexoesIds.length > 0) {
+        await axios.put(`${process.env.REACT_APP_URL}/queue/set-queue-connections`, {
+          queueId: novaFilaId,
+          connectionIds: conexoesIds,
+          schema: schema,
+        }, { withCredentials: true });
+      }
     }catch(error){
       // O interceptor global do axios já exibe o toast com a mensagem devolvida pela API
       // (nome duplicado vira 409 "Já existe uma fila com esse nome").
@@ -60,6 +73,7 @@ function NewQueueModal({ theme, superUsers = [] }) {
     setTitle('');
     setSuperUser('');
     setAutoDistribution(false);
+    setConexoesIds([]);
     bootstrap.Modal.getInstance(document.getElementById('NewQueueModal'))?.hide();
   };
 
@@ -111,6 +125,14 @@ function NewQueueModal({ theme, superUsers = [] }) {
                 ))}
               </select>
             </div>
+
+            {/* Números (conexões) que atendem a fila */}
+            <CamposConexoes
+              theme={theme}
+              value={conexoesIds}
+              onChange={setConexoesIds}
+              disabled={isSaving}
+            />
 
             {/* Distribuição automática */}
             <div className="mb-3 form-check form-switch">

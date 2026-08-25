@@ -7,6 +7,7 @@ import FilasWebhookModal from './modalPages/Filas_webhook';
 import {socket} from '../socket'
 import EditQueueModal from './modalPages/Filas_editarFila';
 import FilasAtendentesModal from './modalPages/Filas_atendentes';
+import { nomeDaConexao } from './modalPages/Filas_camposConexoes';
 
 function FilaPage({ theme }) {
   const [filas, setFilas] = useState([]);
@@ -17,7 +18,13 @@ function FilaPage({ theme }) {
   // queueId -> nº de atendentes. Sem isso, uma fila com distribuição automática e zero
   // membros parece configurada e manda todo chat para espera em silêncio.
   const [contagemAtendentes, setContagemAtendentes] = useState({});
+  // queueId -> lista de números que atendem a fila (connections.queue_id).
+  const [conexoesPorFila, setConexoesPorFila] = useState({});
   const userData = JSON.parse(localStorage.getItem('user'));
+  // Configurar fila é trabalho de gestão. O servidor é quem decide de verdade
+  // (requireRole('lider') nas rotas); aqui só escondemos o que não adiantaria clicar.
+  const podeGerirFilas = ['tecnico', 'master', 'lider', 'admin']
+    .includes(String(userData?.role || '').toLowerCase());
   const [socketInstance] = useState(socket)  
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
@@ -60,6 +67,17 @@ function FilaPage({ theme }) {
         }
       }));
       setContagemAtendentes(Object.fromEntries(contagens));
+
+      // Números por fila, para o card dizer por onde as conversas entram.
+      const conexoes = await Promise.all(lista.map(async (f) => {
+        try {
+          const r = await axios.get(`${url}/queue/get-queue-connections/${f.id}/${schema}`, { withCredentials: true });
+          return [f.id, r.data.connections || []];
+        } catch (e) {
+          return [f.id, null];
+        }
+      }));
+      setConexoesPorFila(Object.fromEntries(conexoes));
     } catch (error) {
       console.error('Erro ao buscar filas:', error);
     }
@@ -132,14 +150,16 @@ useEffect(() => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <button 
-            className={`btn btn-1-${theme} d-flex gap-2`}
-            data-bs-toggle="modal"
-            data-bs-target="#NewQueueModal"
-          >
-            <i className="bi-plus-lg"></i>
-            Nova Fila
-          </button>        
+          {podeGerirFilas && (
+            <button 
+              className={`btn btn-1-${theme} d-flex gap-2`}
+              data-bs-toggle="modal"
+              data-bs-target="#NewQueueModal"
+            >
+              <i className="bi-plus-lg"></i>
+              Nova Fila
+            </button>
+          )}
         </div>
       </div>
 
@@ -171,8 +191,20 @@ useEffect(() => {
                       Sem atendentes
                     </small>
                   )}
+                  {conexoesPorFila[fila.id]?.length > 0 && (
+                    <small className={`card-subtitle-${theme} d-block text-truncate`} style={{ fontSize: '0.75rem' }}>
+                      <i className="bi bi-telephone me-1"></i>
+                      {conexoesPorFila[fila.id].map(c => nomeDaConexao(c) || c.number).join(', ')}
+                    </small>
+                  )}
+                  {conexoesPorFila[fila.id]?.length === 0 && (
+                    <small className={`card-subtitle-${theme} d-block`} style={{ fontSize: '0.75rem', opacity: 0.7 }}>
+                      Sem número vinculado
+                    </small>
+                  )}
                 </div>
                 
+                {podeGerirFilas && (
                 <div className="d-flex gap-1 mt-2 justify-content-center">
                   <button
                     className={`btn btn-sm btn-2-${theme}`}
@@ -224,6 +256,7 @@ useEffect(() => {
                     <i className="bi bi-trash-fill" style={{ fontSize: '0.8rem' }}></i>
                   </button>
                 </div>
+                )}
               </div>
             </div>
           </div>
@@ -231,9 +264,11 @@ useEffect(() => {
       </div>
 
       <div>
+        {podeGerirFilas && <>
         <NewQueueModal theme={theme}/>
                  <DeleteQueueModal theme={theme} fila={selectedFila} onQueueDeleted={handleQueueDeleted}/>
         <EditQueueModal theme={theme} fila={selectedFila} onQueueUpdated={handleQueueUpdated}/>
+        </>}
       </div>
 
       {showAtendentesModal && selectedFila && (

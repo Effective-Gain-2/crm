@@ -121,6 +121,48 @@ const setQueueUsers = async (queueId, userIds, schema) => {
   }
 };
 
+// Números (conexões WhatsApp) que atendem esta fila. O vínculo mora em
+// connections.queue_id — uma conexão serve UMA fila, uma fila pode ter várias conexões.
+// É daqui que o chat herda a fila (ChatService: connections.queue_id -> chats.queue_id).
+const getQueueConnections = async (queueId, schema) => {
+  const result = await pool.query(
+    `SELECT id, name, number, status FROM ${schema}.connections WHERE queue_id = $1 ORDER BY name`,
+    [queueId]
+  );
+  return result.rows;
+};
+
+// Troca o conjunto de conexões DESTA fila: solta as que saíram e prende as que entraram.
+// Em transação — um estado parcial deixaria número sem fila (chat cai em espera) ou
+// número apontando para fila errada.
+const setQueueConnections = async (queueId, connectionIds, schema) => {
+  const ids = connectionIds || [];
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Solta as conexões que apontavam para esta fila e não estão mais na lista.
+    await client.query(
+      `UPDATE ${schema}.connections SET queue_id = NULL
+        WHERE queue_id = $1 AND NOT (id = ANY($2::uuid[]))`,
+      [queueId, ids]
+    );
+    if (ids.length > 0) {
+      // Prende as escolhidas. Uma conexão que servia outra fila passa a servir esta.
+      await client.query(
+        `UPDATE ${schema}.connections SET queue_id = $1 WHERE id = ANY($2::uuid[])`,
+        [queueId, ids]
+      );
+    }
+    await client.query('COMMIT');
+    return { success: true };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 const updateWebhookUrl = async(queue_id, webhook_url, schema)=>{
     const result = await pool.query(
         `UPDATE ${schema}.queues SET webhook_url=$1 WHERE id=$2 RETURNING *`,[webhook_url, queue_id]
@@ -192,6 +234,8 @@ module.exports = {
     transferQueue,
     updateUserQueues,
     setQueueUsers,
+    getQueueConnections,
+    setQueueConnections,
     updateWebhookUrl,
     toggleWebhookStatus,
     getUsersInQueue,
