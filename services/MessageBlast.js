@@ -79,19 +79,43 @@ const createMessageForBlast = async (id, messageValue, sector, campaingId, schem
 };
 
 
+// A Evolution nao lanca erro quando recusa o envio: devolve o corpo do erro com
+// status 400/500. O compliance devolve { blocked: true }. E a falha de rede era
+// engolida por um catch. Sem olhar o retorno, TODO envio virava "enviado" na tela
+// de metricas — inclusive os que nunca chegaram em ninguem.
+const confirmarEnvio = (resultado) => {
+  if (resultado?.blocked) {
+    return { ok: false, motivo: `Bloqueado pelo compliance: ${resultado.motivo || 'sem motivo informado'}` };
+  }
+  if (resultado?.key?.id) {
+    return { ok: true, id: resultado.key.id };
+  }
+  const detalhe = resultado?.response?.message || resultado?.error || resultado?.message;
+  const texto = detalhe
+    ? (typeof detalhe === 'string' ? detalhe : JSON.stringify(detalhe))
+    : 'a API nao devolveu confirmacao';
+  return { ok: false, motivo: `WhatsApp nao confirmou o envio: ${texto}` };
+};
+
 const sendBlastMessage = async (instanceId, messageValue, number, chat_id, schema) => {
   try {
     const instance = await searchConnById(instanceId, schema);
     const processedMessage = await replacePlaceholders(messageValue, number, schema);
 
-    const message = new Message(uuidv4(), processedMessage, true, chat_id, getCurrentTimestamp())
-    await saveMessage(chat_id, message, schema)
+    const resultado = await sendTextMessage(instance.name, processedMessage, number, null, 'disparo');
+    const confirmacao = confirmarEnvio(resultado);
 
-    await sendTextMessage(instance.name, processedMessage, number, null, 'disparo');
+    // So entra no historico do chat o que o WhatsApp confirmou: mensagem que nao
+    // saiu aparecendo na conversa engana o atendente.
+    if (confirmacao.ok) {
+      const message = new Message(uuidv4(), processedMessage, true, chat_id, getCurrentTimestamp())
+      await saveMessage(chat_id, message, schema)
+    }
 
+    return confirmacao;
   } catch (error) {
     console.error(`Erro ao enviar mensagem para ${number}:`, error.message);
-    throw error;
+    return { ok: false, motivo: error.message };
   }
 };
 
@@ -114,12 +138,18 @@ const sendMediaBlastMessage = async (instanceId, text, number, chat_id, image, s
     const instance = await searchConnById(instanceId, schema)
     const processedMessage = await replacePlaceholders(text, number, schema)
 
-    const message = new Message(uuidv4(), processedMessage, true, chat_id, getCurrentTimestamp())
-    await saveMessage(chat_id, message, schema)
-    
-    await sendMediaForBlast(instance.name, processedMessage, image, number)
+    const resultado = await sendMediaForBlast(instance.name, processedMessage, image, number)
+    const confirmacao = confirmarEnvio(resultado);
+
+    if (confirmacao.ok) {
+      const message = new Message(uuidv4(), processedMessage, true, chat_id, getCurrentTimestamp())
+      await saveMessage(chat_id, message, schema)
+    }
+
+    return confirmacao;
   } catch (error) {
     console.error(error)
+    return { ok: false, motivo: error.message };
   }
 }
 const getAllBlastMessages = async(campaing_id, schema)=>{

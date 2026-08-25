@@ -7,6 +7,7 @@ import { Card, Button } from 'react-bootstrap';
 import DisparoModal from './modalPages/Disparos_novoDisparo';
 import DeleteDisparoModal from './modalPages/Disparos_delete';
 import DetalhesDisparoModal from './modalPages/Disparos_detalhes';
+import ListasModal from './modalPages/Disparos_listas';
 import { useToast } from '../contexts/ToastContext';
 
 const userData = JSON.parse(localStorage.getItem('user'));
@@ -56,6 +57,7 @@ function DisparosPage({ theme }) {
   const { showError, showSuccess } = useToast();
   const [disparoSelecionado, setDisparoSelecionado] = useState(null);
   const [disparoDetalhado, setDisparoDetalhado] = useState(null);
+  const [mostrarListas, setMostrarListas] = useState(false);
   const userData = JSON.parse(localStorage.getItem('user')); 
   const schema = userData?.schema
   const url = process.env.REACT_APP_URL;
@@ -262,6 +264,15 @@ function DisparosPage({ theme }) {
             className={`form-control input-${theme}`}
             placeholder="Pesquisar..."
           />
+          <button
+            className={`btn btn-2-${theme} d-flex gap-2`}
+            onClick={() => setMostrarListas(true)}
+            disabled={!isAdmin}
+            title="Subir e gerenciar listas de contatos"
+          >
+            <i className="bi bi-list-ul"></i>
+            Listas
+          </button>
           <button 
             className={`btn btn-1-${theme} d-flex gap-2`}
             onClick={handleNovoDisparo}
@@ -306,6 +317,20 @@ function DisparosPage({ theme }) {
                       ? disparo.canais.join(', ')
                       : 'Nenhum canal'}
                   </span>
+                </div>
+                <div className={`header-text-${theme} mb-1`}>
+                  Alvo: <span className={`fw-bold`}>
+                    {disparo.lista_nome ? `Lista ${disparo.lista_nome}` : `Funil ${disparo.sector || '—'}`}
+                  </span>
+                </div>
+                <div className={`header-text-${theme} mb-1`}>
+                  Números: <span className="fw-bold">{disparo.previstos ?? 0}</span> previsto(s)
+                  {' · '}
+                  <span className="fw-bold text-success">{disparo.enviados ?? 0}</span> enviado(s)
+                  {' · '}
+                  <span className={`fw-bold ${Number(disparo.falhas) > 0 ? 'text-danger' : ''}`}>
+                    {disparo.falhas ?? 0}
+                  </span> com erro
                 </div>
                 <div className={`header-text-${theme}`}>
                   Status: <span className={`fw-bold`}>
@@ -391,6 +416,14 @@ function DisparosPage({ theme }) {
 
       {/* Modal de Exclusão */}
       <DeleteDisparoModal theme={theme} disparo={disparoSelecionado} onDelete={handleDisparoDeleted} />
+
+      {/* Modal de Listas de contatos */}
+      <ListasModal
+        theme={theme}
+        show={mostrarListas}
+        onHide={() => setMostrarListas(false)}
+        onListasMudaram={recarregarDisparos}
+      />
 
       {/* Modal de Detalhes e Métricas */}
       <DetalhesDisparoModal

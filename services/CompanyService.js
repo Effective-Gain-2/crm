@@ -336,6 +336,29 @@ const ensureSchemaTables = async (schema) => {
             CONSTRAINT unique_pair UNIQUE (campaing_id, connection_id)
         );`);
 
+    // Listas de contatos para disparo: alternativa a etapa do funil, para quem sobe
+    // uma planilha avulsa sem querer mexer no kanban.
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.listas (
+            id UUID PRIMARY KEY,
+            nome TEXT NOT NULL,
+            criada_em BIGINT,
+            criada_por UUID
+        );`);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.lista_contatos (
+            lista_id UUID NOT NULL REFERENCES ${schema}.listas(id) ON DELETE CASCADE,
+            contact_number TEXT NOT NULL,
+            contact_name TEXT,
+            PRIMARY KEY (lista_id, contact_number)
+        );`);
+
+    // Alvo do disparo passa a ser etapa OU lista — kanban_stage nao pode mais ser
+    // obrigatorio, senao disparo por lista nao entra.
+    await pool.query(`ALTER TABLE ${schema}.campaing ADD COLUMN IF NOT EXISTS lista_id UUID;`);
+    await pool.query(`ALTER TABLE ${schema}.campaing ALTER COLUMN kanban_stage DROP NOT NULL;`).catch(() => {});
+
     // Registro por contato de cada disparo. Sem isto nao existe metrica nenhuma:
     // o envio acontecia so na fila do BullMQ e falha morria no console do servidor.
     await pool.query(`
