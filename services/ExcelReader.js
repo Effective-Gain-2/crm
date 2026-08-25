@@ -4,7 +4,8 @@ const { insertValueCustomField } = require('./ContactService');
 const { insertInKanbanStage } = require('./KanbanService');
 
 const getInformationFromExcel = async (data, sector, schema) => {
-  let imported = 0, skipped = 0;
+  let imported = 0, skipped = 0, semEtapa = 0;
+  const etapasNaoEncontradas = new Set();
   for (const row of data) {
     let numero = row.numero?.toString();
     if (!row.nome) {
@@ -44,11 +45,19 @@ const getInformationFromExcel = async (data, sector, schema) => {
           }
         }
       }
+      // Contato criado e contato colocado na etapa sao coisas diferentes: sem etapa
+      // valida ele existe em contacts mas NAO entra em contacts_stage, e disparo por
+      // funil nunca vai alcancar. Antes isso virava so um console.warn no servidor e
+      // a linha ainda era contada como importada — a importacao mentia.
       if (etapa) {
         const result = await insertInKanbanStage(etapa, sector, numero, schema);
         if (result === null) {
-          console.warn(`Linha ignorada: etapa "${etapa}" não encontrada no funil "${sector}".`, row);
+          semEtapa++;
+          etapasNaoEncontradas.add(String(etapa));
+          console.warn(`Contato ${numero} ficou fora do funil: etapa "${etapa}" nao existe em "${sector}".`);
         }
+      } else {
+        semEtapa++;
       }
       imported++;
     } catch (error) {
@@ -56,7 +65,12 @@ const getInformationFromExcel = async (data, sector, schema) => {
       skipped++;
     }
   }
-  return { imported, skipped };
+  return {
+    imported,
+    skipped,
+    semEtapa,
+    etapasNaoEncontradas: [...etapasNaoEncontradas],
+  };
 };
 
 module.exports = {
