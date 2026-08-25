@@ -1,4 +1,4 @@
-const { scheduleCampaingBlast, getCampaings, getCampaingById, createCampaing, startCampaing, deleteCampaing, getCampaingDetails, getCampaingMetrics } = require("../services/CampaingService");
+const { scheduleCampaingBlast, getCampaings, getCampaingById, createCampaing, startCampaing, deleteCampaing, getCampaingDetails, getCampaingMetrics, cancelCampaing } = require("../services/CampaingService");
 const { createMessageForBlast, getAllBlastMessages, deleteAllBlastMessages } = require("../services/MessageBlast");
 
 const startCampaingController = async (req, res) => {
@@ -147,6 +147,23 @@ const getCampaingMetricsController = async(req, res)=>{
   }
 }
 
+const cancelCampaingController = async(req, res)=>{
+  try {
+    const {campaing_id} = req.params
+    const schema = req.auth?.schema || req.params.schema
+    const result = await cancelCampaing(campaing_id, schema)
+    res.status(200).json({
+      success: true,
+      ...result
+    })
+  } catch (error) {
+    console.error('Erro ao cancelar disparo:', error)
+    res.status(500).json({
+      error: 'Erro ao cancelar disparo'
+    })
+  }
+}
+
 module.exports = {
   startCampaingController,
   getCampaingsController,
@@ -155,5 +172,6 @@ module.exports = {
   getAllBlastMessagesController,
   deleteCampaingController,
   getCampaingDetailsController,
-  getCampaingMetricsController
+  getCampaingMetricsController,
+  cancelCampaingController
 };

@@ -24,6 +24,7 @@ const ROTULO_STATUS = {
   enviado: { texto: 'Enviado', cor: 'success' },
   falha: { texto: 'Falha', cor: 'danger' },
   pendente: { texto: 'Pendente', cor: 'secondary' },
+  cancelado: { texto: 'Cancelado', cor: 'warning' },
 };
 
 function DetalhesDisparoModal({ theme, show, onHide, disparoId }) {
@@ -166,6 +167,9 @@ function DetalhesDisparoModal({ theme, show, onHide, disparoId }) {
                   <Metrica rotulo="Enviados" valor={metricas.enviados} cor="success" />
                   <Metrica rotulo="Pendentes" valor={metricas.pendentes} />
                   <Metrica rotulo="Falhas" valor={metricas.falhas} cor="danger" />
+                  {metricas.cancelados > 0 && (
+                    <Metrica rotulo="Cancelados" valor={metricas.cancelados} cor="warning" />
+                  )}
                   <Metrica rotulo="Respostas" valor={metricas.respostas} cor="primary" />
                   <Metrica rotulo="Taxa de resposta" valor={`${metricas.taxa_resposta}%`} cor="primary" />
                 </div>

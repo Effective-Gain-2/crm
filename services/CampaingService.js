@@ -396,6 +396,8 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
 
       jobCount++;
     }
+    // Reagendar limpa um cancelamento anterior: o status volta a ser deduzido dos envios.
+    await pool.query(`UPDATE ${schema}.campaing SET status = NULL WHERE id = $1`, [campaing.id]);
     console.log(`Campanha ${campaing.campaing_name} agendada com ${jobCount} mensagens`);
   } catch (error) {
     console.error('Erro ao agendar disparo da campanha:', error);
@@ -538,15 +540,36 @@ const startCampaing = async (campaing_id, timer, schema) => {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// A coluna campaing.status nunca foi preenchida por lugar nenhum — o card exibia
+// sempre vazio. Agora o status vem do que de fato aconteceu com os envios, e a
+// coluna guarda apenas o cancelamento (unico estado que nao da para deduzir).
 const getCampaings = async (schema) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM ${schema}.campaing`
+      `SELECT c.*,
+              COALESCE(c.status, CASE
+                WHEN COALESCE(d.total, 0) = 0 THEN 'nao agendado'
+                WHEN d.pendentes > 0 AND d.enviados > 0 THEN 'em andamento'
+                WHEN d.pendentes > 0 THEN 'agendado'
+                ELSE 'concluido'
+              END) AS status
+         FROM ${schema}.campaing c
+         LEFT JOIN (
+           SELECT campaing_id,
+                  COUNT(*)::int AS total,
+                  COUNT(*) FILTER (WHERE status = 'pendente')::int AS pendentes,
+                  COUNT(*) FILTER (WHERE status = 'enviado')::int AS enviados
+             FROM ${schema}.campaing_dispatch
+            GROUP BY campaing_id
+         ) d ON d.campaing_id = c.id`
     );
     return result.rows;
   } catch (error) {
-    console.error('Erro ao buscar campanhas:', error.message);
-    throw error;
+    // Tenant sem a tabela de dispatch (migracao ainda nao rodou) nao pode derrubar
+    // a tela inteira de Disparos: cai para a listagem simples, sem status deduzido.
+    console.error('Erro ao buscar campanhas com status:', error.message);
+    const result = await pool.query(`SELECT * FROM ${schema}.campaing`);
+    return result.rows;
   }
 };
 
@@ -585,6 +608,64 @@ const deleteCampaing = async(campaing_id, schema)=>{
   }
 }
 
+
+// Cancela o que ainda nao saiu: tira os jobs pendentes da fila do BullMQ e marca
+// os registros como cancelados. Mensagem que ja saiu nao volta, e job que esta
+// sendo processado neste instante nao pode ser removido — esses seguem o curso
+// normal e o retorno diz quantos foram.
+const cancelCampaing = async (campaing_id, schema) => {
+  safeSchema(schema);
+
+  const pendentes = await pool.query(
+    `SELECT id, job_id FROM ${schema}.campaing_dispatch
+      WHERE campaing_id = $1 AND status = 'pendente'`,
+    [campaing_id]
+  );
+
+  const cancelados = [];
+  const naoRemovidos = [];
+
+  for (const linha of pendentes.rows) {
+    if (!linha.job_id) {
+      // Sem job na fila: nada para remover, o registro so nao deve seguir pendente.
+      cancelados.push(linha.id);
+      continue;
+    }
+    try {
+      const job = await blastQueue.getJob(linha.job_id);
+      if (!job) {
+        cancelados.push(linha.id);
+        continue;
+      }
+      await job.remove();
+      cancelados.push(linha.id);
+    } catch (e) {
+      // Tipicamente job travado em execucao: a mensagem dele ainda vai sair.
+      console.warn(`Job ${linha.job_id} nao pode ser removido: ${e.message}`);
+      naoRemovidos.push(linha.id);
+    }
+  }
+
+  if (cancelados.length > 0) {
+    await pool.query(
+      `UPDATE ${schema}.campaing_dispatch
+          SET status = 'cancelado'
+        WHERE id = ANY($1::uuid[])`,
+      [cancelados]
+    );
+  }
+
+  await pool.query(
+    `UPDATE ${schema}.campaing SET status = 'cancelado' WHERE id = $1`,
+    [campaing_id]
+  );
+
+  return {
+    cancelados: cancelados.length,
+    em_execucao: naoRemovidos.length,
+    total_pendentes: pendentes.rows.length,
+  };
+};
 
 // Tudo que define um disparo, em uma consulta: configuracao + canais + mensagens +
 // etapa alvo. Alimenta a tela "Ver detalhes".
@@ -691,6 +772,7 @@ const getCampaingMetrics = async (campaing_id, schema) => {
     enviados,
     falhas: porStatus.falha || 0,
     pendentes: porStatus.pendente || 0,
+    cancelados: porStatus.cancelado || 0,
     respostas,
     taxa_resposta: enviados > 0 ? Math.round((respostas / enviados) * 1000) / 10 : 0,
     primeiro_envio: janela.rows[0]?.primeiro ? Number(janela.rows[0].primeiro) : null,
@@ -707,5 +789,6 @@ module.exports = {
   deleteCampaing,
   scheduleCampaingBlast,
   getCampaingDetails,
-  getCampaingMetrics
+  getCampaingMetrics,
+  cancelCampaing
 };
