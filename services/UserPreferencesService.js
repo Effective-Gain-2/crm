@@ -1,14 +1,25 @@
 const pool = require('../db/queries');
 const { v4: uuidv4 } = require('uuid');
 
+// O schema entra na query por interpolação (não dá para parametrizar identificador),
+// então só aceitamos o formato de identificador do Postgres.
+const safeSchema = (schema) => {
+    if (typeof schema !== 'string' || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) {
+        throw new Error('Schema inválido');
+    }
+    return schema;
+};
+
 const setPreference = async (user_id, key, value, schema, userRole) => {
     try {
+        const sourceSchema = safeSchema(schema);
+
         const userExists = await pool.query(
-            `SELECT 1 FROM ${schema}.users WHERE id = $1`,
+            `SELECT 1 FROM ${sourceSchema}.users WHERE id = $1`,
             [user_id]
         );
 
-        let targetSchema = schema;
+        let targetSchema = sourceSchema;
 
         if (userRole === 'tecnico' && userExists.rowCount === 0) {
             targetSchema = 'effective_gain';
@@ -34,7 +45,7 @@ const setPreference = async (user_id, key, value, schema, userRole) => {
 const getPreferencesByUser = async (user_id, schema) => {
     try {
         const result = await pool.query(
-            `SELECT key, value FROM ${schema}.user_preferences WHERE user_id = $1`,
+            `SELECT key, value FROM ${safeSchema(schema)}.user_preferences WHERE user_id = $1`,
             [user_id]
         );
         
@@ -54,7 +65,7 @@ const getPreferencesByUser = async (user_id, schema) => {
 const updatePreference = async (user_id, key, value, schema) => {
     try {
         const result = await pool.query(
-            `UPDATE ${schema}.user_preferences SET value = $1, updated_at = NOW() WHERE user_id = $2 AND key = $3 RETURNING *`,
+            `UPDATE ${safeSchema(schema)}.user_preferences SET value = $1 WHERE user_id = $2 AND key = $3 RETURNING *`,
             [value, user_id, key]
         );
         return result.rows[0];
