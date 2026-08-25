@@ -1,4 +1,4 @@
-const { scheduleCampaingBlast, getCampaings, getCampaingById, createCampaing, startCampaing, deleteCampaing } = require("../services/CampaingService");
+const { scheduleCampaingBlast, getCampaings, getCampaingById, createCampaing, startCampaing, deleteCampaing, getCampaingDetails, getCampaingMetrics } = require("../services/CampaingService");
 const { createMessageForBlast, getAllBlastMessages, deleteAllBlastMessages } = require("../services/MessageBlast");
 
 const startCampaingController = async (req, res) => {
@@ -116,11 +116,44 @@ const deleteCampaingController = async(req, res)=>{
   }
 }
 
+const getCampaingDetailsController = async(req, res)=>{
+  try {
+    const {campaing_id} = req.params
+    const schema = req.auth?.schema || req.params.schema
+    const result = await getCampaingDetails(campaing_id, schema)
+    if (!result) {
+      return res.status(404).json({ error: 'Disparo nao encontrado' })
+    }
+    res.status(200).json(result)
+  } catch (error) {
+    console.error('Erro ao buscar detalhes do disparo:', error)
+    res.status(500).json({
+      error: 'Erro ao buscar detalhes do disparo'
+    })
+  }
+}
+
+const getCampaingMetricsController = async(req, res)=>{
+  try {
+    const {campaing_id} = req.params
+    const schema = req.auth?.schema || req.params.schema
+    const result = await getCampaingMetrics(campaing_id, schema)
+    res.status(200).json(result)
+  } catch (error) {
+    console.error('Erro ao buscar metricas do disparo:', error)
+    res.status(500).json({
+      error: 'Erro ao buscar metricas do disparo'
+    })
+  }
+}
+
 module.exports = {
   startCampaingController,
   getCampaingsController,
   getCampaingByIdController,
   createCampaingController,
   getAllBlastMessagesController,
-  deleteCampaingController
+  deleteCampaingController,
+  getCampaingDetailsController,
+  getCampaingMetricsController
 };

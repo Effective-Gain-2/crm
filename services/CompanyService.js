@@ -336,6 +336,26 @@ const ensureSchemaTables = async (schema) => {
             CONSTRAINT unique_pair UNIQUE (campaing_id, connection_id)
         );`);
 
+    // Registro por contato de cada disparo. Sem isto nao existe metrica nenhuma:
+    // o envio acontecia so na fila do BullMQ e falha morria no console do servidor.
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.campaing_dispatch (
+            id UUID PRIMARY KEY,
+            campaing_id UUID NOT NULL,
+            contact_number TEXT NOT NULL,
+            contact_name TEXT,
+            connection_id UUID,
+            chat_id UUID,
+            message_id UUID,
+            scheduled_for BIGINT,
+            sent_at BIGINT,
+            status TEXT NOT NULL DEFAULT 'pendente',
+            error TEXT,
+            job_id TEXT,
+            CONSTRAINT uq_${schema}_dispatch UNIQUE (campaing_id, contact_number)
+        );`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_${schema}_dispatch_camp ON ${schema}.campaing_dispatch (campaing_id, status);`);
+
     await pool.query(`
         CREATE TABLE IF NOT EXISTS ${schema}.contacts_stage (
             contact_number text NOT NULL REFERENCES ${schema}.contacts(number) ON DELETE CASCADE,

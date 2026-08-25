@@ -14,6 +14,28 @@ const { fetchInstance } = require('./ConnectionService');
 const bullConn = createRedisConnection();
 const blastQueue = new Queue("Campanha", { connection: bullConn });
 
+// Schema entra interpolado nas queries (identificador nao e parametrizavel).
+const SCHEMA_RE = /^[a-z][a-z0-9_]{1,40}$/;
+const safeSchema = (schema) => {
+  if (!SCHEMA_RE.test(schema || '')) throw new Error(`Nome de schema invalido: ${schema}`);
+  return schema;
+};
+
+// Resultado de cada envio do disparo. Falha ao registrar nunca derruba o envio.
+const marcarDisparo = async (data, campos) => {
+  if (!data?.dispatch_id || !data?.schema) return;
+  try {
+    await pool.query(
+      `UPDATE ${safeSchema(data.schema)}.campaing_dispatch
+       SET status = $1, sent_at = $2, error = $3
+       WHERE id = $4`,
+      [campos.status, campos.sent_at || null, campos.error || null, data.dispatch_id]
+    );
+  } catch (e) {
+    console.error('Erro ao registrar status do disparo:', e.message);
+  }
+};
+
 const worker = new Worker(
   'Campanha',
   async (job) => {
@@ -43,9 +65,20 @@ const worker = new Worker(
       if(job.data.stage!==null){
         await updateContactInKanban(job.data.number, job.data.stage, job.data.schema);
       }
+      await marcarDisparo(job.data, { status: 'enviado', sent_at: Date.now() });
       console.log(`Job ${job.id} processado com sucesso`);
     } catch (err) {
       console.error(`Erro ao enviar mensagem dentro do job ${job.id}:`, err.message);
+      // Ultima tentativa: fecha como falha. Antes disso segue 'pendente' porque o BullMQ vai repetir.
+      // Na duvida (campo ausente) assume ultima tentativa: melhor mostrar falha do que
+      // deixar um envio que morreu preso como "pendente" para sempre na tela de metricas.
+      const tentativaAtual = Number(job.attemptsMade ?? 0) + 1;
+      const maxTentativas = Number(job.opts?.attempts) || 1;
+      const ultimaTentativa = !Number.isFinite(tentativaAtual) || tentativaAtual >= maxTentativas;
+      await marcarDisparo(job.data, {
+        status: ultimaTentativa ? 'falha' : 'pendente',
+        error: err.message,
+      });
       throw err; 
     }
       },
@@ -315,7 +348,27 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
       // O delay é calculado por job
       const messageDelay = accumulatedDelay;
       accumulatedDelay += proximoIntervalo() * 1000;
-      
+
+      // Registra o contato como pendente ANTES de enfileirar, para a tela de métricas
+      // mostrar o total agendado mesmo antes de qualquer envio acontecer.
+      const dispatchId = uuidv4();
+      await pool.query(
+        `INSERT INTO ${schema}.campaing_dispatch
+           (id, campaing_id, contact_number, contact_name, connection_id, chat_id, message_id, scheduled_for, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendente')
+         ON CONFLICT (campaing_id, contact_number) DO UPDATE SET
+           contact_name = EXCLUDED.contact_name,
+           connection_id = EXCLUDED.connection_id,
+           chat_id = EXCLUDED.chat_id,
+           message_id = EXCLUDED.message_id,
+           scheduled_for = EXCLUDED.scheduled_for,
+           status = 'pendente',
+           sent_at = NULL,
+           error = NULL`,
+        [dispatchId, campaing.id, contactPhone, contactName, instance.rows[0].id,
+         chatToUse.id, message.id, Date.now() + messageDelay]
+      );
+
       const job = await blastQueue.add('sendMessage', {
         instance: instance.rows[0].id,
         number: contactPhone,
@@ -324,6 +377,7 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
         image: message.image,
         schema: schema,
         stage: new_stage || null,
+        dispatch_id: dispatchId,
       }, { 
         delay: messageDelay, 
         attempts: 3,
@@ -334,6 +388,11 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
       }); 
         console.log(`Agendando mensagem ${messageIndex + 1}/${totalMessages} para conexão ${connectionIdx + 1}/${connections.length} (contato ${contactPhone}) para:`, new Date(Date.now() + messageDelay).toLocaleString());
         console.log(`Job ${job.id} agendado com sucesso, enviando pelo numero ${instance.rows[0].id}, para o ${contactPhone}`);
+
+      await pool.query(
+        `UPDATE ${schema}.campaing_dispatch SET job_id = $1 WHERE id = $2`,
+        [String(job.id), dispatchId]
+      );
 
       jobCount++;
     }
@@ -527,11 +586,126 @@ const deleteCampaing = async(campaing_id, schema)=>{
 }
 
 
+// Tudo que define um disparo, em uma consulta: configuracao + canais + mensagens +
+// etapa alvo. Alimenta a tela "Ver detalhes".
+const getCampaingDetails = async (campaing_id, schema) => {
+  safeSchema(schema);
+
+  const campaingRes = await pool.query(
+    `SELECT * FROM ${schema}.campaing WHERE id = $1`, [campaing_id]
+  );
+  const campaing = campaingRes.rows[0];
+  if (!campaing) return null;
+
+  const canais = await pool.query(
+    `SELECT c.id, c.name, c.number, c.status
+       FROM ${schema}.campaing_connections cc
+       JOIN ${schema}.connections c ON c.id = cc.connection_id
+      WHERE cc.campaing_id = $1
+      ORDER BY c.name`,
+    [campaing_id]
+  );
+
+  const mensagens = await pool.query(
+    `SELECT id, value, image FROM ${schema}.message_blast WHERE campaing_id = $1`,
+    [campaing_id]
+  );
+
+  // A etapa vive em kanban_<funil>; funil invalido nao pode virar SQL.
+  let etapa = null;
+  if (campaing.sector && /^[a-z0-9_]{1,40}$/i.test(campaing.sector)) {
+    try {
+      const etapaRes = await pool.query(
+        `SELECT id, etapa, color FROM ${schema}.kanban_${campaing.sector} WHERE id = $1`,
+        [campaing.kanban_stage]
+      );
+      etapa = etapaRes.rows[0] || null;
+    } catch (e) {
+      console.warn(`Etapa do disparo nao encontrada (funil "${campaing.sector}"): ${e.message}`);
+    }
+  }
+
+  const alvo = await pool.query(
+    `SELECT COUNT(*)::int AS total FROM ${schema}.contacts_stage WHERE stage = $1`,
+    [campaing.kanban_stage]
+  );
+
+  return {
+    campaing,
+    canais: canais.rows,
+    mensagens: mensagens.rows,
+    etapa,
+    total_contatos_alvo: alvo.rows[0]?.total || 0,
+  };
+};
+
+// Metricas do que ja foi disparado. Honesto sobre o limite: o WhatsApp confirma
+// entrega/leitura por ack, e o CRM ainda nao guarda ack de mensagem enviada —
+// entao aqui medimos enviado/falha/pendente e resposta do contato.
+const getCampaingMetrics = async (campaing_id, schema) => {
+  safeSchema(schema);
+
+  const resumo = await pool.query(
+    `SELECT status, COUNT(*)::int AS total
+       FROM ${schema}.campaing_dispatch
+      WHERE campaing_id = $1
+      GROUP BY status`,
+    [campaing_id]
+  );
+
+  const janela = await pool.query(
+    `SELECT MIN(sent_at) AS primeiro, MAX(sent_at) AS ultimo
+       FROM ${schema}.campaing_dispatch
+      WHERE campaing_id = $1 AND sent_at IS NOT NULL`,
+    [campaing_id]
+  );
+
+  // Resposta = mensagem recebida no chat do contato depois do envio.
+  const contatos = await pool.query(
+    `SELECT d.contact_number,
+            d.contact_name,
+            d.status,
+            d.sent_at,
+            d.error,
+            c.name AS canal,
+            EXISTS (
+              SELECT 1 FROM ${schema}.messages m
+               WHERE m.chat_id = d.chat_id
+                 AND m.from_me = false
+                 AND d.sent_at IS NOT NULL
+                 AND m.created_at > d.sent_at
+            ) AS respondeu
+       FROM ${schema}.campaing_dispatch d
+       LEFT JOIN ${schema}.connections c ON c.id = d.connection_id
+      WHERE d.campaing_id = $1
+      ORDER BY d.sent_at NULLS LAST, d.contact_name`,
+    [campaing_id]
+  );
+
+  const porStatus = resumo.rows.reduce((acc, r) => ({ ...acc, [r.status]: r.total }), {});
+  const enviados = porStatus.enviado || 0;
+  const respostas = contatos.rows.filter((c) => c.respondeu).length;
+
+  return {
+    total: contatos.rows.length,
+    enviados,
+    falhas: porStatus.falha || 0,
+    pendentes: porStatus.pendente || 0,
+    respostas,
+    taxa_resposta: enviados > 0 ? Math.round((respostas / enviados) * 1000) / 10 : 0,
+    primeiro_envio: janela.rows[0]?.primeiro ? Number(janela.rows[0].primeiro) : null,
+    ultimo_envio: janela.rows[0]?.ultimo ? Number(janela.rows[0].ultimo) : null,
+    contatos: contatos.rows,
+  };
+};
+
 module.exports = {
   createCampaing,
   startCampaing,
   getCampaings,
   getCampaingById,
   deleteCampaing,
-  scheduleCampaingBlast
+  scheduleCampaingBlast,
+  getCampaingDetails,
+  getCampaingMetrics
 };
