@@ -2,6 +2,7 @@ import axios from 'axios';
 import React, { useState, useEffect } from 'react';
 import * as bootstrap from 'bootstrap';
 import { useToast } from '../../contexts/ToastContext';
+import CamposConexoes from './Filas_camposConexoes';
 
 function EditQueueModal({ theme, fila, onQueueUpdated }) {
   const [title, setTitle] = useState('');
@@ -9,6 +10,7 @@ function EditQueueModal({ theme, fila, onQueueUpdated }) {
   const [users, setUser] = useState([]);
   const [autoDistribution, setAutoDistribution] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [conexoesIds, setConexoesIds] = useState([]);
   const { showError, showSuccess } = useToast();
   const userData = JSON.parse(localStorage.getItem('user'));
   const schema = userData?.schema;
@@ -20,6 +22,25 @@ function EditQueueModal({ theme, fila, onQueueUpdated }) {
       setAutoDistribution(fila.distribution || false);
     }
   }, [fila]);
+
+  // Números vinculados hoje. Vem do servidor (connections.queue_id) e não do objeto da
+  // fila, que não carrega essa informação.
+  useEffect(() => {
+    const buscarConexoes = async () => {
+      if (!fila?.id || !schema) { setConexoesIds([]); return; }
+      try {
+        const r = await axios.get(
+          `${process.env.REACT_APP_URL}/queue/get-queue-connections/${fila.id}/${schema}`,
+          { withCredentials: true }
+        );
+        setConexoesIds((r.data.connections || []).map(c => c.id));
+      } catch (error) {
+        console.error('Erro ao buscar números da fila:', error);
+        setConexoesIds([]);
+      }
+    };
+    buscarConexoes();
+  }, [fila?.id, schema]);
 
   useEffect(() => {
     const fetchUsuarios = async () => {
@@ -59,6 +80,14 @@ function EditQueueModal({ theme, fila, onQueueUpdated }) {
       }, {
         withCredentials: true
       });
+
+      // Números primeiro: se este passo falhar, o interceptor mostra o erro e a fila
+      // não é dada como salva com um vínculo que não gravou.
+      await axios.put(`${process.env.REACT_APP_URL}/queue/set-queue-connections`, {
+        queueId: fila.id,
+        connectionIds: conexoesIds,
+        schema: schema,
+      }, { withCredentials: true });
 
       if (response.data?.success) {
         showSuccess('Fila atualizada com sucesso.');
@@ -123,6 +152,14 @@ function EditQueueModal({ theme, fila, onQueueUpdated }) {
                 ))}
               </select>
             </div>
+
+            {/* Números (conexões) que atendem a fila */}
+            <CamposConexoes
+              theme={theme}
+              value={conexoesIds}
+              onChange={setConexoesIds}
+              disabled={isSaving}
+            />
 
             {/* Distribuição automática */}
             <div className="mb-3 form-check form-switch">

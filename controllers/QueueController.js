@@ -1,6 +1,6 @@
     const Queue = require("../entities/Queue");
 const { v4: uuidv4 } = require('uuid');
-const { createQueue, getUserQueues, getAllQueues, deleteQueue, getQueueById, transferQueue, updateQueue, updateUserQueues, setQueueUsers, toggleWebhookStatus, updateWebhookUrl, getUsersInQueue } = require("../services/QueueService");
+const { createQueue, getUserQueues, getAllQueues, deleteQueue, getQueueById, transferQueue, updateQueue, updateUserQueues, setQueueUsers, getQueueConnections, setQueueConnections, toggleWebhookStatus, updateWebhookUrl, getUsersInQueue } = require("../services/QueueService");
 const { validarUrlDeWebhook } = require("../services/QueueWebhookService");
 const { setUserChat } = require("../services/ChatService");
 const { getUserById } = require("../services/UserService");
@@ -311,6 +311,54 @@ const setQueueUsersController = async (req, res) => {
     }
 };
 
+// GET /queue/get-queue-connections/:queue_id/:schema — números que atendem a fila.
+const getQueueConnectionsController = async (req, res) => {
+    try {
+        const { queue_id } = req.params;
+        const schema = req.schema || req.params.schema;
+
+        if (!queue_id || !UUID_RE.test(String(queue_id))) {
+            return res.status(400).json({ error: 'Fila inválida' });
+        }
+
+        const result = await getQueueConnections(queue_id, schema);
+        res.status(200).json({ success: true, connections: result });
+    } catch (error) {
+        console.error('Erro ao buscar conexões da fila:', error.message);
+        res.status(500).json({ error: 'Erro ao buscar conexões da fila' });
+    }
+};
+
+// PUT /queue/set-queue-connections — define quais números atendem esta fila.
+// O vínculo é connections.queue_id, o mesmo que a tela de WhatsApp já usa; aqui ele
+// passa a ser editável pelo lado da fila, que é onde quem monta o atendimento pensa.
+const setQueueConnectionsController = async (req, res) => {
+    try {
+        const { queueId, connectionIds } = req.body;
+        const schema = req.schema || req.body.schema;
+
+        if (!queueId || !UUID_RE.test(String(queueId))) {
+            return res.status(400).json({ error: 'Fila inválida' });
+        }
+        if (connectionIds !== undefined && !Array.isArray(connectionIds)) {
+            return res.status(400).json({ error: 'connectionIds deve ser uma lista' });
+        }
+        const ids = (connectionIds || []).map(String);
+        if (ids.some(id => !UUID_RE.test(id))) {
+            return res.status(400).json({ error: 'Lista de números inválida' });
+        }
+
+        await setQueueConnections(queueId, ids, schema);
+
+        global.socketIoServer?.to(`schema_${schema}`).emit('queue_connections_updated', { queueId, connectionIds: ids });
+
+        res.status(200).json({ success: true, queueId, connectionIds: ids });
+    } catch (error) {
+        console.error('Erro ao definir números da fila:', error.message);
+        res.status(500).json({ error: 'Erro ao definir números da fila' });
+    }
+};
+
 module.exports = {
     createQueueController,
     getUserQueuesController,
@@ -321,6 +369,8 @@ module.exports = {
     updateQueueController,
     updateUserQueuesController,
     setQueueUsersController,
+    getQueueConnectionsController,
+    setQueueConnectionsController,
     updateWebhookUrlController,
     toggleWebhookStatusController,
     getUsersInQueueController
