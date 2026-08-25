@@ -70,7 +70,11 @@ const worker = new Worker(
     } catch (err) {
       console.error(`Erro ao enviar mensagem dentro do job ${job.id}:`, err.message);
       // Ultima tentativa: fecha como falha. Antes disso segue 'pendente' porque o BullMQ vai repetir.
-      const ultimaTentativa = job.attemptsMade + 1 >= (job.opts?.attempts || 1);
+      // Na duvida (campo ausente) assume ultima tentativa: melhor mostrar falha do que
+      // deixar um envio que morreu preso como "pendente" para sempre na tela de metricas.
+      const tentativaAtual = Number(job.attemptsMade ?? 0) + 1;
+      const maxTentativas = Number(job.opts?.attempts) || 1;
+      const ultimaTentativa = !Number.isFinite(tentativaAtual) || tentativaAtual >= maxTentativas;
       await marcarDisparo(job.data, {
         status: ultimaTentativa ? 'falha' : 'pendente',
         error: err.message,
