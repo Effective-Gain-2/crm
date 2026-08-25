@@ -310,7 +310,7 @@ function ChatPage({ theme, chat_id} ) {
   const [audioUrl, setAudioUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('')
   const selectedChatIdRef = useRef(null);
-  const { preferences, updateChatsTab } = useUserPreferences();
+  const { preferences, updateChatsTab, updateNotificationMuted } = useUserPreferences();
   // Chips estilo WhatsApp: 'tudo' | 'nao-lidas' | 'aguardando' | 'grupos'
   // ('conversas' era o valor antigo persistido — normaliza para 'tudo')
   const [selectedTab, setSelectedTab] = useState(
@@ -339,7 +339,10 @@ function ChatPage({ theme, chat_id} ) {
   const [sideMenuActive, setSideMenuActive] = useState(false);
   const [showFiltros, setShowFiltros] = useState(false);
   const [filtrosAtivos, setFiltrosAtivos] = useState(preferences.chatFilters || {});
-  const { playNotificationSound, audioRef } = useNotificationSound();
+  const { playNotificationSound, audioRef, isMuted, toggleMute } = useNotificationSound({
+    mutedPreference: preferences.notificationSoundMuted,
+    onMutedChange: updateNotificationMuted
+  });
   const navigate = useNavigate();
   const [userQueues, setUserQueues] = useState([])
   const [showQuickMsgPopover, setShowQuickMsgPopover] = useState(false);
@@ -1735,7 +1738,7 @@ const handleImageUpload = async (event) => {
 
   return (
     <div className={`d-flex flex-column w-100 h-100 ms-2`} style={{ overflow: 'hidden' }}>
-      <audio ref={audioRef} src="/notification.mp3" preload="auto" />
+      <audio ref={audioRef} src="/notification.mp3" preload="auto" muted={isMuted} />
       {/* altura fixa em conteúdo, não em % da tela (em monitor menor o % esmagava o cabeçalho) */}
       <div className="pt-3 mb-3 d-flex flex-row align-items-center gap-5" style={{ flex: '0 0 auto' }}>
         <h2 className={`mb-0 ms-4 header-text-${theme}`} style={{ fontWeight: 400 }}>Chats</h2>
@@ -1746,6 +1749,19 @@ const handleImageUpload = async (event) => {
         >
           <i className="bi-plus-lg"></i>
           Novo Contato
+        </button>
+
+        <button
+          type="button"
+          className={`btn btn-sm btn-2-${theme} d-flex align-items-center gap-2`}
+          onClick={toggleMute}
+          aria-pressed={isMuted}
+          title={isMuted
+            ? 'Som de novas mensagens desativado. Clique para ativar.'
+            : 'Som de novas mensagens ativado. Clique para silenciar.'}
+        >
+          <i className={isMuted ? 'bi-volume-mute' : 'bi-volume-up'}></i>
+          {isMuted ? 'Som desativado' : 'Som ativado'}
         </button>
       </div>
       <div
