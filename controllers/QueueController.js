@@ -2,10 +2,19 @@
 const { v4: uuidv4 } = require('uuid');
 const { createQueue, getUserQueues, getAllQueues, deleteQueue, getQueueById, transferQueue, updateQueue, updateUserQueues, setQueueUsers, getQueueConnections, setQueueConnections, toggleWebhookStatus, updateWebhookUrl, getUsersInQueue } = require("../services/QueueService");
 const { validarUrlDeWebhook } = require("../services/QueueWebhookService");
+const { ROLE_LEVEL } = require("../middlewares/auth");
 const { setUserChat } = require("../services/ChatService");
 const { getUserById } = require("../services/UserService");
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Líder é dono das filas que lidera (queues.superuser). Ele não escolhe o superusuário:
+// na criação a fila nasce dele — senão criaria uma fila que já não pode editar — e na
+// edição ele não pode repassá-la, o que seria a saída pela tangente da regra de posse.
+// Master e técnico escolhem livremente.
+const ehLider = (req) => (ROLE_LEVEL[req.auth?.role] || 0) < ROLE_LEVEL.master;
+const resolverSuperUsuario = (req, super_user) =>
+    ehLider(req) ? (req.auth?.local_user_id || null) : (super_user || null);
 
 
 const createQueueController = async(req, res)=>{
@@ -23,7 +32,7 @@ const createQueueController = async(req, res)=>{
 
         const result = await createQueue(
             queue,
-            super_user || null,
+            resolverSuperUsuario(req, super_user),
             distribution === true || distribution === 'true',
             schema
         )
@@ -253,7 +262,7 @@ const updateQueueController = async (req, res) => {
             queueId,
             String(name).trim(),
             color,
-            super_user,
+            resolverSuperUsuario(req, super_user),
             distribution === true || distribution === 'true',
             schema
         );

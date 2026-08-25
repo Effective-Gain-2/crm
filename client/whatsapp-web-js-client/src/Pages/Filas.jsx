@@ -22,9 +22,13 @@ function FilaPage({ theme }) {
   const [conexoesPorFila, setConexoesPorFila] = useState({});
   const userData = JSON.parse(localStorage.getItem('user'));
   // Configurar fila é trabalho de gestão. O servidor é quem decide de verdade
-  // (requireRole('lider') nas rotas); aqui só escondemos o que não adiantaria clicar.
-  const podeGerirFilas = ['tecnico', 'master', 'lider', 'admin']
-    .includes(String(userData?.role || '').toLowerCase());
+  // (requireRole('lider') + posse nas rotas); aqui só escondemos o que não adiantaria clicar.
+  const papel = String(userData?.role || '').toLowerCase();
+  const podeGerirFilas = ['tecnico', 'master', 'lider', 'admin'].includes(papel);
+  const mandaEmTodas = ['tecnico', 'master', 'admin'].includes(papel);
+  // Líder só configura as filas que lidera: queues.superuser é o local_user_id dele,
+  // que é justamente o `id` gravado no login.
+  const podeGerirEsta = (fila) => mandaEmTodas || (!!fila?.superuser && fila.superuser === userData?.id);
   const [socketInstance] = useState(socket)  
   const schema = userData?.schema;
   const url = process.env.REACT_APP_URL;
@@ -204,7 +208,7 @@ useEffect(() => {
                   )}
                 </div>
                 
-                {podeGerirFilas && (
+                {podeGerirFilas && podeGerirEsta(fila) && (
                 <div className="d-flex gap-1 mt-2 justify-content-center">
                   <button
                     className={`btn btn-sm btn-2-${theme}`}
