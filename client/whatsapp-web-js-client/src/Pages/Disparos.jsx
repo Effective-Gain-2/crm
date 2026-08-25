@@ -29,15 +29,28 @@ function formatDateHour(timestamp) {
   });
 }
 
+// Só troca de unidade quando a conta fecha exata: arredondar para baixo fazia
+// 90s virar "1min", escondendo meio minuto de intervalo entre um envio e outro.
 function formatInterval(intervalInSeconds) {
-  const seconds = Number(intervalInSeconds);
-  if (seconds >= 3600) {
-    return `${Math.floor(seconds / 3600)}h`;
-  } else if (seconds >= 60) {
-    return `${Math.floor(seconds / 60)}min`;
-  } else {
-    return `${seconds}s`;
+  const seconds = Number(intervalInSeconds) || 0;
+  if (seconds >= 3600 && seconds % 3600 === 0) {
+    return `${seconds / 3600}h`;
   }
+  if (seconds >= 60 && seconds % 60 === 0) {
+    return `${seconds / 60}min`;
+  }
+  return `${seconds}s`;
+}
+
+// Intervalo dinâmico grava min/max e deixa timer nulo. Ler só o timer fazia o card
+// anunciar "0s" para um disparo configurado, por exemplo, de 30s a 90s.
+function descreverIntervalo(disparo) {
+  const min = Number(disparo?.min) || 0;
+  const max = Number(disparo?.max) || 0;
+  if (min > 0 || max > 0) {
+    return `${formatInterval(min)} a ${formatInterval(max)}`;
+  }
+  return formatInterval(disparo?.timer);
 }
 function DisparosPage({ theme }) {
   const { showError, showSuccess } = useToast();
@@ -281,24 +294,17 @@ function DisparosPage({ theme }) {
                 </div>
                 <div className={`header-text-${theme} mb-1`}>
                   Intervalo: <span className={`fw-bold`}>
-                    {formatInterval(disparo.timer)}
+                    {descreverIntervalo(disparo)}
                   </span>
                 </div>
+                {/* Os canais vivem em campaing_connections; o card lia disparo.connection_id,
+                    coluna que a tabela campaing nunca teve — por isso dizia sempre
+                    "Nenhum canal", mesmo com o canal salvo. */}
                 <div className={`header-text-${theme} mb-1`}>
                   Canais: <span className={`fw-bold`}>
-                    {disparo.connection_id ? 
-                      (Array.isArray(disparo.connection_id) ? 
-                        disparo.connection_id.map(id => {
-                          const conexao = conexoes.find(conn => conn.id === id);
-                          return conexao ? conexao.name : `Canal ID: ${id}`;
-                        }).join(', ') :
-                        disparo.connection_id.split(',').map(id => {
-                          const conexao = conexoes.find(conn => conn.id === id.trim());
-                          return conexao ? conexao.name : `Canal ID: ${id.trim()}`;
-                        }).join(', ')
-                      ) : 
-                      'Nenhum canal'
-                    }
+                    {Array.isArray(disparo.canais) && disparo.canais.length > 0
+                      ? disparo.canais.join(', ')
+                      : 'Nenhum canal'}
                   </span>
                 </div>
                 <div className={`header-text-${theme}`}>
