@@ -6,6 +6,7 @@ import axios from 'axios';
 import { Card, Button } from 'react-bootstrap';
 import DisparoModal from './modalPages/Disparos_novoDisparo';
 import DeleteDisparoModal from './modalPages/Disparos_delete';
+import DetalhesDisparoModal from './modalPages/Disparos_detalhes';
 import { useToast } from '../contexts/ToastContext';
 
 const userData = JSON.parse(localStorage.getItem('user'));
@@ -41,6 +42,7 @@ function formatInterval(intervalInSeconds) {
 function DisparosPage({ theme }) {
   const { showError, showSuccess } = useToast();
   const [disparoSelecionado, setDisparoSelecionado] = useState(null);
+  const [disparoDetalhado, setDisparoDetalhado] = useState(null);
   const userData = JSON.parse(localStorage.getItem('user')); 
   const schema = userData?.schema
   const url = process.env.REACT_APP_URL;
@@ -277,6 +279,16 @@ function DisparosPage({ theme }) {
         style={{ maxWidth: '42px' }}
         data-bs-toggle="tooltip"
         data-bs-placement="left"
+        data-bs-title="Ver detalhes e métricas"
+        onClick={() => setDisparoDetalhado(disparo.id)}
+      >
+        <i className="bi bi-bar-chart-line-fill"></i>
+      </button>
+      <button
+        className={`btn btn-2-${theme}`}
+        style={{ maxWidth: '42px' }}
+        data-bs-toggle="tooltip"
+        data-bs-placement="left"
         data-bs-title="Editar"
         onClick={() => handleEdit(disparo.id)}
         disabled={!isAdmin}
@@ -320,6 +332,14 @@ function DisparosPage({ theme }) {
 
       {/* Modal de Exclusão */}
       <DeleteDisparoModal theme={theme} disparo={disparoSelecionado} onDelete={handleDisparoDeleted} />
+
+      {/* Modal de Detalhes e Métricas */}
+      <DetalhesDisparoModal
+        theme={theme}
+        show={!!disparoDetalhado}
+        onHide={() => setDisparoDetalhado(null)}
+        disparoId={disparoDetalhado}
+      />
     </div>
   );
 }
