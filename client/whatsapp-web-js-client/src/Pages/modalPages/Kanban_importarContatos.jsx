@@ -11,6 +11,7 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
   const [preview, setPreview] = useState([]);
   const [availableColumns, setAvailableColumns] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
+  const [resultado, setResultado] = useState(null);
   const [etapasFunil, setEtapasFunil] = useState([]);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef(null);
@@ -104,16 +105,19 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
       });
 
       if (res.data.success) {
-        console.log('✅ Importação bem-sucedida!');
-        
+        // O resumo fica na tela: fechar em silêncio escondia importação que não
+        // colocou ninguém no funil, e o usuário só descobria no disparo vazio.
+        setResultado({
+          mensagem: res.data.message,
+          alerta: res.data.semEtapa > 0 || res.data.imported === 0,
+        });
+
         setFile(null);
         setPreview([]);
         setAvailableColumns([]);
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
-        
-        onHide();
       } else {
         setErrorMsg('Erro ao importar contatos: ' + res.data.message);
       }
@@ -131,6 +135,7 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
     setPreview([]);
     setAvailableColumns([]);
     setErrorMsg('');
+    setResultado(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -170,6 +175,13 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
             </Form.Group>
           </div>
         </div>
+
+        {resultado && (
+          <div className={`alert ${resultado.alerta ? 'alert-warning' : 'alert-success'} mt-3`} role="alert">
+            <i className={`bi ${resultado.alerta ? 'bi-exclamation-triangle' : 'bi-check-circle'} me-2`}></i>
+            {resultado.mensagem}
+          </div>
+        )}
 
         {errorMsg && (
           <div style={{ color: 'var(--error-color)', textAlign: 'center', marginBottom: 16 }}>

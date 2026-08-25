@@ -17,9 +17,22 @@ exports.uploadExcel = async (req, res) => {
     const summary = await getInformationFromExcel(data, sector, schema);
 
     fs.unlink(req.file.path, () => {});
+
+    let message = `Importação concluída: ${summary.imported} contato(s); ${summary.skipped} linha(s) ignorada(s).`;
+    if (summary.semEtapa > 0) {
+      const motivo = summary.etapasNaoEncontradas.length > 0
+        ? `etapa não encontrada no funil "${sector}": ${summary.etapasNaoEncontradas.join(', ')}`
+        : 'a coluna "etapa" está vazia';
+      message += ` ATENÇÃO: ${summary.semEtapa} contato(s) ficaram FORA do funil (${motivo}).`
+        + ' Disparos por funil não vão alcançar esses contatos.';
+    }
+    if (summary.imported === 0) {
+      message += ' Confira se a planilha tem as colunas nome, numero e etapa.';
+    }
+
     res.status(200).json({
       success: true,
-      message: `Importação concluída: ${summary.imported} contato(s); ${summary.skipped} linha(s) ignorada(s).`,
+      message,
       ...summary,
     });
   } catch (error) {

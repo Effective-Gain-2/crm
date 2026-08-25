@@ -61,6 +61,45 @@ function DisparosPage({ theme }) {
     });
   };
 
+  const recarregarDisparos = async () => {
+    try {
+      const response = await axios.get(`${url}/campaing/get-campaing/${schema}`, { withCredentials: true });
+      setDisparos(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar disparos:', error);
+    }
+  };
+
+  // Cancelar só alcança o que ainda está na fila: mensagem enviada não volta.
+  const handleCancelarDisparo = async (disparo) => {
+    const confirmado = window.confirm(
+      `Cancelar o disparo "${disparo.campaing_name}"?\n\n` +
+      'As mensagens que ainda não saíram são retiradas da fila. ' +
+      'As que já foram enviadas não podem ser desfeitas.'
+    );
+    if (!confirmado) return;
+
+    try {
+      const { data } = await axios.post(
+        `${url}/campaing/cancel/${disparo.id}/${schema}`,
+        {},
+        { withCredentials: true }
+      );
+
+      if (data.total_pendentes === 0) {
+        showSuccess('Não havia nenhuma mensagem pendente para cancelar.');
+      } else if (data.em_execucao > 0) {
+        showSuccess(`${data.cancelados} cancelada(s). ${data.em_execucao} já estava(m) saindo e não pôde(puderam) ser interrompida(s).`);
+      } else {
+        showSuccess(`${data.cancelados} mensagem(ns) cancelada(s).`);
+      }
+      recarregarDisparos();
+    } catch (error) {
+      console.error('Erro ao cancelar disparo:', error);
+      showError('Erro ao cancelar disparo');
+    }
+  };
+
   const handleStartDisparo = async (id) => {
   try {
     await axios.post(`${url}/campaing/start`, { 
@@ -284,6 +323,20 @@ function DisparosPage({ theme }) {
       >
         <i className="bi bi-bar-chart-line-fill"></i>
       </button>
+      {/* Só há o que cancelar enquanto restam mensagens na fila */}
+      {['agendado', 'em andamento'].includes(disparo.status) && (
+        <button
+          className={`btn delete-btn`}
+          style={{ maxWidth: '42px' }}
+          data-bs-toggle="tooltip"
+          data-bs-placement="left"
+          data-bs-title="Cancelar envios pendentes"
+          onClick={() => handleCancelarDisparo(disparo)}
+          disabled={!isAdmin}
+        >
+          <i className="bi bi-stop-circle-fill"></i>
+        </button>
+      )}
       <button
         className={`btn btn-2-${theme}`}
         style={{ maxWidth: '42px' }}
