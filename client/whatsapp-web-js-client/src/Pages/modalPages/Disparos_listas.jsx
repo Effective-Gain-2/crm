@@ -11,8 +11,10 @@ const formatarData = (timestamp) => {
 };
 
 // Listas de contatos para disparo: sobe a planilha aqui e escolhe a lista no disparo,
-// sem precisar passar pelo funil do Kanban.
-function ListasModal({ theme, show, onHide, onListasMudaram }) {
+// sem precisar passar pelo funil do Kanban. Subir a lista e agendar o disparo dela
+// sao o mesmo fluxo: quem acabou de subir uma lista quer marcar data e hora agora,
+// nao voltar ao inicio e torcer para escolher a lista certa no meio das outras.
+function ListasModal({ theme, show, onHide, onListasMudaram, onAgendarDisparo }) {
   const [listas, setListas] = useState([]);
   const [nome, setNome] = useState('');
   const [file, setFile] = useState(null);
@@ -20,6 +22,7 @@ function ListasModal({ theme, show, onHide, onListasMudaram }) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState('');
   const [resultado, setResultado] = useState('');
+  const [listaCriada, setListaCriada] = useState(null);
   const fileInputRef = useRef(null);
 
   const url = process.env.REACT_APP_URL;
@@ -39,6 +42,7 @@ function ListasModal({ theme, show, onHide, onListasMudaram }) {
       carregar();
       setErro('');
       setResultado('');
+      setListaCriada(null);
     }
   }, [show, carregar]);
 
@@ -72,6 +76,7 @@ function ListasModal({ theme, show, onHide, onListasMudaram }) {
     setEnviando(true);
     setErro('');
     setResultado('');
+    setListaCriada(null);
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -83,6 +88,7 @@ function ListasModal({ theme, show, onHide, onListasMudaram }) {
       });
 
       setResultado(data.message);
+      setListaCriada({ id: data.id, nome: data.nome, total: data.importados });
       setFile(null);
       setNome('');
       setPreview(null);
@@ -158,7 +164,23 @@ function ListasModal({ theme, show, onHide, onListasMudaram }) {
 
         {resultado && (
           <div className="alert alert-success" role="alert">
-            <i className="bi bi-check-circle me-2"></i>{resultado}
+            <div>
+              <i className="bi bi-check-circle me-2"></i>{resultado}
+            </div>
+            {listaCriada?.id && onAgendarDisparo && (
+              <div className="mt-3 d-flex align-items-center gap-2 flex-wrap">
+                <Button
+                  className={`btn-1-${theme}`}
+                  onClick={() => onAgendarDisparo(listaCriada.id)}
+                >
+                  <i className="bi bi-calendar-event me-2"></i>
+                  Agendar disparo desta lista
+                </Button>
+                <span className="small">
+                  Abre a configuração de data, hora, canal e mensagem já apontando para “{listaCriada.nome}”.
+                </span>
+              </div>
+            )}
           </div>
         )}
         {erro && (
@@ -190,9 +212,20 @@ function ListasModal({ theme, show, onHide, onListasMudaram }) {
                     <td className={`card-subtitle-${theme}`}>{lista.total_contatos}</td>
                     <td className={`card-subtitle-${theme}`}>{formatarData(lista.criada_em)}</td>
                     <td>
-                      <button className="btn delete-btn btn-sm" onClick={() => excluir(lista)} title="Excluir lista">
-                        <i className="bi bi-trash-fill"></i>
-                      </button>
+                      <div className="d-flex gap-2">
+                        {onAgendarDisparo && (
+                          <button
+                            className={`btn btn-2-${theme} btn-sm`}
+                            onClick={() => onAgendarDisparo(lista.id)}
+                            title="Criar um disparo para esta lista"
+                          >
+                            <i className="bi bi-calendar-event"></i>
+                          </button>
+                        )}
+                        <button className="btn delete-btn btn-sm" onClick={() => excluir(lista)} title="Excluir lista">
+                          <i className="bi bi-trash-fill"></i>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

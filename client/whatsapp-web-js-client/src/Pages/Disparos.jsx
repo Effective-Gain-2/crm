@@ -58,6 +58,7 @@ function DisparosPage({ theme }) {
   const [disparoSelecionado, setDisparoSelecionado] = useState(null);
   const [disparoDetalhado, setDisparoDetalhado] = useState(null);
   const [mostrarListas, setMostrarListas] = useState(false);
+  const [listaParaDisparo, setListaParaDisparo] = useState('');
   const userData = JSON.parse(localStorage.getItem('user')); 
   const schema = userData?.schema
   const url = process.env.REACT_APP_URL;
@@ -196,11 +197,38 @@ function DisparosPage({ theme }) {
     };
   }, []);
 
+  // Fechar o modal descarta a lista que veio pré-escolhida. Sem isso, reabrir pela
+  // mesma lista não mudaria nenhuma prop e o formulário voltaria com o que foi
+  // digitado e abandonado antes.
+  useEffect(() => {
+    const modalEl = document.getElementById('DisparoModal');
+    if (!modalEl) return;
+    const limpar = () => setListaParaDisparo('');
+    modalEl.addEventListener('hidden.bs.modal', limpar);
+    return () => modalEl.removeEventListener('hidden.bs.modal', limpar);
+  }, []);
+
   const handleEdit = (id) => {
     const disparo = disparos.find(d => d.id === id);
     setDisparoSelecionado(disparo);
+    setListaParaDisparo('');
     const modal = new bootstrap.Modal(document.getElementById('DisparoModal'));
     modal.show();
+  };
+
+  // Subir a lista e agendar o disparo dela são o mesmo trabalho: sai do modal de
+  // Listas direto para a configuração de data, hora, canal e mensagem, com a lista
+  // já escolhida — ninguém precisa reencontrá-la depois no meio das outras.
+  const handleAgendarDisparoComLista = (listaId) => {
+    setDisparoSelecionado(null);
+    setListaParaDisparo(listaId);
+    setMostrarListas(false);
+    // Abrir o segundo modal antes do primeiro terminar de fechar deixa o fundo escuro
+    // preso na tela: espera a transição de saída do modal de Listas.
+    setTimeout(() => {
+      const modal = new bootstrap.Modal(document.getElementById('DisparoModal'));
+      modal.show();
+    }, 350);
   };
 
   const handleDelete = (id) => {
@@ -215,6 +243,7 @@ function DisparosPage({ theme }) {
 
   const handleNovoDisparo = () => {
     setDisparoSelecionado(null);
+    setListaParaDisparo('');
     const modal = new bootstrap.Modal(document.getElementById('DisparoModal'));
     modal.show();
   };
@@ -412,7 +441,13 @@ function DisparosPage({ theme }) {
       </div>
 
       {/* Modal de Novo/Editar Disparo */}
-      <DisparoModal theme={theme} disparo={disparoSelecionado} onSave={handleDisparoSaved} />
+      <DisparoModal
+        theme={theme}
+        disparo={disparoSelecionado}
+        onSave={handleDisparoSaved}
+        listaInicial={listaParaDisparo}
+        onListaCriada={recarregarDisparos}
+      />
 
       {/* Modal de Exclusão */}
       <DeleteDisparoModal theme={theme} disparo={disparoSelecionado} onDelete={handleDisparoDeleted} />
@@ -423,6 +458,7 @@ function DisparosPage({ theme }) {
         show={mostrarListas}
         onHide={() => setMostrarListas(false)}
         onListasMudaram={recarregarDisparos}
+        onAgendarDisparo={handleAgendarDisparoComLista}
       />
 
       {/* Modal de Detalhes e Métricas */}

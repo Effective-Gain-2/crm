@@ -224,10 +224,56 @@ const createCampaing = async (campaing_id, campName, sector, kanbanStage, connec
   }
 };
 
+// Salvar um disparo agenda um conjunto novo de jobs. Sem tirar o conjunto anterior
+// da fila, salvar duas vezes fazia cada contato receber duas mensagens — e a metrica
+// so enxergava o agendamento mais recente, entao o envio dobrado nem aparecia na tela.
+const limparAgendamentoAnterior = async (campaing_id, schema) => {
+  const pendentes = await pool.query(
+    `SELECT id, job_id FROM ${schema}.campaing_dispatch
+      WHERE campaing_id = $1 AND status = 'pendente'`,
+    [campaing_id]
+  );
+
+  let removidos = 0;
+  let presos = 0;
+
+  for (const linha of pendentes.rows) {
+    if (!linha.job_id) continue;
+    try {
+      const job = await blastQueue.getJob(linha.job_id);
+      if (job) await job.remove();
+      removidos++;
+    } catch (e) {
+      // Job em execucao nao sai da fila: a mensagem dele ainda vai sair.
+      console.warn(`Reagendamento: job ${linha.job_id} nao pode ser removido: ${e.message}`);
+      presos++;
+    }
+  }
+
+  if (pendentes.rowCount > 0) {
+    // Marca cancelado, nao apaga: contato que saiu do alvo fica com registro honesto
+    // em vez de pendente eterno. Quem continua no alvo volta a 'pendente' no upsert.
+    await pool.query(
+      `UPDATE ${schema}.campaing_dispatch
+          SET status = 'cancelado'
+        WHERE campaing_id = $1 AND status = 'pendente'`,
+      [campaing_id]
+    );
+    console.log(`Reagendamento da campanha ${campaing_id}: ${removidos} job(s) retirados da fila, ${presos} ja em execucao.`);
+  }
+
+  return { removidos, presos };
+};
+
 const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_stage) => {
-  try { 
+  try {
     const startDate = Number(campaing.start_date);
     const now = Date.now();
+
+    // Antes de qualquer coisa: o agendamento anterior deixa de valer no momento em que
+    // este substitui. Vale inclusive quando nao vamos reagendar nada abaixo — salvar
+    // com data no passado tem de parar o disparo antigo, nao conviver com ele.
+    await limparAgendamentoAnterior(campaing.id, schema);
 
     if (startDate < now) {
       console.log('Data de início já passou, não agendando campanha');
