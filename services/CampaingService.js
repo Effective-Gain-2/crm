@@ -1,6 +1,7 @@
 const pool = require('../db/queries');
 const { v4: uuidv4 } = require('uuid');
 const { getContactsInKanbanStage, updateContactInKanban } = require('./KanbanService');
+const { getContatosDaLista } = require('./ListaService');
 const { sendTextMessage, fetchInstanceEvo } = require('../requests/evolution');
 const { sendBlastMessage, sendMediaBlastMessage } = require('./MessageBlast');
 const createRedisConnection = require('../config/Redis');
@@ -44,24 +45,32 @@ const worker = new Worker(
 
       const status = await fetchInstanceEvo()
       
-      if(job.data.image){
-        await sendMediaBlastMessage(
-          job.data.instance,
-          job.data.message,
-          job.data.number,
-          job.data.chat_id,
-          job.data.image,
-          job.data.schema
-        )
-      }else{
-        await sendBlastMessage(
-          job.data.instance,
-          job.data.message,
-          job.data.number,
-          job.data.chat_id,
-          job.data.schema
-        );
+      const confirmacao = job.data.image
+        ? await sendMediaBlastMessage(
+            job.data.instance,
+            job.data.message,
+            job.data.number,
+            job.data.chat_id,
+            job.data.image,
+            job.data.schema
+          )
+        : await sendBlastMessage(
+            job.data.instance,
+            job.data.message,
+            job.data.number,
+            job.data.chat_id,
+            job.data.schema
+          );
+
+      // Envio recusado nao vira excecao de proposito: repetir poderia entregar duas
+      // vezes uma mensagem que talvez tenha saido. Registra a falha com o motivo e
+      // encerra o job.
+      if (!confirmacao?.ok) {
+        await marcarDisparo(job.data, { status: 'falha', error: confirmacao?.motivo || 'falha desconhecida' });
+        console.warn(`Job ${job.id} nao enviou para ${job.data.number}: ${confirmacao?.motivo}`);
+        return;
       }
+
       if(job.data.stage!==null){
         await updateContactInKanban(job.data.number, job.data.stage, job.data.schema);
       }
@@ -115,7 +124,7 @@ const getAllCampaingConnections = async (campaing_id, schema) => {
   return result.rows
 }
 
-const createCampaing = async (campaing_id, campName, sector, kanbanStage, connectionId, startDate, schema, intervalo) => {
+const createCampaing = async (campaing_id, campName, sector, kanbanStage, connectionId, startDate, schema, intervalo, listaId = null) => {
   try {
     const unixStartDate = parseLocalDateTime(startDate);
 
@@ -171,9 +180,9 @@ const createCampaing = async (campaing_id, campName, sector, kanbanStage, connec
       if(intervalMinEmSegundos){
         result = await pool.query(
         `UPDATE ${schema}.campaing 
-         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8
+         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, lista_id=$9
          WHERE id=$6  RETURNING *`,
-        [campName, sector, kanbanStage, unixStartDate, null, campaing_id, intervalMinEmSegundos, intervalMaxEmSegundos]
+        [campName, sector, kanbanStage, unixStartDate, null, campaing_id, intervalMinEmSegundos, intervalMaxEmSegundos, listaId]
       );
       campaing = result.rows[0];
       await deleteAllConnectionsFromCampaing(campaing.id, schema)
@@ -181,9 +190,9 @@ const createCampaing = async (campaing_id, campName, sector, kanbanStage, connec
       }else{
          result = await pool.query(
         `UPDATE ${schema}.campaing 
-         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8
+         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, lista_id=$9
          WHERE id=$6 RETURNING *`,
-        [campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, campaing_id, null, null]
+        [campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, campaing_id, null, null, listaId]
       );
       campaing = result.rows[0];
       await deleteAllConnectionsFromCampaing(campaing.id, schema)
@@ -193,15 +202,15 @@ const createCampaing = async (campaing_id, campName, sector, kanbanStage, connec
     } else {
       if(intervalMinEmSegundos) {
         result = await pool.query(
-          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, min, max) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-          [uuidv4(), campName, sector, kanbanStage, unixStartDate, null, intervalMinEmSegundos, intervalMaxEmSegundos]
+          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, min, max, lista_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+          [uuidv4(), campName, sector, kanbanStage, unixStartDate, null, intervalMinEmSegundos, intervalMaxEmSegundos, listaId]
         );
         campaing = result.rows[0];
         await insertConnectionsForCampaing(campaing.id,connectionId, schema)
       } else {
         result = await pool.query(
-          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-          [uuidv4(), campName, sector, kanbanStage, unixStartDate, intervalEmSegundos]
+          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, lista_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+          [uuidv4(), campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, listaId]
         );
         campaing = result.rows[0];
         await insertConnectionsForCampaing(campaing.id,connectionId, schema)
@@ -225,19 +234,29 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
       return;
     }
 
-    const kanban = await pool.query(
-      `SELECT * FROM ${schema}.kanban_${sector} WHERE id=$1`, [campaing.kanban_stage]
-    );
-    if (kanban.rowCount === 0) {
-      console.error(`Erro: Etapa Kanban com ID ${campaing.kanban_stage} não encontrada para o setor ${sector}.`);
-      return; 
-    }
-    
-    const contacts = await getContactsInKanbanStage(campaing.kanban_stage, schema);
-    
-    if (!contacts || contacts.length === 0) {
-      console.log('Nenhum contato encontrado na etapa Kanban');
-      return;
+    // O alvo pode ser uma lista de contatos ou uma etapa do funil.
+    let contacts;
+    if (campaing.lista_id) {
+      contacts = await getContatosDaLista(campaing.lista_id, schema);
+      if (!contacts || contacts.length === 0) {
+        console.log(`Nenhum contato na lista ${campaing.lista_id}`);
+        return;
+      }
+    } else {
+      const kanban = await pool.query(
+        `SELECT * FROM ${schema}.kanban_${sector} WHERE id=$1`, [campaing.kanban_stage]
+      );
+      if (kanban.rowCount === 0) {
+        console.error(`Erro: Etapa Kanban com ID ${campaing.kanban_stage} não encontrada para o setor ${sector}.`);
+        return;
+      }
+
+      contacts = await getContactsInKanbanStage(campaing.kanban_stage, schema);
+
+      if (!contacts || contacts.length === 0) {
+        console.log('Nenhum contato encontrado na etapa Kanban');
+        return;
+      }
     }
     
     const messages = await pool.query(
@@ -548,6 +567,12 @@ const getCampaings = async (schema) => {
     const result = await pool.query(
       `SELECT c.*,
               COALESCE(cx.canais, ARRAY[]::text[]) AS canais,
+              l.nome AS lista_nome,
+              COALESCE(lc.total, cs.total, 0) AS previstos,
+              COALESCE(d.total, 0) AS agendados,
+              COALESCE(d.enviados, 0) AS enviados,
+              COALESCE(d.falhas, 0) AS falhas,
+              COALESCE(d.pendentes, 0) AS pendentes,
               COALESCE(c.status, CASE
                 WHEN COALESCE(d.total, 0) = 0 THEN 'nao agendado'
                 WHEN d.pendentes > 0 AND d.enviados > 0 THEN 'em andamento'
@@ -555,6 +580,15 @@ const getCampaings = async (schema) => {
                 ELSE 'concluido'
               END) AS status
          FROM ${schema}.campaing c
+         LEFT JOIN ${schema}.listas l ON l.id = c.lista_id
+         LEFT JOIN (
+           SELECT lista_id, COUNT(*)::int AS total
+             FROM ${schema}.lista_contatos GROUP BY lista_id
+         ) lc ON lc.lista_id = c.lista_id
+         LEFT JOIN (
+           SELECT stage, COUNT(*)::int AS total
+             FROM ${schema}.contacts_stage GROUP BY stage
+         ) cs ON cs.stage = c.kanban_stage
          LEFT JOIN (
            SELECT cc.campaing_id, array_agg(cn.name ORDER BY cn.name) AS canais
              FROM ${schema}.campaing_connections cc
@@ -565,7 +599,8 @@ const getCampaings = async (schema) => {
            SELECT campaing_id,
                   COUNT(*)::int AS total,
                   COUNT(*) FILTER (WHERE status = 'pendente')::int AS pendentes,
-                  COUNT(*) FILTER (WHERE status = 'enviado')::int AS enviados
+                  COUNT(*) FILTER (WHERE status = 'enviado')::int AS enviados,
+                  COUNT(*) FILTER (WHERE status = 'falha')::int AS falhas
              FROM ${schema}.campaing_dispatch
             GROUP BY campaing_id
          ) d ON d.campaing_id = c.id`
@@ -699,6 +734,27 @@ const getCampaingDetails = async (campaing_id, schema) => {
     [campaing_id]
   );
 
+  // Alvo por lista: nem etapa nem contacts_stage entram na conta.
+  if (campaing.lista_id) {
+    const listaRes = await pool.query(
+      `SELECT l.nome, COUNT(lc.contact_number)::int AS total
+         FROM ${schema}.listas l
+         LEFT JOIN ${schema}.lista_contatos lc ON lc.lista_id = l.id
+        WHERE l.id = $1
+        GROUP BY l.nome`,
+      [campaing.lista_id]
+    );
+    const lista = listaRes.rows[0];
+    return {
+      campaing,
+      canais: canais.rows,
+      mensagens: mensagens.rows,
+      etapa: null,
+      lista: lista ? { id: campaing.lista_id, nome: lista.nome } : null,
+      total_contatos_alvo: lista?.total || 0,
+    };
+  }
+
   // A etapa vive em kanban_<funil>; funil invalido nao pode virar SQL.
   let etapa = null;
   if (campaing.sector && /^[a-z0-9_]{1,40}$/i.test(campaing.sector)) {
@@ -723,6 +779,7 @@ const getCampaingDetails = async (campaing_id, schema) => {
     canais: canais.rows,
     mensagens: mensagens.rows,
     etapa,
+    lista: null,
     total_contatos_alvo: alvo.rows[0]?.total || 0,
   };
 };

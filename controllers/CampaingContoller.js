@@ -39,7 +39,7 @@ const getCampaingByIdController = async (req, res) => {
 };
 
 const createCampaingController = async (req, res) => {
-  const {campaing_id, name, sector, kanban_stage, connection_id, start_date, schema, mensagem, intervalo, new_stage } = req.body;
+  const {campaing_id, name, sector, kanban_stage, connection_id, start_date, schema, mensagem, intervalo, new_stage, lista_id } = req.body;
   console.log(new_stage, 'new_stage');
   if (!schema) {
     return res.status(400).json({ erro: 'Schema não informado!' });
@@ -48,10 +48,10 @@ const createCampaingController = async (req, res) => {
     let campaing;
 
     if(campaing_id){
-      campaing = await createCampaing(campaing_id, name, sector, kanban_stage, connection_id, start_date, schema, intervalo);
+      campaing = await createCampaing(campaing_id, name, sector, kanban_stage, connection_id, start_date, schema, intervalo, lista_id || null);
       console.log('Campanha atualizada:', campaing);
     } else {
-      campaing = await createCampaing(null, name, sector, kanban_stage, connection_id, start_date, schema, intervalo);
+      campaing = await createCampaing(null, name, sector, kanban_stage, connection_id, start_date, schema, intervalo, lista_id || null);
       console.log('Campanha criada:', campaing);
     }
 

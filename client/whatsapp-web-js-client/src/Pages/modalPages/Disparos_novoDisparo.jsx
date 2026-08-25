@@ -14,6 +14,8 @@ function DisparoModal({ theme, disparo = null, onSave }) {
   const [canais, setCanais] = useState([]);
   const [showCanalDropdown, setShowCanalDropdown] = useState(false);
   const [tipoAlvo, setTipoAlvo] = useState('Funil');
+  const [listas, setListas] = useState([]);
+  const [listaSelecionada, setListaSelecionada] = useState('');
   const [funilSelecionado, setFunilSelecionado] = useState('');
   const [funis, setFunis] = useState([]);
   const [etapas, setEtapas] = useState([]);
@@ -497,6 +499,7 @@ const limparBase64 = (base64ComPrefixo) => {
       funilSelecionado: tipoAlvo === 'Funil' && !funilSelecionado,
       etapa: tipoAlvo === 'Funil' && !etapa,
       tagsSelecionadas: tipoAlvo === 'Tag' && tagsSelecionadas.length === 0,
+      listaSelecionada: tipoAlvo === 'Lista' && !listaSelecionada,
       etapaDestino: transferirContato && !etapaDestino
     };
     
@@ -535,12 +538,14 @@ const limparBase64 = (base64ComPrefixo) => {
   const disparoData = {
     name: titulo,
     connection_id: canais, 
-    sector: funilSelecionado.charAt(0).toLowerCase() + funilSelecionado.slice(1),
-    kanban_stage: etapa,
+    sector: funilSelecionado ? funilSelecionado.charAt(0).toLowerCase() + funilSelecionado.slice(1) : 'lista',
+    kanban_stage: tipoAlvo === 'Lista' ? null : etapa,
+    lista_id: tipoAlvo === 'Lista' ? listaSelecionada : null,
     start_date,
     schema,
     tipoAlvo,
-    ...(tipoAlvo === 'Funil' ? { etapa } : { tags: tagsSelecionadas }),
+    ...(tipoAlvo === 'Funil' ? { etapa } : {}),
+    ...(tipoAlvo === 'Tag' ? { tags: tagsSelecionadas } : {}),
     mensagem: mensagensParaSalvar,
     intervalo: {
       timer: intervaloDinamico ? null : intervaloTempo,
@@ -599,6 +604,20 @@ const limparBase64 = (base64ComPrefixo) => {
       console.error('Erro ao salvar disparo:', error);
     }
   };
+
+  // Listas ficam disponíveis para o alvo do disparo; quem as cria é o modal de Listas.
+  useEffect(() => {
+    const buscarListas = async () => {
+      try {
+        const { data } = await axios.get(`${url}/listas`, { withCredentials: true });
+        setListas(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Erro ao buscar listas:', error);
+        setListas([]);
+      }
+    };
+    buscarListas();
+  }, [url]);
 
   const variaveisFixas = [
   { id: 'contact_name', label: 'Nome', field_name: 'contact_name' },
@@ -865,6 +884,35 @@ const limparBase64 = (base64ComPrefixo) => {
                         Tag
                       </label>
                     </div>
+                    <div className="form-check">
+                      <input
+                        type="radio"
+                        className="form-check-input"
+                        id="tipoLista"
+                        name="tipoAlvo"
+                        value="Lista"
+                        checked={tipoAlvo === 'Lista'}
+                        onChange={(e) => setTipoAlvo(e.target.value)}
+                      />
+                      <label className={`form-check-label card-subtitle-${theme}`} htmlFor="tipoLista">
+                        Lista
+                      </label>
+                    </div>
+                    {tipoAlvo === 'Lista' && (
+                      <select
+                        className={`form-select input-${theme} ms-3`}
+                        value={listaSelecionada}
+                        onChange={(e) => setListaSelecionada(e.target.value)}
+                        style={{ width: 'auto', minWidth: '240px' }}
+                      >
+                        <option value="" disabled>Selecione uma lista</option>
+                        {listas.map((lista) => (
+                          <option key={lista.id} value={lista.id}>
+                            {lista.nome} ({lista.total_contatos} contatos)
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {/* Lista suspensa de Funis */}
                     {tipoAlvo === 'Funil' && (
                       <select
@@ -890,7 +938,7 @@ const limparBase64 = (base64ComPrefixo) => {
                   </div>
                 </div>
                 {/* Etapa ou Tag (dependendo do tipo de alvo) */}
-                {tipoAlvo === 'Funil' ? (
+                {tipoAlvo === 'Lista' ? null : tipoAlvo === 'Funil' ? (
                   <div className="mb-3">
                     <label htmlFor="etapa" className={`form-label card-subtitle-${theme}`}>
                       Etapa *
