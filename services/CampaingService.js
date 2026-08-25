@@ -547,6 +547,7 @@ const getCampaings = async (schema) => {
   try {
     const result = await pool.query(
       `SELECT c.*,
+              COALESCE(cx.canais, ARRAY[]::text[]) AS canais,
               COALESCE(c.status, CASE
                 WHEN COALESCE(d.total, 0) = 0 THEN 'nao agendado'
                 WHEN d.pendentes > 0 AND d.enviados > 0 THEN 'em andamento'
@@ -554,6 +555,12 @@ const getCampaings = async (schema) => {
                 ELSE 'concluido'
               END) AS status
          FROM ${schema}.campaing c
+         LEFT JOIN (
+           SELECT cc.campaing_id, array_agg(cn.name ORDER BY cn.name) AS canais
+             FROM ${schema}.campaing_connections cc
+             JOIN ${schema}.connections cn ON cn.id = cc.connection_id
+            GROUP BY cc.campaing_id
+         ) cx ON cx.campaing_id = c.id
          LEFT JOIN (
            SELECT campaing_id,
                   COUNT(*)::int AS total,
