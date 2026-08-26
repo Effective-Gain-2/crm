@@ -1,10 +1,10 @@
 import axios from 'axios';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as bootstrap from 'bootstrap';
 import { useToast } from '../../contexts/ToastContext';
 
 
-function DisparoModal({ theme, disparo = null, onSave }) {
+function DisparoModal({ theme, disparo = null, onSave, listaInicial = '', onListaCriada }) {
   const { showError, showSuccess } = useToast();
   const [titulo, setTitulo] = useState('');
   const [numMensagens, setNumMensagens] = useState(1);
@@ -13,9 +13,17 @@ function DisparoModal({ theme, disparo = null, onSave }) {
 ]); 
   const [canais, setCanais] = useState([]);
   const [showCanalDropdown, setShowCanalDropdown] = useState(false);
-  const [tipoAlvo, setTipoAlvo] = useState('Funil');
+  // Sem alvo pre-selecionado: com "Funil" marcado de saida, quem esquecia de trocar
+  // acabava disparando para todo mundo que ja estava na etapa — a lista antiga sendo
+  // usada sem ninguem ter escolhido ela.
+  const [tipoAlvo, setTipoAlvo] = useState('');
   const [listas, setListas] = useState([]);
   const [listaSelecionada, setListaSelecionada] = useState('');
+  const [subindoLista, setSubindoLista] = useState(false);
+  const [novaListaNome, setNovaListaNome] = useState('');
+  const [novaListaArquivo, setNovaListaArquivo] = useState(null);
+  const [mostrarUploadLista, setMostrarUploadLista] = useState(false);
+  const novaListaInputRef = useRef(null);
   const [funilSelecionado, setFunilSelecionado] = useState('');
   const [funis, setFunis] = useState([]);
   const [etapas, setEtapas] = useState([]);
@@ -51,9 +59,11 @@ function DisparoModal({ theme, disparo = null, onSave }) {
     dataInicio: false,
     horaInicio: false,
     mensagens: Array(numMensagens).fill(false),
+    tipoAlvo: false,
     funilSelecionado: false,
     etapa: false,
     tagsSelecionadas: false,
+    listaSelecionada: false,
     etapaDestino: false
   });
 
@@ -123,8 +133,12 @@ const limparBase64 = (base64ComPrefixo) => {
       }
     }
     fetchCampaingConns()
-    setTipoAlvo(disparo.tipoAlvo || 'Funil');
-    setFunilSelecionado(disparo.sector || '');
+    // tipoAlvo nunca foi coluna de campaing: ler disparo.tipoAlvo caia sempre em
+    // "Funil", entao abrir um disparo de lista para editar mostrava o alvo errado e
+    // salvar apagava a lista. Quem sabe qual e o alvo e a propria lista_id gravada.
+    setTipoAlvo(disparo.lista_id ? 'Lista' : 'Funil');
+    setListaSelecionada(disparo.lista_id || '');
+    setFunilSelecionado(disparo.lista_id ? '' : (disparo.sector || ''));
     setEtapa(disparo.kanban_stage);
     setTagsSelecionadas(disparo.tags || []);
     
@@ -216,9 +230,11 @@ const limparBase64 = (base64ComPrefixo) => {
       dataInicio: false,
       horaInicio: false,
       mensagens: Array(numMensagens).fill(false),
+      tipoAlvo: false,
       funilSelecionado: false,
       etapa: false,
       tagsSelecionadas: false,
+      listaSelecionada: false,
       etapaDestino: false
     });
   } else {
@@ -228,7 +244,10 @@ const limparBase64 = (base64ComPrefixo) => {
     setMensagensImagens([null]);
     setCanais([]);
     setShowCanalDropdown(false);
-    setTipoAlvo('Funil');
+    // Vindo do modal de Listas, a lista recem-criada ja chega escolhida: o que falta
+    // e exatamente a configuracao de data, hora, canal e mensagem.
+    setTipoAlvo(listaInicial ? 'Lista' : '');
+    setListaSelecionada(listaInicial || '');
     setFunilSelecionado('');
     setEtapa('');
     setTagsSelecionadas([]);
@@ -251,9 +270,11 @@ const limparBase64 = (base64ComPrefixo) => {
       dataInicio: false,
       horaInicio: false,
       mensagens: Array(numMensagens).fill(false),
+      tipoAlvo: false,
       funilSelecionado: false,
       etapa: false,
       tagsSelecionadas: false,
+      listaSelecionada: false,
       etapaDestino: false
     });
   }
@@ -261,7 +282,7 @@ const limparBase64 = (base64ComPrefixo) => {
 
 
   carregarDisparo();
-}, [disparo, url, schema]);
+}, [disparo, url, schema, listaInicial]);
 
  
 
@@ -354,24 +375,34 @@ const limparBase64 = (base64ComPrefixo) => {
     }));
   }, [numMensagens]);
 
+  // Trocar de alvo tem de zerar o alvo anterior: sobra de funil ou de lista aqui
+  // vira disparo mirando quem o usuario ja tinha desistido de alcancar.
   useEffect(() => {
     if (tipoAlvo === 'Funil') {
       setTagsSelecionadas([]);
-      // Limpar erro de tags quando mudar para Funil
-      setErrors(prev => ({ ...prev, tagsSelecionadas: false }));
-    } else {
-      setFunilSelecionado('');
-      setEtapas([]);
-      setTransferirContato(false);
-      setEtapaDestino('');
-      // Limpar erros de funil e etapa quando mudar para Tag
-      setErrors(prev => ({ 
-        ...prev, 
-        funilSelecionado: false, 
-        etapa: false,
-        etapaDestino: false 
-      }));
+      setListaSelecionada('');
+      setErrors(prev => ({ ...prev, tagsSelecionadas: false, listaSelecionada: false }));
+      return;
     }
+
+    setFunilSelecionado('');
+    setEtapas([]);
+    setTransferirContato(false);
+    setEtapaDestino('');
+    if (tipoAlvo === 'Lista') {
+      setTagsSelecionadas([]);
+    } else {
+      // Tag, ou nenhum alvo escolhido ainda.
+      setListaSelecionada('');
+      setMostrarUploadLista(false);
+    }
+    setErrors(prev => ({
+      ...prev,
+      funilSelecionado: false,
+      etapa: false,
+      etapaDestino: false,
+      ...(tipoAlvo === 'Lista' ? { tagsSelecionadas: false } : { listaSelecionada: false })
+    }));
   }, [tipoAlvo]);
 
   // Limpar etapa de destino quando a etapa atual mudar
@@ -496,6 +527,7 @@ const limparBase64 = (base64ComPrefixo) => {
       dataInicio: !dataInicio,
       horaInicio: !horaInicio,
       mensagens: mensagens.map(msg => !msg.text.trim()),
+      tipoAlvo: !tipoAlvo,
       funilSelecionado: tipoAlvo === 'Funil' && !funilSelecionado,
       etapa: tipoAlvo === 'Funil' && !etapa,
       tagsSelecionadas: tipoAlvo === 'Tag' && tagsSelecionadas.length === 0,
@@ -605,19 +637,64 @@ const limparBase64 = (base64ComPrefixo) => {
     }
   };
 
-  // Listas ficam disponíveis para o alvo do disparo; quem as cria é o modal de Listas.
-  useEffect(() => {
-    const buscarListas = async () => {
-      try {
-        const { data } = await axios.get(`${url}/listas`, { withCredentials: true });
-        setListas(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error('Erro ao buscar listas:', error);
-        setListas([]);
-      }
-    };
-    buscarListas();
+  const buscarListas = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${url}/listas`, { withCredentials: true });
+      const encontradas = Array.isArray(data) ? data : [];
+      setListas(encontradas);
+      return encontradas;
+    } catch (error) {
+      console.error('Erro ao buscar listas:', error);
+      setListas([]);
+      return [];
+    }
   }, [url]);
+
+  // Buscar só na montagem deixava a lista subida depois de sombra: o select ficava
+  // sem ela até dar F5. Recarrega toda vez que o modal abre.
+  useEffect(() => {
+    buscarListas();
+    const modalEl = document.getElementById('DisparoModal');
+    if (!modalEl) return;
+    modalEl.addEventListener('show.bs.modal', buscarListas);
+    return () => modalEl.removeEventListener('show.bs.modal', buscarListas);
+  }, [buscarListas]);
+
+  // Subir a planilha sem sair do disparo: o caminho curto para quem já está aqui
+  // configurando data e hora e só então percebe que a lista ainda não existe.
+  const subirNovaLista = async () => {
+    if (!novaListaArquivo) return showError('Escolha o arquivo da lista.');
+    const nomeLista = novaListaNome.trim() || novaListaArquivo.name.replace(/\.[^.]+$/, '');
+
+    setSubindoLista(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', novaListaArquivo);
+      formData.append('nome', nomeLista);
+
+      const { data } = await axios.post(`${url}/listas/upload`, formData, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      await buscarListas();
+      setListaSelecionada(data.id);
+      setErrors(prev => ({ ...prev, listaSelecionada: false }));
+      setMostrarUploadLista(false);
+      setNovaListaNome('');
+      setNovaListaArquivo(null);
+      if (novaListaInputRef.current) novaListaInputRef.current.value = '';
+      showSuccess(data.message);
+      if (onListaCriada) onListaCriada();
+    } catch (error) {
+      console.error('Erro ao subir lista:', error);
+      showError(error.response?.data?.error || 'Erro ao subir a lista.');
+    } finally {
+      setSubindoLista(false);
+    }
+  };
+
+  const listaEscolhida = listas.find(l => String(l.id) === String(listaSelecionada));
 
   const variaveisFixas = [
   { id: 'contact_name', label: 'Nome', field_name: 'contact_name' },
@@ -898,21 +975,6 @@ const limparBase64 = (base64ComPrefixo) => {
                         Lista
                       </label>
                     </div>
-                    {tipoAlvo === 'Lista' && (
-                      <select
-                        className={`form-select input-${theme} ms-3`}
-                        value={listaSelecionada}
-                        onChange={(e) => setListaSelecionada(e.target.value)}
-                        style={{ width: 'auto', minWidth: '240px' }}
-                      >
-                        <option value="" disabled>Selecione uma lista</option>
-                        {listas.map((lista) => (
-                          <option key={lista.id} value={lista.id}>
-                            {lista.nome} ({lista.total_contatos} contatos)
-                          </option>
-                        ))}
-                      </select>
-                    )}
                     {/* Lista suspensa de Funis */}
                     {tipoAlvo === 'Funil' && (
                       <select
@@ -936,9 +998,90 @@ const limparBase64 = (base64ComPrefixo) => {
                       </select>
                     )}
                   </div>
+                  {errors.tipoAlvo && (
+                    <div className="text-danger small mt-1">
+                      Escolha para quem este disparo vai
+                    </div>
+                  )}
                 </div>
+
+                {/* Seleção da lista + upload no mesmo lugar */}
+                {tipoAlvo === 'Lista' && (
+                  <div className="mb-3">
+                    <label className={`form-label card-subtitle-${theme}`}>Lista *</label>
+                    <div className="d-flex gap-2">
+                      <select
+                        className={`form-select input-${theme} ${errors.listaSelecionada ? 'border-danger' : ''}`}
+                        value={listaSelecionada}
+                        onChange={(e) => {
+                          setListaSelecionada(e.target.value);
+                          if (errors.listaSelecionada) {
+                            setErrors(prev => ({ ...prev, listaSelecionada: false }));
+                          }
+                        }}
+                      >
+                        <option value="">Selecione uma lista</option>
+                        {listas.map((lista) => (
+                          <option key={lista.id} value={lista.id}>
+                            {lista.nome} ({lista.total_contatos} contatos)
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className={`btn btn-2-${theme} text-nowrap`}
+                        onClick={() => setMostrarUploadLista(v => !v)}
+                        disabled={!isAdmin}
+                      >
+                        <i className="bi bi-upload me-1"></i>
+                        Nova
+                      </button>
+                    </div>
+                    {errors.listaSelecionada && (
+                      <div className="text-danger small mt-1">
+                        Selecione a lista deste disparo
+                      </div>
+                    )}
+                    {listaEscolhida && (
+                      <div className={`card-subtitle-${theme} small mt-1`}>
+                        Este disparo vai para os <strong>{listaEscolhida.total_contatos}</strong> contato(s) de “{listaEscolhida.nome}”.
+                      </div>
+                    )}
+
+                    {mostrarUploadLista && (
+                      <div className={`border rounded p-2 mt-2 input-${theme}`}>
+                        <input
+                          type="text"
+                          className={`form-control input-${theme} mb-2`}
+                          placeholder="Nome da nova lista"
+                          value={novaListaNome}
+                          onChange={(e) => setNovaListaNome(e.target.value)}
+                        />
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          ref={novaListaInputRef}
+                          className={`form-control input-${theme} mb-2`}
+                          onChange={(e) => setNovaListaArquivo(e.target.files[0] || null)}
+                        />
+                        <div className={`card-subtitle-${theme} small mb-2`}>
+                          Precisa de uma coluna de nome e uma de telefone (nome/numero, celular, telefone ou whatsapp).
+                        </div>
+                        <button
+                          type="button"
+                          className={`btn btn-1-${theme} btn-sm`}
+                          onClick={subirNovaLista}
+                          disabled={subindoLista || !novaListaArquivo}
+                        >
+                          {subindoLista ? 'Subindo…' : 'Subir e usar esta lista'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Etapa ou Tag (dependendo do tipo de alvo) */}
-                {tipoAlvo === 'Lista' ? null : tipoAlvo === 'Funil' ? (
+                {tipoAlvo !== 'Funil' && tipoAlvo !== 'Tag' ? null : tipoAlvo === 'Funil' ? (
                   <div className="mb-3">
                     <label htmlFor="etapa" className={`form-label card-subtitle-${theme}`}>
                       Etapa *
