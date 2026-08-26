@@ -124,6 +124,47 @@ const getAllCampaingConnections = async (campaing_id, schema) => {
   return result.rows
 }
 
+// Tags do disparo. Substitui o conjunto inteiro: editar um disparo tirando uma tag
+// tem de tirar mesmo, senao o alvo so cresce.
+const setCampaingTags = async (campaing_id, tags, schema) => {
+  await pool.query(`DELETE FROM ${schema}.campaing_tags WHERE campaing_id=$1`, [campaing_id]);
+  for (const tagId of tags || []) {
+    if (!tagId) continue;
+    await pool.query(
+      `INSERT INTO ${schema}.campaing_tags (campaing_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [campaing_id, tagId]
+    );
+  }
+};
+
+const getCampaingTags = async (campaing_id, schema) => {
+  const result = await pool.query(
+    `SELECT t.id, t.name, t.color
+       FROM ${schema}.campaing_tags ct
+       JOIN ${schema}.tag t ON t.id = ct.tag_id
+      WHERE ct.campaing_id = $1
+      ORDER BY t.name`,
+    [campaing_id]
+  );
+  return result.rows;
+};
+
+// A tag vive no chat, nao no contato: quem tem a tag e o atendimento. O contato
+// alvo e o dono do chat marcado. DISTINCT porque a mesma pessoa pode ter varios
+// chats marcados (uma conexao cada) e nao pode receber a mensagem duas vezes.
+const getContatosPorTags = async (campaing_id, schema) => {
+  const result = await pool.query(
+    `SELECT DISTINCT c.number, c.contact_name
+       FROM ${schema}.campaing_tags ct
+       JOIN ${schema}.chat_tag cht ON cht.tag_id = ct.tag_id
+       JOIN ${schema}.chats ch ON ch.id = cht.chat_id
+       JOIN ${schema}.contacts c ON c.number = ch.contact_phone
+      WHERE ct.campaing_id = $1`,
+    [campaing_id]
+  );
+  return result.rows;
+};
+
 const createCampaing = async (campaing_id, campName, sector, kanbanStage, connectionId, startDate, schema, intervalo, listaId = null) => {
   try {
     const unixStartDate = parseLocalDateTime(startDate);
@@ -280,12 +321,20 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
       return;
     }
 
-    // O alvo pode ser uma lista de contatos ou uma etapa do funil.
+    // O alvo pode ser uma lista de contatos, um conjunto de tags ou uma etapa do funil.
+    const tagsDoDisparo = await getCampaingTags(campaing.id, schema);
+
     let contacts;
     if (campaing.lista_id) {
       contacts = await getContatosDaLista(campaing.lista_id, schema);
       if (!contacts || contacts.length === 0) {
         console.log(`Nenhum contato na lista ${campaing.lista_id}`);
+        return;
+      }
+    } else if (tagsDoDisparo.length > 0) {
+      contacts = await getContatosPorTags(campaing.id, schema);
+      if (!contacts || contacts.length === 0) {
+        console.log(`Nenhum contato com as tags do disparo ${campaing.id}`);
         return;
       }
     } else {
@@ -614,7 +663,8 @@ const getCampaings = async (schema) => {
       `SELECT c.*,
               COALESCE(cx.canais, ARRAY[]::text[]) AS canais,
               l.nome AS lista_nome,
-              COALESCE(lc.total, cs.total, 0) AS previstos,
+              COALESCE(tg.nomes, ARRAY[]::text[]) AS tag_nomes,
+              COALESCE(lc.total, tg.total, cs.total, 0) AS previstos,
               COALESCE(d.total, 0) AS agendados,
               COALESCE(d.enviados, 0) AS enviados,
               COALESCE(d.falhas, 0) AS falhas,
@@ -635,6 +685,17 @@ const getCampaings = async (schema) => {
            SELECT stage, COUNT(*)::int AS total
              FROM ${schema}.contacts_stage GROUP BY stage
          ) cs ON cs.stage = c.kanban_stage
+         LEFT JOIN (
+           -- Nomes das tags e quantos contatos distintos elas alcancam hoje.
+           SELECT ct.campaing_id,
+                  array_agg(DISTINCT t.name) AS nomes,
+                  COUNT(DISTINCT ch.contact_phone)::int AS total
+             FROM ${schema}.campaing_tags ct
+             JOIN ${schema}.tag t ON t.id = ct.tag_id
+             LEFT JOIN ${schema}.chat_tag cht ON cht.tag_id = ct.tag_id
+             LEFT JOIN ${schema}.chats ch ON ch.id = cht.chat_id
+            GROUP BY ct.campaing_id
+         ) tg ON tg.campaing_id = c.id
          LEFT JOIN (
            SELECT cc.campaing_id, array_agg(cn.name ORDER BY cn.name) AS canais
              FROM ${schema}.campaing_connections cc
@@ -667,9 +728,11 @@ const getCampaingById = async (campaing_id, schema) => {
       `SELECT * FROM ${schema}.campaing WHERE id=$1`, [campaing_id]
     );
     const connections = await getAllCampaingConnections(campaing_id, schema)
+    const tags = await getCampaingTags(campaing_id, schema)
     return{
       result: result.rows[0],
-      connections: connections
+      connections: connections,
+      tags: tags
     };
   } catch (error) {
     console.error('Erro ao buscar campanha por ID:', error.message);
@@ -683,7 +746,13 @@ const deleteCampaing = async(campaing_id, schema)=>{
     await pool.query(
       `DELETE FROM ${schema}.message_blast WHERE campaing_id=$1`, [campaing_id]
     );
-    
+
+    // campaing_tags nao tem FK para campaing (a tabela e criada em outra ordem),
+    // entao a limpeza e explicita — senao sobra lixo apontando para disparo morto.
+    await pool.query(
+      `DELETE FROM ${schema}.campaing_tags WHERE campaing_id=$1`, [campaing_id]
+    );
+
     // Depois deleta a campanha
     const result = await pool.query(
       `DELETE FROM ${schema}.campaing WHERE id=$1 RETURNING *`, [campaing_id]
@@ -797,7 +866,23 @@ const getCampaingDetails = async (campaing_id, schema) => {
       mensagens: mensagens.rows,
       etapa: null,
       lista: lista ? { id: campaing.lista_id, nome: lista.nome } : null,
+      tags: [],
       total_contatos_alvo: lista?.total || 0,
+    };
+  }
+
+  // Alvo por tag: quem manda sao as tags dos chats, nao a etapa do funil.
+  const tags = await getCampaingTags(campaing_id, schema);
+  if (tags.length > 0) {
+    const alvoTags = await getContatosPorTags(campaing_id, schema);
+    return {
+      campaing,
+      canais: canais.rows,
+      mensagens: mensagens.rows,
+      etapa: null,
+      lista: null,
+      tags,
+      total_contatos_alvo: alvoTags.length,
     };
   }
 
@@ -826,6 +911,7 @@ const getCampaingDetails = async (campaing_id, schema) => {
     mensagens: mensagens.rows,
     etapa,
     lista: null,
+    tags: [],
     total_contatos_alvo: alvo.rows[0]?.total || 0,
   };
 };
@@ -900,5 +986,7 @@ module.exports = {
   scheduleCampaingBlast,
   getCampaingDetails,
   getCampaingMetrics,
-  cancelCampaing
+  cancelCampaing,
+  setCampaingTags,
+  getCampaingTags
 };

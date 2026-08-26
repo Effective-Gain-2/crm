@@ -349,7 +349,11 @@ function DisparosPage({ theme }) {
                 </div>
                 <div className={`header-text-${theme} mb-1`}>
                   Alvo: <span className={`fw-bold`}>
-                    {disparo.lista_nome ? `Lista ${disparo.lista_nome}` : `Funil ${disparo.sector || '—'}`}
+                    {disparo.lista_nome
+                      ? `Lista ${disparo.lista_nome}`
+                      : (Array.isArray(disparo.tag_nomes) && disparo.tag_nomes.length > 0
+                        ? `Tag ${disparo.tag_nomes.join(', ')}`
+                        : `Funil ${disparo.sector || '—'}`)}
                   </span>
                 </div>
                 <div className={`header-text-${theme} mb-1`}>

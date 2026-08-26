@@ -354,6 +354,15 @@ const ensureSchemaTables = async (schema) => {
             PRIMARY KEY (lista_id, contact_number)
         );`);
 
+    // Alvo por tag: a tela oferecia "Tag" desde sempre, mas nao havia onde guardar
+    // a escolha — o disparo salvo perdia as tags e nunca alcancava ninguem.
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${schema}.campaing_tags (
+            campaing_id UUID NOT NULL,
+            tag_id UUID NOT NULL REFERENCES ${schema}.tag(id) ON DELETE CASCADE,
+            PRIMARY KEY (campaing_id, tag_id)
+        );`);
+
     // Alvo do disparo passa a ser etapa OU lista — kanban_stage nao pode mais ser
     // obrigatorio, senao disparo por lista nao entra.
     await pool.query(`ALTER TABLE ${schema}.campaing ADD COLUMN IF NOT EXISTS lista_id UUID;`);

@@ -100,7 +100,7 @@ function DetalhesDisparoModal({ theme, show, onHide, disparoId }) {
                 <ul className="mb-0 mt-2">
                   {semCanal && <li>Nenhum canal selecionado.</li>}
                   {semMensagem && <li>Nenhum modelo de mensagem cadastrado.</li>}
-                  {semContato && <li>Nenhum contato na etapa alvo.</li>}
+                  {semContato && <li>Nenhum contato no alvo.</li>}
                 </ul>
               </div>
             )}
@@ -117,14 +117,17 @@ function DetalhesDisparoModal({ theme, show, onHide, disparoId }) {
                 <div className={`header-text-${theme}`}>{formatarIntervalo(campaing)}</div>
               </div>
               <div className="col-md-6">
-                <div className={`card-subtitle-${theme} small`}>Funil / Etapa alvo</div>
+                <div className={`card-subtitle-${theme} small`}>Alvo</div>
                 <div className={`header-text-${theme}`}>
-                  {campaing?.sector || '—'}
-                  {detalhes.etapa ? ` › ${detalhes.etapa.etapa}` : ' › (etapa não encontrada)'}
+                  {detalhes.lista
+                    ? `Lista › ${detalhes.lista.nome}`
+                    : (detalhes.tags?.length > 0
+                      ? `Tag › ${detalhes.tags.map(t => t.name).join(', ')}`
+                      : `${campaing?.sector || '—'}${detalhes.etapa ? ` › ${detalhes.etapa.etapa}` : ' › (etapa não encontrada)'}`)}
                 </div>
               </div>
               <div className="col-md-6">
-                <div className={`card-subtitle-${theme} small`}>Contatos na etapa</div>
+                <div className={`card-subtitle-${theme} small`}>Contatos no alvo</div>
                 <div className={`header-text-${theme}`}>{detalhes.total_contatos_alvo}</div>
               </div>
               <div className="col-12">

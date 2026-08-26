@@ -29,6 +29,7 @@ function DisparoModal({ theme, disparo = null, onSave, listaInicial = '', onList
   const [etapas, setEtapas] = useState([]);
   const [etapa, setEtapa] = useState('');
   const [tagsSelecionadas, setTagsSelecionadas] = useState([]);
+  const [tags, setTags] = useState([]);
   const [dataInicio, setDataInicio] = useState('');
   const [horaInicio, setHoraInicio] = useState('');
   const [intervaloTempo, setIntervaloTempo] = useState(30);
@@ -128,6 +129,14 @@ const limparBase64 = (base64ComPrefixo) => {
         // Extrair apenas os connection_ids para o array canais
         const connectionIds = conexoesArray.map(conn => conn.connection_id);
         setCanais(connectionIds)
+
+        // As tags do disparo vivem em campaing_tags, nao numa coluna de campaing:
+        // so esta resposta sabe se o alvo era por tag.
+        const tagsDoDisparo = Array.isArray(response.data.tags) ? response.data.tags : [];
+        if (tagsDoDisparo.length > 0 && !disparo.lista_id) {
+          setTipoAlvo('Tag');
+          setTagsSelecionadas(tagsDoDisparo.map(tag => tag.id));
+        }
       } catch (error) {
         setCanais([])
       }
@@ -140,7 +149,7 @@ const limparBase64 = (base64ComPrefixo) => {
     setListaSelecionada(disparo.lista_id || '');
     setFunilSelecionado(disparo.lista_id ? '' : (disparo.sector || ''));
     setEtapa(disparo.kanban_stage);
-    setTagsSelecionadas(disparo.tags || []);
+    setTagsSelecionadas([]);
     
     // Converter o intervalo do banco (em segundos) para a unidade apropriada
     const intervalEmSegundos = Number(disparo.timer) || 30;
@@ -492,9 +501,15 @@ const limparBase64 = (base64ComPrefixo) => {
     }
   };
 
-  const handleTagSelection = (e) => {
-    const selectedOptions = Array.from(e.target.selectedOptions, option => parseInt(option.value));
-    setTagsSelecionadas(selectedOptions);
+  // O id da tag é UUID. O código antigo fazia parseInt no valor selecionado, o que
+  // devolvia NaN para todas elas — mais um motivo de o alvo por tag nunca funcionar.
+  const alternarTag = (tagId) => {
+    setTagsSelecionadas(prev => (
+      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
+    ));
+    if (errors.tagsSelecionadas) {
+      setErrors(prev => ({ ...prev, tagsSelecionadas: false }));
+    }
   };
 
   const insertVariable = (index, variable) => {
@@ -570,8 +585,15 @@ const limparBase64 = (base64ComPrefixo) => {
   const disparoData = {
     name: titulo,
     connection_id: canais, 
-    sector: funilSelecionado ? funilSelecionado.charAt(0).toLowerCase() + funilSelecionado.slice(1) : 'lista',
-    kanban_stage: tipoAlvo === 'Lista' ? null : etapa,
+    // sector nomeia a origem do alvo; com Tag ou Lista não há funil nenhum e mandar
+    // "lista" para um disparo por tag só confunde quem lê o card depois.
+    sector: funilSelecionado
+      ? funilSelecionado.charAt(0).toLowerCase() + funilSelecionado.slice(1)
+      : (tipoAlvo === 'Tag' ? 'tag' : 'lista'),
+    // kanban_stage é UUID no banco: mandar '' (o estado da etapa quando o alvo não é
+    // funil) fazia o Postgres recusar o insert inteiro com "invalid input syntax for
+    // type uuid". Fora do alvo Funil, o valor certo é null.
+    kanban_stage: tipoAlvo === 'Funil' ? (etapa || null) : null,
     lista_id: tipoAlvo === 'Lista' ? listaSelecionada : null,
     start_date,
     schema,
@@ -636,6 +658,26 @@ const limparBase64 = (base64ComPrefixo) => {
       console.error('Erro ao salvar disparo:', error);
     }
   };
+
+  // A caixa de tags era um retângulo vazio: nada buscava as tags, então "Tag" exigia
+  // pelo menos uma seleção que era impossível fazer e o disparo nunca salvava.
+  const buscarTags = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${url}/tag/${schema}`, { withCredentials: true });
+      setTags(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Erro ao buscar tags:', error);
+      setTags([]);
+    }
+  }, [url, schema]);
+
+  useEffect(() => {
+    buscarTags();
+    const modalEl = document.getElementById('DisparoModal');
+    if (!modalEl) return;
+    modalEl.addEventListener('show.bs.modal', buscarTags);
+    return () => modalEl.removeEventListener('show.bs.modal', buscarTags);
+  }, [buscarTags]);
 
   const buscarListas = useCallback(async () => {
     try {
@@ -1127,10 +1169,46 @@ const limparBase64 = (base64ComPrefixo) => {
                       }}
                       title={errors.tagsSelecionadas ? "Campo obrigatório" : ""}
                     >
+                      {tags.length === 0 ? (
+                        <div className={`card-subtitle-${theme} small`}>
+                          Nenhuma tag cadastrada. Crie tags na tela de Chats e marque os
+                          atendimentos que devem receber este disparo.
+                        </div>
+                      ) : tags.map((tag) => (
+                        <div className="form-check" key={tag.id}>
+                          <input
+                            type="checkbox"
+                            className="form-check-input"
+                            id={`tag-${tag.id}`}
+                            checked={tagsSelecionadas.includes(tag.id)}
+                            onChange={() => alternarTag(tag.id)}
+                          />
+                          <label
+                            className={`form-check-label card-subtitle-${theme}`}
+                            htmlFor={`tag-${tag.id}`}
+                          >
+                            {tag.color && (
+                              <span
+                                className="d-inline-block rounded-circle me-2"
+                                style={{ width: '10px', height: '10px', backgroundColor: tag.color }}
+                              ></span>
+                            )}
+                            {tag.name}
+                          </label>
+                        </div>
+                      ))}
                     </div>
                     {errors.tagsSelecionadas && (
                       <div className="text-danger small mt-1">
                         Selecione pelo menos uma tag
+                      </div>
+                    )}
+                    {tagsSelecionadas.length > 0 && (
+                      <div className={`card-subtitle-${theme} small mt-1`}>
+                        Este disparo vai para os contatos dos atendimentos marcados com{' '}
+                        <strong>
+                          {tags.filter(t => tagsSelecionadas.includes(t.id)).map(t => t.name).join(', ')}
+                        </strong>.
                       </div>
                     )}
                   </div>
