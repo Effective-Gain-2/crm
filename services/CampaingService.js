@@ -2,7 +2,7 @@ const pool = require('../db/queries');
 const { v4: uuidv4 } = require('uuid');
 const { getContactsInKanbanStage, updateContactInKanban } = require('./KanbanService');
 const { getContatosDaLista } = require('./ListaService');
-const { sendTextMessage, fetchInstanceEvo } = require('../requests/evolution');
+const { sendTextMessage } = require('../requests/evolution');
 const { sendBlastMessage, sendMediaBlastMessage } = require('./MessageBlast');
 const createRedisConnection = require('../config/Redis');
 const { Queue, Worker } = require('bullmq');
@@ -41,17 +41,28 @@ const worker = new Worker(
   'Campanha',
   async (job) => {
     try {
-      console.log(`Processando job ${job.id} para número ${job.data}`);
+      console.log(`Processando job ${job.id} para número ${job.data.number}`);
 
-      const status = await fetchInstanceEvo()
-      
-      const confirmacao = job.data.image
+      // A imagem NAO viaja mais dentro do job: base64 de imagem por job inflava o
+      // Redis (32 jobs x imagem = dezenas de MB) e, com politica de eviction, o
+      // Redis descartava jobs em silencio — envio "pendente" para sempre na tela.
+      // O job leva so a referencia; o worker busca a imagem no Postgres na hora.
+      let imagem = job.data.image || null; // compat: jobs enfileirados antes do deploy
+      if (!imagem && job.data.image_ref) {
+        const r = await pool.query(
+          `SELECT image FROM ${safeSchema(job.data.schema)}.message_blast WHERE id = $1`,
+          [job.data.image_ref]
+        );
+        imagem = r.rows[0]?.image || null;
+      }
+
+      const confirmacao = imagem
         ? await sendMediaBlastMessage(
             job.data.instance,
             job.data.message,
             job.data.number,
             job.data.chat_id,
-            job.data.image,
+            imagem,
             job.data.schema
           )
         : await sendBlastMessage(
@@ -108,6 +119,71 @@ worker.on('failed', (job, err) => {
 worker.on('error', (err) => {
   console.error('Erro geral no worker:', err.message);
 });
+
+// ---------------------------------------------------------------------------
+// Vigia da fila. Envio agendado cujo job sumiu do Redis (eviction, flush, perda
+// de dados) ficava "pendente" para sempre na tela — sem falha, sem log, sem
+// pista. A cada 5 minutos o vigia converte esses casos em falha com motivo
+// legivel, para o problema aparecer nas metricas em vez de virar misterio.
+// ---------------------------------------------------------------------------
+const ATRASO_TOLERADO_MS = 10 * 60_000;
+
+const vigiarFilaDeDisparos = async () => {
+  try {
+    const empresas = await pool.query(`SELECT schema_name FROM effective_gain.companies`);
+    for (const { schema_name } of empresas.rows) {
+      if (!SCHEMA_RE.test(schema_name || '')) continue;
+      const atrasados = await pool.query(
+        `SELECT id, job_id, contact_number FROM ${schema_name}.campaing_dispatch
+          WHERE status = 'pendente' AND scheduled_for < $1
+          LIMIT 200`,
+        [Date.now() - ATRASO_TOLERADO_MS]
+      ).catch(() => null); // tenant sem a tabela ainda: pula
+      if (!atrasados || atrasados.rowCount === 0) continue;
+
+      for (const linha of atrasados.rows) {
+        let motivo = null;
+        if (!linha.job_id) {
+          motivo = 'Envio nunca entrou na fila de disparos';
+        } else {
+          const job = await blastQueue.getJob(linha.job_id).catch(() => undefined);
+          if (!job) {
+            motivo = 'O envio sumiu da fila do Redis sem ser processado (a política de memória do Redis precisa ser "noeviction")';
+          } else {
+            const estado = await job.getState().catch(() => null);
+            if (estado === 'failed') {
+              motivo = `Falhou na fila: ${job.failedReason || 'sem detalhe'}`;
+            }
+            // delayed/waiting/active = fila apenas atrasada; não mexe.
+          }
+        }
+        if (motivo) {
+          await pool.query(
+            `UPDATE ${schema_name}.campaing_dispatch SET status = 'falha', error = $1
+              WHERE id = $2 AND status = 'pendente'`,
+            [motivo, linha.id]
+          ).catch(() => {});
+          console.warn(`Vigia de disparos [${schema_name}] ${linha.contact_number}: ${motivo}`);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Vigia de disparos falhou:', e.message);
+  }
+};
+const vigiaTimer = setInterval(vigiarFilaDeDisparos, 5 * 60_000);
+if (vigiaTimer.unref) vigiaTimer.unref();
+
+// Política de memória errada no Redis descarta jobs em silêncio — o aviso vai
+// para o log do container no boot, onde quem faz o deploy consegue ver.
+bullConn.config('GET', 'maxmemory-policy').then((r) => {
+  const politica = Array.isArray(r) ? r[1] : r;
+  if (politica && politica !== 'noeviction') {
+    console.warn(`ATENÇÃO: Redis com maxmemory-policy="${politica}". Filas BullMQ exigem "noeviction" — com eviction, jobs de disparo podem ser descartados em silêncio e os envios ficam "pendente" para sempre.`);
+  } else {
+    console.log(`Redis maxmemory-policy: ${politica || 'desconhecida'}`);
+  }
+}).catch(() => {});
 
 const deleteAllConnectionsFromCampaing = async(campaing_id, schema)=>{
   await pool.query(`DELETE FROM ${schema}.campaing_connections where campaing_id=$1`,[campaing_id])
@@ -171,12 +247,169 @@ const getContatosPorTags = async (campaing_id, schema) => {
 // antes de virar coluna inteira passa por aqui.
 const inteiroOuNull = (v) => (Number.isFinite(v) ? Math.round(v) : null);
 
-const createCampaing = async (campaing_id, campName, sector, kanbanStage, connectionId, startDate, schema, intervalo, listaId = null) => {
+// ---------------------------------------------------------------------------
+// Agenda por canal: dois disparos simultaneos no mesmo numero de WhatsApp e
+// receita de banimento. Antes de agendar qualquer coisa, a janela do novo
+// disparo e comparada com as janelas pendentes de cada canal envolvido.
+// ---------------------------------------------------------------------------
+
+const MARGEM_AGENDA_MS = 60_000;
+
+// Quanto tempo o disparo ocupa o canal: n contatos x intervalo medio + margem.
+const estimarDuracaoMs = (campaing, totalContatos) => {
+  const min = Number(campaing.min) || 0;
+  const max = Math.max(min, Number(campaing.max) || min);
+  const medioSeg = min > 0 ? (min + max) / 2 : (Number(campaing.timer) || 30);
+  return Math.round(Math.max(1, totalContatos) * medioSeg * 1000) + MARGEM_AGENDA_MS;
+};
+
+// Quantos contatos o alvo alcanca hoje — sem gravar nada. Usado pela checagem
+// de agenda ANTES de qualquer escrita.
+const contarAlvo = async ({ lista_id, kanban_stage, tags }, schema) => {
+  safeSchema(schema);
+  if (lista_id) {
+    const r = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM ${schema}.lista_contatos WHERE lista_id = $1`, [lista_id]
+    );
+    return r.rows[0]?.total || 0;
+  }
+  if (Array.isArray(tags) && tags.length > 0) {
+    const r = await pool.query(
+      `SELECT COUNT(DISTINCT ch.contact_phone)::int AS total
+         FROM ${schema}.chat_tag cht
+         JOIN ${schema}.chats ch ON ch.id = cht.chat_id
+        WHERE cht.tag_id = ANY($1::uuid[])`, [tags]
+    );
+    return r.rows[0]?.total || 0;
+  }
+  if (kanban_stage) {
+    const r = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM ${schema}.contacts_stage WHERE stage = $1`, [kanban_stage]
+    );
+    return r.rows[0]?.total || 0;
+  }
+  return 0;
+};
+
+// Janela ocupada de um canal = MIN..MAX(scheduled_for) dos envios pendentes,
+// por campanha. Sobreposicao com a janela nova (com margem) = conflito.
+const verificarAgendaCanal = async (connectionIds, startMs, duracaoMs, schema, ignorarCampaingId = null) => {
+  safeSchema(schema);
+  const ids = (connectionIds || []).filter(Boolean).map(String);
+  if (ids.length === 0) return { livre: true, conflitos: [], proximoLivre: null };
+
+  const fimNovo = startMs + duracaoMs;
+  const result = await pool.query(
+    `SELECT cn.name AS canal, c.campaing_name AS disparo,
+            MIN(cd.scheduled_for)::bigint AS ini, MAX(cd.scheduled_for)::bigint AS fim
+       FROM ${schema}.campaing_dispatch cd
+       JOIN ${schema}.connections cn ON cn.id = cd.connection_id
+       JOIN ${schema}.campaing c ON c.id = cd.campaing_id
+      WHERE cd.status = 'pendente'
+        AND cd.connection_id = ANY($1::uuid[])
+        AND ($2::uuid IS NULL OR cd.campaing_id <> $2::uuid)
+      GROUP BY cn.name, c.campaing_name`,
+    [ids, ignorarCampaingId]
+  );
+
+  const conflitos = result.rows.filter((j) =>
+    Number(j.ini) - MARGEM_AGENDA_MS <= fimNovo && Number(j.fim) + MARGEM_AGENDA_MS >= startMs
+  );
+  if (conflitos.length === 0) return { livre: true, conflitos: [], proximoLivre: null };
+
+  const proximoLivre = Math.max(...conflitos.map((j) => Number(j.fim))) + MARGEM_AGENDA_MS;
+  return {
+    livre: false,
+    conflitos: conflitos.map((j) => ({ canal: j.canal, disparo: j.disparo, fim: Number(j.fim) })),
+    proximoLivre,
+  };
+};
+
+const horaBR = (ms) => new Date(ms).toLocaleString('pt-BR', {
+  timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+});
+
+// Usa um modelo: clona campanha + canais + mensagens numa EXECUCAO apontando para
+// a lista, valida a agenda dos canais e agenda. O modelo nunca e alterado.
+const executarModelo = async (modelo_id, lista_id, start_date, schema) => {
+  safeSchema(schema);
+
+  const modeloRes = await pool.query(
+    `SELECT * FROM ${schema}.campaing WHERE id = $1 AND is_modelo = true`, [modelo_id]
+  );
+  const modelo = modeloRes.rows[0];
+  if (!modelo) throw new Error('Modelo de disparo não encontrado');
+
+  const listaRes = await pool.query(`SELECT * FROM ${schema}.listas WHERE id = $1`, [lista_id]);
+  const lista = listaRes.rows[0];
+  if (!lista) throw new Error('Lista não encontrada');
+
+  const contatos = await getContatosDaLista(lista_id, schema);
+  if (contatos.length === 0) throw new Error(`A lista "${lista.nome}" não tem nenhum contato`);
+
+  const canais = await getAllCampaingConnections(modelo_id, schema);
+  if (canais.length === 0) throw new Error(`O modelo "${modelo.campaing_name}" não tem canal configurado — edite o modelo e escolha o canal`);
+
+  const mensagens = await pool.query(
+    `SELECT * FROM ${schema}.message_blast WHERE campaing_id = $1`, [modelo_id]
+  );
+  if (mensagens.rowCount === 0) throw new Error(`O modelo "${modelo.campaing_name}" não tem mensagem cadastrada`);
+
+  const inicio = parseLocalDateTime(start_date);
+  if (!Number.isFinite(inicio)) throw new Error(`Data/hora de início inválida: "${start_date}"`);
+  if (inicio < Date.now() - MARGEM_AGENDA_MS) {
+    throw new Error(`A data/hora de início (${horaBR(inicio)}) já passou. Escolha um horário futuro.`);
+  }
+
+  const duracao = estimarDuracaoMs(modelo, contatos.length);
+  const agenda = await verificarAgendaCanal(canais.map((c) => c.connection_id), inicio, duracao, schema, null);
+  if (!agenda.livre) {
+    const pior = agenda.conflitos.reduce((a, b) => (a.fim >= b.fim ? a : b));
+    const err = new Error(
+      `O canal "${pior.canal}" está ocupado pelo disparo "${pior.disparo}" até ${horaBR(pior.fim)}. ` +
+      `Próximo horário livre: ${horaBR(agenda.proximoLivre)}.`
+    );
+    err.codigo = 'conflito_agenda';
+    err.proximoLivre = agenda.proximoLivre;
+    throw err;
+  }
+
+  // Clone: a execucao nasce independente — apagar ou editar o modelo depois nao a afeta.
+  const execucaoId = uuidv4();
+  const nomeExecucao = `${modelo.campaing_name} — ${lista.nome}`;
+  const execRes = await pool.query(
+    `INSERT INTO ${schema}.campaing
+       (id, campaing_name, sector, kanban_stage, start_date, timer, min, max, lista_id, is_modelo, modelo_id)
+     VALUES ($1, $2, $3, NULL, $4, $5, $6, $7, $8, false, $9) RETURNING *`,
+    [execucaoId, nomeExecucao, 'lista', inteiroOuNull(inicio),
+     inteiroOuNull(Number(modelo.timer)), inteiroOuNull(Number(modelo.min)), inteiroOuNull(Number(modelo.max)),
+     lista_id, modelo_id]
+  );
+  for (const canal of canais) {
+    await pool.query(
+      `INSERT INTO ${schema}.campaing_connections (campaing_id, connection_id) VALUES ($1, $2)`,
+      [execucaoId, canal.connection_id]
+    );
+  }
+  for (const msg of mensagens.rows) {
+    await pool.query(
+      `INSERT INTO ${schema}.message_blast (id, value, sector, campaing_id, image) VALUES ($1, $2, $3, $4, $5)`,
+      [uuidv4(), msg.value, 'lista', execucaoId, msg.image]
+    );
+  }
+
+  const execucao = execRes.rows[0];
+  await scheduleCampaingBlast(execucao, execucao.sector, schema, null, null);
+  return execucao;
+};
+
+const createCampaing = async (campaing_id, campName, sector, kanbanStage, connectionId, startDate, schema, intervalo, listaId = null, isModelo = false) => {
   try {
-    const unixStartDate = parseLocalDateTime(startDate);
+    // Modelo nao agenda nada: guarda mensagens/canais/intervalo e dispensa data.
+    const unixStartDate = isModelo ? null : parseLocalDateTime(startDate);
     // Data invalida vira NaN, e NaN em BIGINT viraria outro erro criptico de banco.
     // Melhor recusar aqui com uma frase que a tela consegue mostrar.
-    if (!Number.isFinite(unixStartDate)) {
+    if (!isModelo && !Number.isFinite(unixStartDate)) {
       throw new Error(`Data de início inválida: "${startDate}"`);
     }
 
@@ -237,38 +470,38 @@ const createCampaing = async (campaing_id, campName, sector, kanbanStage, connec
     if (campaing_id) {
       if(intervalMinEmSegundos){
         result = await pool.query(
-        `UPDATE ${schema}.campaing 
-         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, lista_id=$9
+        `UPDATE ${schema}.campaing
+         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, lista_id=$9, is_modelo=$10
          WHERE id=$6  RETURNING *`,
-        [campName, sector, kanbanStage, unixStartDate, null, campaing_id, intervalMinEmSegundos, intervalMaxEmSegundos, listaId]
+        [campName, sector, kanbanStage, unixStartDate, null, campaing_id, intervalMinEmSegundos, intervalMaxEmSegundos, listaId, isModelo]
       );
       campaing = result.rows[0];
       await deleteAllConnectionsFromCampaing(campaing.id, schema)
       await insertConnectionsForCampaing(campaing.id,connectionId, schema)
       }else{
          result = await pool.query(
-        `UPDATE ${schema}.campaing 
-         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, lista_id=$9
+        `UPDATE ${schema}.campaing
+         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, lista_id=$9, is_modelo=$10
          WHERE id=$6 RETURNING *`,
-        [campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, campaing_id, null, null, listaId]
+        [campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, campaing_id, null, null, listaId, isModelo]
       );
       campaing = result.rows[0];
       await deleteAllConnectionsFromCampaing(campaing.id, schema)
       await insertConnectionsForCampaing(campaing.id,connectionId, schema)
       }
-     
+
     } else {
       if(intervalMinEmSegundos) {
         result = await pool.query(
-          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, min, max, lista_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-          [uuidv4(), campName, sector, kanbanStage, unixStartDate, null, intervalMinEmSegundos, intervalMaxEmSegundos, listaId]
+          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, min, max, lista_id, is_modelo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+          [uuidv4(), campName, sector, kanbanStage, unixStartDate, null, intervalMinEmSegundos, intervalMaxEmSegundos, listaId, isModelo]
         );
         campaing = result.rows[0];
         await insertConnectionsForCampaing(campaing.id,connectionId, schema)
       } else {
         result = await pool.query(
-          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, lista_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-          [uuidv4(), campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, listaId]
+          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, lista_id, is_modelo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+          [uuidv4(), campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, listaId, isModelo]
         );
         campaing = result.rows[0];
         await insertConnectionsForCampaing(campaing.id,connectionId, schema)
@@ -325,6 +558,10 @@ const limparAgendamentoAnterior = async (campaing_id, schema) => {
 
 const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_stage) => {
   try {
+    // Modelo e so a receita (mensagens/canais/intervalo): quem agenda e a execucao
+    // clonada por executarModelo, nunca o modelo em si.
+    if (campaing.is_modelo) return;
+
     const startDate = Number(campaing.start_date);
     const now = Date.now();
 
@@ -510,7 +747,9 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
           number: contactPhone,
           chat_id: chatToUse.id,
           message: message.value,
-          image: message.image,
+          // Referencia, nao o base64: imagem inteira por job inflava o Redis e
+          // jobs eram descartados por eviction — "pendente" eterno sem falha.
+          image_ref: message.image ? message.id : null,
           schema: schema,
           stage: new_stage || null,
           dispatch_id: dispatchId,
@@ -708,12 +947,12 @@ const getCampaings = async (schema) => {
               COALESCE(d.enviados, 0) AS enviados,
               COALESCE(d.falhas, 0) AS falhas,
               COALESCE(d.pendentes, 0) AS pendentes,
-              COALESCE(c.status, CASE
+              CASE WHEN c.is_modelo THEN 'modelo' ELSE COALESCE(c.status, CASE
                 WHEN COALESCE(d.total, 0) = 0 THEN 'nao agendado'
                 WHEN d.pendentes > 0 AND d.enviados > 0 THEN 'em andamento'
                 WHEN d.pendentes > 0 THEN 'agendado'
                 ELSE 'concluido'
-              END) AS status
+              END) END AS status
          FROM ${schema}.campaing c
          LEFT JOIN ${schema}.listas l ON l.id = c.lista_id
          LEFT JOIN (
@@ -1027,5 +1266,9 @@ module.exports = {
   getCampaingMetrics,
   cancelCampaing,
   setCampaingTags,
-  getCampaingTags
+  getCampaingTags,
+  contarAlvo,
+  estimarDuracaoMs,
+  verificarAgendaCanal,
+  executarModelo
 };

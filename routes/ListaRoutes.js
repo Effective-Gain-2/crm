@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const { getListasController, uploadListaController, deleteListaController } = require('../controllers/ListaController');
+const { getListasController, uploadListaController, getContatosDaListaController, renomearListaController, deleteListaController } = require('../controllers/ListaController');
 const { enforceSchema } = require('../middlewares/enforceSchema');
 
 const router = express.Router();
@@ -20,6 +20,8 @@ const upload = multer({ storage });
 router.get('/', getListasController);
 // enforceSchema reaplicado APOS o multer: ele repopula req.body no multipart.
 router.post('/upload', upload.single('file'), enforceSchema, uploadListaController);
+router.get('/:lista_id/contatos', getContatosDaListaController);
+router.put('/:lista_id', renomearListaController);
 router.delete('/:lista_id', deleteListaController);
 
 module.exports = router;

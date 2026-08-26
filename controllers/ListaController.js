@@ -1,6 +1,7 @@
 const XLSX = require('xlsx');
 const fs = require('fs');
-const { criarListaDePlanilha, getListas, deleteLista } = require('../services/ListaService');
+const { criarListaDePlanilha, getListas, getContatosDaLista, renomearLista, deleteLista } = require('../services/ListaService');
+const pool = require('../db/queries');
 
 const getListasController = async (req, res) => {
   try {
@@ -45,6 +46,41 @@ const uploadListaController = async (req, res) => {
   }
 };
 
+// Abrir a lista e ver quem está dentro: sem isto, a tela mostrava só nome e
+// quantidade, e conferir os contatos exigia acesso ao banco.
+const getContatosDaListaController = async (req, res) => {
+  try {
+    const schema = req.schema || req.auth?.schema;
+    const { lista_id } = req.params;
+    const listaRes = await pool.query(
+      `SELECT id, nome FROM ${schema}.listas WHERE id = $1`, [lista_id]
+    );
+    if (listaRes.rowCount === 0) {
+      return res.status(404).json({ error: 'Lista não encontrada' });
+    }
+    const contatos = await getContatosDaLista(lista_id, schema);
+    res.status(200).json({ lista: listaRes.rows[0], contatos });
+  } catch (error) {
+    console.error('Erro ao buscar contatos da lista:', error);
+    res.status(500).json({ error: 'Erro ao buscar contatos da lista' });
+  }
+};
+
+const renomearListaController = async (req, res) => {
+  try {
+    const schema = req.schema || req.auth?.schema;
+    const { lista_id } = req.params;
+    const lista = await renomearLista(lista_id, req.body?.nome, schema);
+    if (!lista) {
+      return res.status(404).json({ error: 'Lista não encontrada' });
+    }
+    res.status(200).json({ success: true, lista });
+  } catch (error) {
+    console.error('Erro ao renomear lista:', error);
+    res.status(400).json({ error: error.message || 'Erro ao renomear lista' });
+  }
+};
+
 const deleteListaController = async (req, res) => {
   try {
     const schema = req.schema || req.auth?.schema;
@@ -63,5 +99,7 @@ const deleteListaController = async (req, res) => {
 module.exports = {
   getListasController,
   uploadListaController,
+  getContatosDaListaController,
+  renomearListaController,
   deleteListaController,
 };
