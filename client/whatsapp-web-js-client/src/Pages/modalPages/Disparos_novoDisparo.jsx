@@ -536,11 +536,18 @@ const limparBase64 = (base64ComPrefixo) => {
 
   // Função para validar campos obrigatórios
   const validateFields = () => {
+    // Hora no passado não agenda nada: melhor barrar aqui do que deixar o servidor
+    // recusar (ou pior, nas versões antigas, aceitar em silêncio sem enviar).
+    const inicioNoPassado = Boolean(
+      dataInicio && horaInicio &&
+      new Date(`${dataInicio}T${horaInicio}:00-03:00`).getTime() < Date.now() - 60_000
+    );
+
     const newErrors = {
       titulo: !titulo.trim(),
       canais: canais.length === 0,
-      dataInicio: !dataInicio,
-      horaInicio: !horaInicio,
+      dataInicio: !dataInicio || inicioNoPassado,
+      horaInicio: !horaInicio || inicioNoPassado,
       // msg.text.trim() direto estoura TypeError se o texto vier nulo, e a excecao
       // acontece FORA do try do handleSave: o clique em Salvar morre sem toast, sem
       // requisicao e sem nada mudar na tela — o pior tipo de erro para diagnosticar.
@@ -573,12 +580,16 @@ const limparBase64 = (base64ComPrefixo) => {
     if (newErrors.etapa) faltando.push('Etapa');
     if (newErrors.tagsSelecionadas) faltando.push('Tags');
     if (newErrors.listaSelecionada) faltando.push('Lista');
-    if (newErrors.dataInicio) faltando.push('Data de Início');
-    if (newErrors.horaInicio) faltando.push('Hora de Início');
+    if (inicioNoPassado) {
+      faltando.push('Data/Hora de Início (já passou — escolha um horário futuro)');
+    } else {
+      if (newErrors.dataInicio) faltando.push('Data de Início');
+      if (newErrors.horaInicio) faltando.push('Hora de Início');
+    }
     if (newErrors.etapaDestino) faltando.push('Etapa de Destino');
 
     if (faltando.length > 0) {
-      showError(`Faltou preencher: ${faltando.join(', ')}.`);
+      showError(`Confira antes de salvar: ${faltando.join(', ')}.`);
       return false;
     }
     return true;

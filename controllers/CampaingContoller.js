@@ -1,5 +1,6 @@
 const { scheduleCampaingBlast, getCampaings, getCampaingById, createCampaing, startCampaing, deleteCampaing, getCampaingDetails, getCampaingMetrics, cancelCampaing, setCampaingTags } = require("../services/CampaingService");
 const { createMessageForBlast, getAllBlastMessages, deleteAllBlastMessages } = require("../services/MessageBlast");
+const { parseLocalDateTime } = require("../services/getCurrentTimestamp");
 
 const startCampaingController = async (req, res) => {
   const { campaing_id } = req.body;
@@ -44,6 +45,26 @@ const createCampaingController = async (req, res) => {
   if (!schema) {
     return res.status(400).json({ erro: 'Schema não informado!' });
   }
+
+  // Hora no passado era aceita em silêncio: o agendador cancelava os pendentes
+  // antigos e retornava sem enfileirar nada — a tela dizia "salvo" e nada saía.
+  // Recusar AQUI, antes de qualquer escrita, mantém o disparo anterior intacto.
+  const inicio = parseLocalDateTime(start_date);
+  if (!Number.isFinite(inicio)) {
+    return res.status(400).json({
+      erro: 'Não foi possível salvar o disparo',
+      motivo: `Data/hora de início inválida: "${start_date}"`,
+    });
+  }
+  const TOLERANCIA_MS = 60_000; // relógio do navegador vs. servidor
+  if (inicio < Date.now() - TOLERANCIA_MS) {
+    const quando = new Date(inicio).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    return res.status(400).json({
+      erro: 'Não foi possível salvar o disparo',
+      motivo: `A data/hora de início (${quando}) já passou. Escolha um horário futuro.`,
+    });
+  }
+
   try {
     let campaing;
 
