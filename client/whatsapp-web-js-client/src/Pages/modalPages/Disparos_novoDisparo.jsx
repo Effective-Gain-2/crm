@@ -541,7 +541,10 @@ const limparBase64 = (base64ComPrefixo) => {
       canais: canais.length === 0,
       dataInicio: !dataInicio,
       horaInicio: !horaInicio,
-      mensagens: mensagens.map(msg => !msg.text.trim()),
+      // msg.text.trim() direto estoura TypeError se o texto vier nulo, e a excecao
+      // acontece FORA do try do handleSave: o clique em Salvar morre sem toast, sem
+      // requisicao e sem nada mudar na tela — o pior tipo de erro para diagnosticar.
+      mensagens: mensagens.map(msg => !String(msg?.text ?? '').trim()),
       tipoAlvo: !tipoAlvo,
       funilSelecionado: tipoAlvo === 'Funil' && !funilSelecionado,
       etapa: tipoAlvo === 'Funil' && !etapa,
