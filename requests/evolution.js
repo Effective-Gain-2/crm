@@ -5,6 +5,14 @@ const axios = require('axios');
 // mensagem do CRM (atendente, agente de IA e disparo passam todos por elas).
 const compliance = require('../services/ComplianceService');
 
+// fetch sem timeout congelou a fila de disparos em producao: o worker processa um
+// job por vez, e UMA chamada a Evolution que nunca responde trava a fila inteira —
+// tudo fica "pendente" para sempre, sem falha e sem log. Cancelar nao remove job
+// ativo e o redeploy retenta o mesmo job travado. Todo envio ganha prazo maximo.
+const TIMEOUT_ENVIO_MS = 30_000;
+const sinalTimeout = (ms = TIMEOUT_ENVIO_MS) =>
+  (typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined);
+
 // Eventos assinados no webhook — fonte ÚNICA (usada na criação e no re-registro).
 // MESSAGES_UPDATE + CHATS_UPDATE = leitura feita NO CELULAR chega ao CRM; sem eles a
 // conversa lida no telefone ficava "não lida" para sempre no painel.
@@ -133,6 +141,7 @@ const fetchInstanceEvo = async(instanceName)=>{
       apikey: process.env.EVOLUTION_API_KEY,
       'Content-Type': 'application/json'
     },
+    signal: sinalTimeout(),
   };
   try {
     const response = await fetch(`${process.env.EVOLUTION_SERVER_URL}/instance/fetchInstances?instanceName=${instanceName}`, options);
@@ -166,7 +175,8 @@ const sendTextMessage = async(instanceId, text, number, replyToId, origem)=>{
       apikey: process.env.EVOLUTION_API_KEY,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal: sinalTimeout(),
   };
   try {
     const response = await fetch(`${process.env.EVOLUTION_SERVER_URL}/message/sendText/${instanceId}`, options);
@@ -474,7 +484,8 @@ const sendMediaForBlast = async (instanceId, text, image, number) => {
       apikey: process.env.EVOLUTION_API_KEY,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(requestBody) 
+    body: JSON.stringify(requestBody),
+    signal: sinalTimeout(),
   };
 
   try {

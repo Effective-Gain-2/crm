@@ -2,7 +2,7 @@ const pool = require('../db/queries');
 const { v4: uuidv4 } = require('uuid');
 const { getContactsInKanbanStage, updateContactInKanban } = require('./KanbanService');
 const { getContatosDaLista } = require('./ListaService');
-const { sendTextMessage, fetchInstanceEvo } = require('../requests/evolution');
+const { sendTextMessage } = require('../requests/evolution');
 const { sendBlastMessage, sendMediaBlastMessage } = require('./MessageBlast');
 const createRedisConnection = require('../config/Redis');
 const { Queue, Worker } = require('bullmq');
@@ -41,17 +41,28 @@ const worker = new Worker(
   'Campanha',
   async (job) => {
     try {
-      console.log(`Processando job ${job.id} para número ${job.data}`);
+      console.log(`Processando job ${job.id} para número ${job.data.number}`);
 
-      const status = await fetchInstanceEvo()
-      
-      const confirmacao = job.data.image
+      // A imagem NAO viaja mais dentro do job: base64 de imagem por job inflava o
+      // Redis (32 jobs x imagem = dezenas de MB) e, com politica de eviction, o
+      // Redis descartava jobs em silencio — envio "pendente" para sempre na tela.
+      // O job leva so a referencia; o worker busca a imagem no Postgres na hora.
+      let imagem = job.data.image || null; // compat: jobs enfileirados antes do deploy
+      if (!imagem && job.data.image_ref) {
+        const r = await pool.query(
+          `SELECT image FROM ${safeSchema(job.data.schema)}.message_blast WHERE id = $1`,
+          [job.data.image_ref]
+        );
+        imagem = r.rows[0]?.image || null;
+      }
+
+      const confirmacao = imagem
         ? await sendMediaBlastMessage(
             job.data.instance,
             job.data.message,
             job.data.number,
             job.data.chat_id,
-            job.data.image,
+            imagem,
             job.data.schema
           )
         : await sendBlastMessage(
@@ -108,6 +119,71 @@ worker.on('failed', (job, err) => {
 worker.on('error', (err) => {
   console.error('Erro geral no worker:', err.message);
 });
+
+// ---------------------------------------------------------------------------
+// Vigia da fila. Envio agendado cujo job sumiu do Redis (eviction, flush, perda
+// de dados) ficava "pendente" para sempre na tela — sem falha, sem log, sem
+// pista. A cada 5 minutos o vigia converte esses casos em falha com motivo
+// legivel, para o problema aparecer nas metricas em vez de virar misterio.
+// ---------------------------------------------------------------------------
+const ATRASO_TOLERADO_MS = 10 * 60_000;
+
+const vigiarFilaDeDisparos = async () => {
+  try {
+    const empresas = await pool.query(`SELECT schema_name FROM effective_gain.companies`);
+    for (const { schema_name } of empresas.rows) {
+      if (!SCHEMA_RE.test(schema_name || '')) continue;
+      const atrasados = await pool.query(
+        `SELECT id, job_id, contact_number FROM ${schema_name}.campaing_dispatch
+          WHERE status = 'pendente' AND scheduled_for < $1
+          LIMIT 200`,
+        [Date.now() - ATRASO_TOLERADO_MS]
+      ).catch(() => null); // tenant sem a tabela ainda: pula
+      if (!atrasados || atrasados.rowCount === 0) continue;
+
+      for (const linha of atrasados.rows) {
+        let motivo = null;
+        if (!linha.job_id) {
+          motivo = 'Envio nunca entrou na fila de disparos';
+        } else {
+          const job = await blastQueue.getJob(linha.job_id).catch(() => undefined);
+          if (!job) {
+            motivo = 'O envio sumiu da fila do Redis sem ser processado (a política de memória do Redis precisa ser "noeviction")';
+          } else {
+            const estado = await job.getState().catch(() => null);
+            if (estado === 'failed') {
+              motivo = `Falhou na fila: ${job.failedReason || 'sem detalhe'}`;
+            }
+            // delayed/waiting/active = fila apenas atrasada; não mexe.
+          }
+        }
+        if (motivo) {
+          await pool.query(
+            `UPDATE ${schema_name}.campaing_dispatch SET status = 'falha', error = $1
+              WHERE id = $2 AND status = 'pendente'`,
+            [motivo, linha.id]
+          ).catch(() => {});
+          console.warn(`Vigia de disparos [${schema_name}] ${linha.contact_number}: ${motivo}`);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Vigia de disparos falhou:', e.message);
+  }
+};
+const vigiaTimer = setInterval(vigiarFilaDeDisparos, 5 * 60_000);
+if (vigiaTimer.unref) vigiaTimer.unref();
+
+// Política de memória errada no Redis descarta jobs em silêncio — o aviso vai
+// para o log do container no boot, onde quem faz o deploy consegue ver.
+bullConn.config('GET', 'maxmemory-policy').then((r) => {
+  const politica = Array.isArray(r) ? r[1] : r;
+  if (politica && politica !== 'noeviction') {
+    console.warn(`ATENÇÃO: Redis com maxmemory-policy="${politica}". Filas BullMQ exigem "noeviction" — com eviction, jobs de disparo podem ser descartados em silêncio e os envios ficam "pendente" para sempre.`);
+  } else {
+    console.log(`Redis maxmemory-policy: ${politica || 'desconhecida'}`);
+  }
+}).catch(() => {});
 
 const deleteAllConnectionsFromCampaing = async(campaing_id, schema)=>{
   await pool.query(`DELETE FROM ${schema}.campaing_connections where campaing_id=$1`,[campaing_id])
@@ -671,7 +747,9 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
           number: contactPhone,
           chat_id: chatToUse.id,
           message: message.value,
-          image: message.image,
+          // Referencia, nao o base64: imagem inteira por job inflava o Redis e
+          // jobs eram descartados por eviction — "pendente" eterno sem falha.
+          image_ref: message.image ? message.id : null,
           schema: schema,
           stage: new_stage || null,
           dispatch_id: dispatchId,
