@@ -363,6 +363,11 @@ const ensureSchemaTables = async (schema) => {
             PRIMARY KEY (campaing_id, tag_id)
         );`);
 
+    // Modelos de disparo: o modelo guarda mensagens/canais/intervalo e fica intacto;
+    // cada uso clona um disparo novo (execucao) apontando para o modelo de origem.
+    await pool.query(`ALTER TABLE ${schema}.campaing ADD COLUMN IF NOT EXISTS is_modelo boolean DEFAULT false;`);
+    await pool.query(`ALTER TABLE ${schema}.campaing ADD COLUMN IF NOT EXISTS modelo_id UUID;`);
+
     // Alvo do disparo passa a ser etapa OU lista — kanban_stage nao pode mais ser
     // obrigatorio, senao disparo por lista nao entra.
     await pool.query(`ALTER TABLE ${schema}.campaing ADD COLUMN IF NOT EXISTS lista_id UUID;`);

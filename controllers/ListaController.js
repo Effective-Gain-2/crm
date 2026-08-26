@@ -1,6 +1,6 @@
 const XLSX = require('xlsx');
 const fs = require('fs');
-const { criarListaDePlanilha, getListas, deleteLista } = require('../services/ListaService');
+const { criarListaDePlanilha, getListas, renomearLista, deleteLista } = require('../services/ListaService');
 
 const getListasController = async (req, res) => {
   try {
@@ -45,6 +45,21 @@ const uploadListaController = async (req, res) => {
   }
 };
 
+const renomearListaController = async (req, res) => {
+  try {
+    const schema = req.schema || req.auth?.schema;
+    const { lista_id } = req.params;
+    const lista = await renomearLista(lista_id, req.body?.nome, schema);
+    if (!lista) {
+      return res.status(404).json({ error: 'Lista não encontrada' });
+    }
+    res.status(200).json({ success: true, lista });
+  } catch (error) {
+    console.error('Erro ao renomear lista:', error);
+    res.status(400).json({ error: error.message || 'Erro ao renomear lista' });
+  }
+};
+
 const deleteListaController = async (req, res) => {
   try {
     const schema = req.schema || req.auth?.schema;
@@ -63,5 +78,6 @@ const deleteListaController = async (req, res) => {
 module.exports = {
   getListasController,
   uploadListaController,
+  renomearListaController,
   deleteListaController,
 };

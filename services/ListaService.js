@@ -118,6 +118,18 @@ const getContatosDaLista = async (lista_id, schema) => {
   return result.rows;
 };
 
+const renomearLista = async (lista_id, nome, schema) => {
+  safeSchema(schema);
+  if (!nome || !String(nome).trim()) {
+    throw new Error('Nome da lista obrigatorio');
+  }
+  const result = await pool.query(
+    `UPDATE ${schema}.listas SET nome = $1 WHERE id = $2 RETURNING *`,
+    [String(nome).trim(), lista_id]
+  );
+  return result.rows[0];
+};
+
 const deleteLista = async (lista_id, schema) => {
   safeSchema(schema);
   // Disparo que aponta para a lista perde o alvo — melhor barrar do que deixar
@@ -142,5 +154,6 @@ module.exports = {
   criarListaDePlanilha,
   getListas,
   getContatosDaLista,
+  renomearLista,
   deleteLista,
 };

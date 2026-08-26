@@ -171,12 +171,169 @@ const getContatosPorTags = async (campaing_id, schema) => {
 // antes de virar coluna inteira passa por aqui.
 const inteiroOuNull = (v) => (Number.isFinite(v) ? Math.round(v) : null);
 
-const createCampaing = async (campaing_id, campName, sector, kanbanStage, connectionId, startDate, schema, intervalo, listaId = null) => {
+// ---------------------------------------------------------------------------
+// Agenda por canal: dois disparos simultaneos no mesmo numero de WhatsApp e
+// receita de banimento. Antes de agendar qualquer coisa, a janela do novo
+// disparo e comparada com as janelas pendentes de cada canal envolvido.
+// ---------------------------------------------------------------------------
+
+const MARGEM_AGENDA_MS = 60_000;
+
+// Quanto tempo o disparo ocupa o canal: n contatos x intervalo medio + margem.
+const estimarDuracaoMs = (campaing, totalContatos) => {
+  const min = Number(campaing.min) || 0;
+  const max = Math.max(min, Number(campaing.max) || min);
+  const medioSeg = min > 0 ? (min + max) / 2 : (Number(campaing.timer) || 30);
+  return Math.round(Math.max(1, totalContatos) * medioSeg * 1000) + MARGEM_AGENDA_MS;
+};
+
+// Quantos contatos o alvo alcanca hoje — sem gravar nada. Usado pela checagem
+// de agenda ANTES de qualquer escrita.
+const contarAlvo = async ({ lista_id, kanban_stage, tags }, schema) => {
+  safeSchema(schema);
+  if (lista_id) {
+    const r = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM ${schema}.lista_contatos WHERE lista_id = $1`, [lista_id]
+    );
+    return r.rows[0]?.total || 0;
+  }
+  if (Array.isArray(tags) && tags.length > 0) {
+    const r = await pool.query(
+      `SELECT COUNT(DISTINCT ch.contact_phone)::int AS total
+         FROM ${schema}.chat_tag cht
+         JOIN ${schema}.chats ch ON ch.id = cht.chat_id
+        WHERE cht.tag_id = ANY($1::uuid[])`, [tags]
+    );
+    return r.rows[0]?.total || 0;
+  }
+  if (kanban_stage) {
+    const r = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM ${schema}.contacts_stage WHERE stage = $1`, [kanban_stage]
+    );
+    return r.rows[0]?.total || 0;
+  }
+  return 0;
+};
+
+// Janela ocupada de um canal = MIN..MAX(scheduled_for) dos envios pendentes,
+// por campanha. Sobreposicao com a janela nova (com margem) = conflito.
+const verificarAgendaCanal = async (connectionIds, startMs, duracaoMs, schema, ignorarCampaingId = null) => {
+  safeSchema(schema);
+  const ids = (connectionIds || []).filter(Boolean).map(String);
+  if (ids.length === 0) return { livre: true, conflitos: [], proximoLivre: null };
+
+  const fimNovo = startMs + duracaoMs;
+  const result = await pool.query(
+    `SELECT cn.name AS canal, c.campaing_name AS disparo,
+            MIN(cd.scheduled_for)::bigint AS ini, MAX(cd.scheduled_for)::bigint AS fim
+       FROM ${schema}.campaing_dispatch cd
+       JOIN ${schema}.connections cn ON cn.id = cd.connection_id
+       JOIN ${schema}.campaing c ON c.id = cd.campaing_id
+      WHERE cd.status = 'pendente'
+        AND cd.connection_id = ANY($1::uuid[])
+        AND ($2::uuid IS NULL OR cd.campaing_id <> $2::uuid)
+      GROUP BY cn.name, c.campaing_name`,
+    [ids, ignorarCampaingId]
+  );
+
+  const conflitos = result.rows.filter((j) =>
+    Number(j.ini) - MARGEM_AGENDA_MS <= fimNovo && Number(j.fim) + MARGEM_AGENDA_MS >= startMs
+  );
+  if (conflitos.length === 0) return { livre: true, conflitos: [], proximoLivre: null };
+
+  const proximoLivre = Math.max(...conflitos.map((j) => Number(j.fim))) + MARGEM_AGENDA_MS;
+  return {
+    livre: false,
+    conflitos: conflitos.map((j) => ({ canal: j.canal, disparo: j.disparo, fim: Number(j.fim) })),
+    proximoLivre,
+  };
+};
+
+const horaBR = (ms) => new Date(ms).toLocaleString('pt-BR', {
+  timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+});
+
+// Usa um modelo: clona campanha + canais + mensagens numa EXECUCAO apontando para
+// a lista, valida a agenda dos canais e agenda. O modelo nunca e alterado.
+const executarModelo = async (modelo_id, lista_id, start_date, schema) => {
+  safeSchema(schema);
+
+  const modeloRes = await pool.query(
+    `SELECT * FROM ${schema}.campaing WHERE id = $1 AND is_modelo = true`, [modelo_id]
+  );
+  const modelo = modeloRes.rows[0];
+  if (!modelo) throw new Error('Modelo de disparo não encontrado');
+
+  const listaRes = await pool.query(`SELECT * FROM ${schema}.listas WHERE id = $1`, [lista_id]);
+  const lista = listaRes.rows[0];
+  if (!lista) throw new Error('Lista não encontrada');
+
+  const contatos = await getContatosDaLista(lista_id, schema);
+  if (contatos.length === 0) throw new Error(`A lista "${lista.nome}" não tem nenhum contato`);
+
+  const canais = await getAllCampaingConnections(modelo_id, schema);
+  if (canais.length === 0) throw new Error(`O modelo "${modelo.campaing_name}" não tem canal configurado — edite o modelo e escolha o canal`);
+
+  const mensagens = await pool.query(
+    `SELECT * FROM ${schema}.message_blast WHERE campaing_id = $1`, [modelo_id]
+  );
+  if (mensagens.rowCount === 0) throw new Error(`O modelo "${modelo.campaing_name}" não tem mensagem cadastrada`);
+
+  const inicio = parseLocalDateTime(start_date);
+  if (!Number.isFinite(inicio)) throw new Error(`Data/hora de início inválida: "${start_date}"`);
+  if (inicio < Date.now() - MARGEM_AGENDA_MS) {
+    throw new Error(`A data/hora de início (${horaBR(inicio)}) já passou. Escolha um horário futuro.`);
+  }
+
+  const duracao = estimarDuracaoMs(modelo, contatos.length);
+  const agenda = await verificarAgendaCanal(canais.map((c) => c.connection_id), inicio, duracao, schema, null);
+  if (!agenda.livre) {
+    const pior = agenda.conflitos.reduce((a, b) => (a.fim >= b.fim ? a : b));
+    const err = new Error(
+      `O canal "${pior.canal}" está ocupado pelo disparo "${pior.disparo}" até ${horaBR(pior.fim)}. ` +
+      `Próximo horário livre: ${horaBR(agenda.proximoLivre)}.`
+    );
+    err.codigo = 'conflito_agenda';
+    err.proximoLivre = agenda.proximoLivre;
+    throw err;
+  }
+
+  // Clone: a execucao nasce independente — apagar ou editar o modelo depois nao a afeta.
+  const execucaoId = uuidv4();
+  const nomeExecucao = `${modelo.campaing_name} — ${lista.nome}`;
+  const execRes = await pool.query(
+    `INSERT INTO ${schema}.campaing
+       (id, campaing_name, sector, kanban_stage, start_date, timer, min, max, lista_id, is_modelo, modelo_id)
+     VALUES ($1, $2, $3, NULL, $4, $5, $6, $7, $8, false, $9) RETURNING *`,
+    [execucaoId, nomeExecucao, 'lista', inteiroOuNull(inicio),
+     inteiroOuNull(Number(modelo.timer)), inteiroOuNull(Number(modelo.min)), inteiroOuNull(Number(modelo.max)),
+     lista_id, modelo_id]
+  );
+  for (const canal of canais) {
+    await pool.query(
+      `INSERT INTO ${schema}.campaing_connections (campaing_id, connection_id) VALUES ($1, $2)`,
+      [execucaoId, canal.connection_id]
+    );
+  }
+  for (const msg of mensagens.rows) {
+    await pool.query(
+      `INSERT INTO ${schema}.message_blast (id, value, sector, campaing_id, image) VALUES ($1, $2, $3, $4, $5)`,
+      [uuidv4(), msg.value, 'lista', execucaoId, msg.image]
+    );
+  }
+
+  const execucao = execRes.rows[0];
+  await scheduleCampaingBlast(execucao, execucao.sector, schema, null, null);
+  return execucao;
+};
+
+const createCampaing = async (campaing_id, campName, sector, kanbanStage, connectionId, startDate, schema, intervalo, listaId = null, isModelo = false) => {
   try {
-    const unixStartDate = parseLocalDateTime(startDate);
+    // Modelo nao agenda nada: guarda mensagens/canais/intervalo e dispensa data.
+    const unixStartDate = isModelo ? null : parseLocalDateTime(startDate);
     // Data invalida vira NaN, e NaN em BIGINT viraria outro erro criptico de banco.
     // Melhor recusar aqui com uma frase que a tela consegue mostrar.
-    if (!Number.isFinite(unixStartDate)) {
+    if (!isModelo && !Number.isFinite(unixStartDate)) {
       throw new Error(`Data de início inválida: "${startDate}"`);
     }
 
@@ -237,38 +394,38 @@ const createCampaing = async (campaing_id, campName, sector, kanbanStage, connec
     if (campaing_id) {
       if(intervalMinEmSegundos){
         result = await pool.query(
-        `UPDATE ${schema}.campaing 
-         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, lista_id=$9
+        `UPDATE ${schema}.campaing
+         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, lista_id=$9, is_modelo=$10
          WHERE id=$6  RETURNING *`,
-        [campName, sector, kanbanStage, unixStartDate, null, campaing_id, intervalMinEmSegundos, intervalMaxEmSegundos, listaId]
+        [campName, sector, kanbanStage, unixStartDate, null, campaing_id, intervalMinEmSegundos, intervalMaxEmSegundos, listaId, isModelo]
       );
       campaing = result.rows[0];
       await deleteAllConnectionsFromCampaing(campaing.id, schema)
       await insertConnectionsForCampaing(campaing.id,connectionId, schema)
       }else{
          result = await pool.query(
-        `UPDATE ${schema}.campaing 
-         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, lista_id=$9
+        `UPDATE ${schema}.campaing
+         SET campaing_name=$1, sector=$2, kanban_stage=$3, start_date=$4, timer=$5, min=$7, max=$8, lista_id=$9, is_modelo=$10
          WHERE id=$6 RETURNING *`,
-        [campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, campaing_id, null, null, listaId]
+        [campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, campaing_id, null, null, listaId, isModelo]
       );
       campaing = result.rows[0];
       await deleteAllConnectionsFromCampaing(campaing.id, schema)
       await insertConnectionsForCampaing(campaing.id,connectionId, schema)
       }
-     
+
     } else {
       if(intervalMinEmSegundos) {
         result = await pool.query(
-          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, min, max, lista_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-          [uuidv4(), campName, sector, kanbanStage, unixStartDate, null, intervalMinEmSegundos, intervalMaxEmSegundos, listaId]
+          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, min, max, lista_id, is_modelo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+          [uuidv4(), campName, sector, kanbanStage, unixStartDate, null, intervalMinEmSegundos, intervalMaxEmSegundos, listaId, isModelo]
         );
         campaing = result.rows[0];
         await insertConnectionsForCampaing(campaing.id,connectionId, schema)
       } else {
         result = await pool.query(
-          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, lista_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-          [uuidv4(), campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, listaId]
+          `INSERT INTO ${schema}.campaing (id, campaing_name, sector, kanban_stage, start_date, timer, lista_id, is_modelo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+          [uuidv4(), campName, sector, kanbanStage, unixStartDate, intervalEmSegundos, listaId, isModelo]
         );
         campaing = result.rows[0];
         await insertConnectionsForCampaing(campaing.id,connectionId, schema)
@@ -325,6 +482,10 @@ const limparAgendamentoAnterior = async (campaing_id, schema) => {
 
 const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_stage) => {
   try {
+    // Modelo e so a receita (mensagens/canais/intervalo): quem agenda e a execucao
+    // clonada por executarModelo, nunca o modelo em si.
+    if (campaing.is_modelo) return;
+
     const startDate = Number(campaing.start_date);
     const now = Date.now();
 
@@ -708,12 +869,12 @@ const getCampaings = async (schema) => {
               COALESCE(d.enviados, 0) AS enviados,
               COALESCE(d.falhas, 0) AS falhas,
               COALESCE(d.pendentes, 0) AS pendentes,
-              COALESCE(c.status, CASE
+              CASE WHEN c.is_modelo THEN 'modelo' ELSE COALESCE(c.status, CASE
                 WHEN COALESCE(d.total, 0) = 0 THEN 'nao agendado'
                 WHEN d.pendentes > 0 AND d.enviados > 0 THEN 'em andamento'
                 WHEN d.pendentes > 0 THEN 'agendado'
                 ELSE 'concluido'
-              END) AS status
+              END) END AS status
          FROM ${schema}.campaing c
          LEFT JOIN ${schema}.listas l ON l.id = c.lista_id
          LEFT JOIN (
@@ -1027,5 +1188,9 @@ module.exports = {
   getCampaingMetrics,
   cancelCampaing,
   setCampaingTags,
-  getCampaingTags
+  getCampaingTags,
+  contarAlvo,
+  estimarDuracaoMs,
+  verificarAgendaCanal,
+  executarModelo
 };

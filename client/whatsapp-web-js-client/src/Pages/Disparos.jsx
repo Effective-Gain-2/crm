@@ -8,6 +8,7 @@ import DisparoModal from './modalPages/Disparos_novoDisparo';
 import DeleteDisparoModal from './modalPages/Disparos_delete';
 import DetalhesDisparoModal from './modalPages/Disparos_detalhes';
 import ListasModal from './modalPages/Disparos_listas';
+import UsarModeloModal from './modalPages/Disparos_usarModelo';
 import { useToast } from '../contexts/ToastContext';
 
 const userData = JSON.parse(localStorage.getItem('user'));
@@ -59,6 +60,7 @@ function DisparosPage({ theme }) {
   const [disparoDetalhado, setDisparoDetalhado] = useState(null);
   const [mostrarListas, setMostrarListas] = useState(false);
   const [listaParaDisparo, setListaParaDisparo] = useState('');
+  const [modeloParaUsar, setModeloParaUsar] = useState(null);
   const userData = JSON.parse(localStorage.getItem('user')); 
   const schema = userData?.schema
   const url = process.env.REACT_APP_URL;
@@ -281,6 +283,12 @@ function DisparosPage({ theme }) {
     fetchDisparos();
   };
 
+  // Modelos são receitas (mensagens + canais + intervalo) reutilizáveis; execuções
+  // são os disparos de fato, com alvo, data e métricas. Cada bloco tem sua seção.
+  const listaDisparos = Array.isArray(disparos) ? disparos : [];
+  const modelos = listaDisparos.filter((d) => d.is_modelo);
+  const execucoes = listaDisparos.filter((d) => !d.is_modelo);
+
   return (
     <div className="h-100 w-100 ms-2 py-3">
       <div className="d-flex justify-content-between align-items-center mb-3">
@@ -321,7 +329,77 @@ function DisparosPage({ theme }) {
         }}
       >
         <div className="d-flex flex-column gap-3 p-3 w-100">
-          {Array.isArray(disparos) && disparos.map((disparo) => (
+          {/* ---- Modelos de disparo ---- */}
+          {modelos.length > 0 && (
+            <>
+              <div className={`header-text-${theme} h6 mb-0`}>
+                <i className="bi bi-collection me-2"></i>Modelos de disparo
+              </div>
+              {modelos.map((modelo) => (
+                <div
+                  key={modelo.id}
+                  className={`d-flex flex-row justify-content-between align-items-stretch p-3 card-${theme} border-${theme} rounded w-100`}
+                >
+                  <div className="d-flex flex-column flex-grow-1">
+                    <div className={`header-text-${theme} h5 mb-2`}>
+                      {modelo.campaing_name}
+                      <span className="badge bg-secondary ms-2" style={{ fontSize: '0.65rem', verticalAlign: 'middle' }}>Modelo</span>
+                    </div>
+                    <div className={`header-text-${theme} mb-1`}>
+                      Canais: <span className="fw-bold">
+                        {Array.isArray(modelo.canais) && modelo.canais.length > 0 ? modelo.canais.join(', ') : 'Nenhum canal'}
+                      </span>
+                    </div>
+                    <div className={`header-text-${theme}`}>
+                      Intervalo: <span className="fw-bold">{descreverIntervalo(modelo)}</span>
+                    </div>
+                  </div>
+                  <div className={`border-end border-${theme} mx-3`} style={{ minHeight: '80px' }}></div>
+                  <div className="d-flex flex-column gap-2 justify-content-center">
+                    <button
+                      className={`btn btn-1-${theme}`}
+                      style={{ maxWidth: '42px' }}
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="left"
+                      data-bs-title="Usar modelo: escolher lista e horário"
+                      onClick={() => setModeloParaUsar(modelo)}
+                      disabled={!isAdmin}
+                    >
+                      <i className="bi bi-send-fill"></i>
+                    </button>
+                    <button
+                      className={`btn btn-2-${theme}`}
+                      style={{ maxWidth: '42px' }}
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="left"
+                      data-bs-title="Editar modelo"
+                      onClick={() => handleEdit(modelo.id)}
+                      disabled={!isAdmin}
+                    >
+                      <i className="bi bi-pencil-fill"></i>
+                    </button>
+                    <button
+                      className={`btn delete-btn`}
+                      style={{ maxWidth: '42px' }}
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="left"
+                      data-bs-title="Excluir modelo"
+                      onClick={() => handleDelete(modelo.id)}
+                      disabled={!isAdmin}
+                    >
+                      <i className="bi bi-trash-fill"></i>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {execucoes.length > 0 && (
+                <div className={`header-text-${theme} h6 mb-0 mt-2`}>
+                  <i className="bi bi-megaphone me-2"></i>Disparos programados
+                </div>
+              )}
+            </>
+          )}
+          {execucoes.map((disparo) => (
   <div 
     key={disparo.id}
     className={`d-flex flex-row justify-content-between align-items-stretch p-3 card-${theme} border-${theme} rounded w-100`}
@@ -463,6 +541,18 @@ function DisparosPage({ theme }) {
         onHide={() => setMostrarListas(false)}
         onListasMudaram={recarregarDisparos}
         onAgendarDisparo={handleAgendarDisparoComLista}
+      />
+
+      {/* Modal Usar Modelo (escolher lista + data/hora) */}
+      <UsarModeloModal
+        theme={theme}
+        show={!!modeloParaUsar}
+        onHide={() => setModeloParaUsar(null)}
+        modelo={modeloParaUsar}
+        onAgendado={(execucao) => {
+          showSuccess(`Disparo "${execucao.campaing_name}" agendado!`);
+          recarregarDisparos();
+        }}
       />
 
       {/* Modal de Detalhes e Métricas */}

@@ -14,6 +14,17 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
   const [resultado, setResultado] = useState(null);
   const [etapasFunil, setEtapasFunil] = useState([]);
   const [isImporting, setIsImporting] = useState(false);
+  // Passo 2: a importação criou uma lista nomeada; daqui mesmo o usuário escolhe
+  // qual disparo (modelo) essas pessoas recebem e marca data/hora.
+  const [listaImportada, setListaImportada] = useState(null);
+  const [nomeLista, setNomeLista] = useState('');
+  const [modelos, setModelos] = useState([]);
+  const [modeloSelecionado, setModeloSelecionado] = useState('');
+  const [dataDisparo, setDataDisparo] = useState('');
+  const [horaDisparo, setHoraDisparo] = useState('');
+  const [agendando, setAgendando] = useState(false);
+  const [erroAgenda, setErroAgenda] = useState(null); // { motivo, proximoLivre }
+  const [disparoAgendado, setDisparoAgendado] = useState(null);
   const fileInputRef = useRef(null);
   const userData = JSON.parse(localStorage.getItem('user'));
   const schema = userData?.schema;
@@ -37,6 +48,73 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
       fetchEtapas();
     }
   }, [show, funil, schema, url]);
+
+  // Modelos de disparo disponíveis para o passo 2 (cadastrados na tela de Disparos).
+  useEffect(() => {
+    if (!show) return;
+    const fetchModelos = async () => {
+      try {
+        const response = await axios.get(`${url}/campaing/get-campaing/${schema}`, { withCredentials: true });
+        const todos = Array.isArray(response.data) ? response.data : [];
+        setModelos(todos.filter((c) => c.is_modelo));
+      } catch (error) {
+        console.error('Erro ao buscar modelos de disparo:', error);
+        setModelos([]);
+      }
+    };
+    fetchModelos();
+  }, [show, schema, url]);
+
+  const descreverModelo = (modelo) => {
+    if (!modelo) return '';
+    const canais = Array.isArray(modelo.canais) && modelo.canais.length > 0 ? modelo.canais.join(', ') : 'sem canal';
+    const min = Number(modelo.min) || 0;
+    const max = Number(modelo.max) || 0;
+    const intervalo = min > 0 || max > 0 ? `${min}s a ${max}s` : `${Number(modelo.timer) || 30}s`;
+    return `Canal: ${canais} · Intervalo: ${intervalo}`;
+  };
+
+  const aplicarHorarioSugerido = (ms) => {
+    const d = new Date(Number(ms));
+    const pad = (n) => String(n).padStart(2, '0');
+    setDataDisparo(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+    setHoraDisparo(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+    setErroAgenda(null);
+  };
+
+  const handleAgendarDisparo = async () => {
+    if (!listaImportada?.id) return;
+    if (!modeloSelecionado) return setErroAgenda({ motivo: 'Escolha o modelo de disparo.' });
+    if (!dataDisparo || !horaDisparo) return setErroAgenda({ motivo: 'Informe a data e a hora do disparo.' });
+
+    setAgendando(true);
+    setErroAgenda(null);
+    try {
+      // Nome editado só é gravado na hora de agendar — uma escrita, não uma por tecla.
+      if (nomeLista.trim() && nomeLista.trim() !== listaImportada.nome) {
+        await axios.put(`${url}/listas/${listaImportada.id}`, { nome: nomeLista.trim() }, { withCredentials: true });
+        setListaImportada((prev) => ({ ...prev, nome: nomeLista.trim() }));
+      }
+
+      const { data } = await axios.post(`${url}/campaing/executar-modelo`, {
+        modelo_id: modeloSelecionado,
+        lista_id: listaImportada.id,
+        start_date: `${dataDisparo}T${horaDisparo}:00-03:00`,
+        schema,
+      }, { withCredentials: true });
+
+      setDisparoAgendado(data);
+    } catch (error) {
+      console.error('Erro ao agendar disparo da importação:', error);
+      const dados = error.response?.data;
+      setErroAgenda({
+        motivo: dados?.motivo || dados?.erro || 'Erro ao agendar o disparo.',
+        proximoLivre: dados?.proximo_horario_livre || null,
+      });
+    } finally {
+      setAgendando(false);
+    }
+  };
 
   const handleFileChange = (event) => {
     setErrorMsg('');
@@ -112,6 +190,12 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
           alerta: res.data.semEtapa > 0 || res.data.imported === 0,
         });
 
+        // A importação também criou a lista deste lote — abre o passo 2.
+        if (res.data.lista_id) {
+          setListaImportada({ id: res.data.lista_id, nome: res.data.lista_nome, total: res.data.total_lista });
+          setNomeLista(res.data.lista_nome || '');
+        }
+
         setFile(null);
         setPreview([]);
         setAvailableColumns([]);
@@ -136,6 +220,13 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
     setAvailableColumns([]);
     setErrorMsg('');
     setResultado(null);
+    setListaImportada(null);
+    setNomeLista('');
+    setModeloSelecionado('');
+    setDataDisparo('');
+    setHoraDisparo('');
+    setErroAgenda(null);
+    setDisparoAgendado(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -180,6 +271,106 @@ function ImportarContatosModal({ theme, show, onHide, funil }) {
           <div className={`alert ${resultado.alerta ? 'alert-warning' : 'alert-success'} mt-3`} role="alert">
             <i className={`bi ${resultado.alerta ? 'bi-exclamation-triangle' : 'bi-check-circle'} me-2`}></i>
             {resultado.mensagem}
+          </div>
+        )}
+
+        {/* Passo 2: programar o disparo para o lote importado, sem sair da tela */}
+        {listaImportada && !disparoAgendado && (
+          <div className={`border rounded p-3 mt-2 bg-form-${theme}`}>
+            <h6 className={`header-text-${theme} mb-3`}>
+              <i className="bi bi-megaphone me-2"></i>
+              Programar disparo para os {listaImportada.total} contato(s) importados
+            </h6>
+
+            <div className="row g-3">
+              <div className="col-md-6">
+                <Form.Label className={`card-subtitle-${theme}`}>Nome da lista</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={nomeLista}
+                  onChange={(e) => setNomeLista(e.target.value)}
+                  className={`input-${theme}`}
+                />
+                <Form.Text className={`card-subtitle-${theme}`}>
+                  A lista fica salva com a data e pode ser reutilizada em outros disparos.
+                </Form.Text>
+              </div>
+              <div className="col-md-6">
+                <Form.Label className={`card-subtitle-${theme}`}>Modelo de disparo</Form.Label>
+                <Form.Select
+                  value={modeloSelecionado}
+                  onChange={(e) => setModeloSelecionado(e.target.value)}
+                  className={`input-${theme}`}
+                >
+                  <option value="">Selecione um modelo</option>
+                  {modelos.map((m) => (
+                    <option key={m.id} value={m.id}>{m.campaing_name}</option>
+                  ))}
+                </Form.Select>
+                {modeloSelecionado && (
+                  <Form.Text className={`card-subtitle-${theme}`}>
+                    {descreverModelo(modelos.find((m) => m.id === modeloSelecionado))}
+                  </Form.Text>
+                )}
+                {modelos.length === 0 && (
+                  <Form.Text className={`card-subtitle-${theme}`}>
+                    Nenhum modelo cadastrado. Crie um na tela de Disparos marcando
+                    "Salvar como modelo" — depois ele aparece aqui.
+                  </Form.Text>
+                )}
+              </div>
+              <div className="col-md-6">
+                <Form.Label className={`card-subtitle-${theme}`}>Data do disparo</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={dataDisparo}
+                  onChange={(e) => { setDataDisparo(e.target.value); setErroAgenda(null); }}
+                  className={`input-${theme}`}
+                />
+              </div>
+              <div className="col-md-6">
+                <Form.Label className={`card-subtitle-${theme}`}>Hora do disparo</Form.Label>
+                <Form.Control
+                  type="time"
+                  value={horaDisparo}
+                  onChange={(e) => { setHoraDisparo(e.target.value); setErroAgenda(null); }}
+                  className={`input-${theme}`}
+                />
+              </div>
+            </div>
+
+            {erroAgenda && (
+              <div className="alert alert-danger mt-3 mb-0" role="alert">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                {erroAgenda.motivo}
+                {erroAgenda.proximoLivre && (
+                  <div className="mt-2">
+                    <Button size="sm" className={`btn-1-${theme}`} onClick={() => aplicarHorarioSugerido(erroAgenda.proximoLivre)}>
+                      Usar {new Date(Number(erroAgenda.proximoLivre)).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="d-flex justify-content-end gap-2 mt-3">
+              <Button className={`btn-2-${theme}`} onClick={handleClose}>Agora não</Button>
+              <Button
+                className={`btn-1-${theme}`}
+                onClick={handleAgendarDisparo}
+                disabled={agendando || modelos.length === 0}
+              >
+                {agendando ? 'Agendando…' : 'Agendar disparo'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {disparoAgendado && (
+          <div className="alert alert-success mt-2" role="alert">
+            <i className="bi bi-check-circle me-2"></i>
+            Disparo <strong>{disparoAgendado.campaing_name}</strong> agendado!
+            Acompanhe pelo card na tela de Disparos.
           </div>
         )}
 

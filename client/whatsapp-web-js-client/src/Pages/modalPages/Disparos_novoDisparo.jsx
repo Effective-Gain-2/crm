@@ -17,6 +17,11 @@ function DisparoModal({ theme, disparo = null, onSave, listaInicial = '', onList
   // acabava disparando para todo mundo que ja estava na etapa — a lista antiga sendo
   // usada sem ninguem ter escolhido ela.
   const [tipoAlvo, setTipoAlvo] = useState('');
+  // Modelo: guarda mensagens/canais/intervalo para reutilizar (importação, "Usar
+  // modelo") sem alvo nem data — quem agenda é cada execução.
+  const [salvarComoModelo, setSalvarComoModelo] = useState(false);
+  // Conflito de agenda vindo do servidor (409): motivo + próximo horário livre.
+  const [conflitoAgenda, setConflitoAgenda] = useState(null);
   const [listas, setListas] = useState([]);
   const [listaSelecionada, setListaSelecionada] = useState('');
   const [subindoLista, setSubindoLista] = useState(false);
@@ -145,6 +150,8 @@ const limparBase64 = (base64ComPrefixo) => {
     // tipoAlvo nunca foi coluna de campaing: ler disparo.tipoAlvo caia sempre em
     // "Funil", entao abrir um disparo de lista para editar mostrava o alvo errado e
     // salvar apagava a lista. Quem sabe qual e o alvo e a propria lista_id gravada.
+    setSalvarComoModelo(!!disparo.is_modelo);
+    setConflitoAgenda(null);
     setTipoAlvo(disparo.lista_id ? 'Lista' : 'Funil');
     setListaSelecionada(disparo.lista_id || '');
     setFunilSelecionado(disparo.lista_id ? '' : (disparo.sector || ''));
@@ -253,6 +260,8 @@ const limparBase64 = (base64ComPrefixo) => {
     setMensagensImagens([null]);
     setCanais([]);
     setShowCanalDropdown(false);
+    setSalvarComoModelo(false);
+    setConflitoAgenda(null);
     // Vindo do modal de Listas, a lista recem-criada ja chega escolhida: o que falta
     // e exatamente a configuracao de data, hora, canal e mensagem.
     setTipoAlvo(listaInicial ? 'Lista' : '');
@@ -543,21 +552,23 @@ const limparBase64 = (base64ComPrefixo) => {
       new Date(`${dataInicio}T${horaInicio}:00-03:00`).getTime() < Date.now() - 60_000
     );
 
+    // Modelo só precisa de título, canal e mensagens: alvo e horário pertencem a
+    // cada execução, não à receita.
     const newErrors = {
       titulo: !titulo.trim(),
       canais: canais.length === 0,
-      dataInicio: !dataInicio || inicioNoPassado,
-      horaInicio: !horaInicio || inicioNoPassado,
+      dataInicio: !salvarComoModelo && (!dataInicio || inicioNoPassado),
+      horaInicio: !salvarComoModelo && (!horaInicio || inicioNoPassado),
       // msg.text.trim() direto estoura TypeError se o texto vier nulo, e a excecao
       // acontece FORA do try do handleSave: o clique em Salvar morre sem toast, sem
       // requisicao e sem nada mudar na tela — o pior tipo de erro para diagnosticar.
       mensagens: mensagens.map(msg => !String(msg?.text ?? '').trim()),
-      tipoAlvo: !tipoAlvo,
-      funilSelecionado: tipoAlvo === 'Funil' && !funilSelecionado,
-      etapa: tipoAlvo === 'Funil' && !etapa,
-      tagsSelecionadas: tipoAlvo === 'Tag' && tagsSelecionadas.length === 0,
-      listaSelecionada: tipoAlvo === 'Lista' && !listaSelecionada,
-      etapaDestino: transferirContato && !etapaDestino
+      tipoAlvo: !salvarComoModelo && !tipoAlvo,
+      funilSelecionado: !salvarComoModelo && tipoAlvo === 'Funil' && !funilSelecionado,
+      etapa: !salvarComoModelo && tipoAlvo === 'Funil' && !etapa,
+      tagsSelecionadas: !salvarComoModelo && tipoAlvo === 'Tag' && tagsSelecionadas.length === 0,
+      listaSelecionada: !salvarComoModelo && tipoAlvo === 'Lista' && !listaSelecionada,
+      etapaDestino: !salvarComoModelo && transferirContato && !etapaDestino
     };
     
     setErrors(newErrors);
@@ -580,7 +591,7 @@ const limparBase64 = (base64ComPrefixo) => {
     if (newErrors.etapa) faltando.push('Etapa');
     if (newErrors.tagsSelecionadas) faltando.push('Tags');
     if (newErrors.listaSelecionada) faltando.push('Lista');
-    if (inicioNoPassado) {
+    if (!salvarComoModelo && inicioNoPassado) {
       faltando.push('Data/Hora de Início (já passou — escolha um horário futuro)');
     } else {
       if (newErrors.dataInicio) faltando.push('Data de Início');
@@ -597,10 +608,11 @@ const limparBase64 = (base64ComPrefixo) => {
 
   const handleSave = async () => {
     if (loading) return;
-    
+
     if (!validateFields()) {
       return;
     }
+    setConflitoAgenda(null);
     setLoading(true);
     const start_date = dataInicio && horaInicio
       ? `${dataInicio}T${horaInicio}:00-03:00`
@@ -634,6 +646,7 @@ const limparBase64 = (base64ComPrefixo) => {
     // type uuid". Fora do alvo Funil, o valor certo é null.
     kanban_stage: tipoAlvo === 'Funil' ? (etapa || null) : null,
     lista_id: tipoAlvo === 'Lista' ? listaSelecionada : null,
+    is_modelo: salvarComoModelo,
     start_date,
     schema,
     tipoAlvo,
@@ -690,6 +703,16 @@ const limparBase64 = (base64ComPrefixo) => {
     } catch (error) {
       setLoading(false);
       const dados = error.response?.data;
+      // Conflito de agenda: outro disparo ocupa o canal nesse horário. Além do
+      // motivo, o servidor manda o próximo horário livre — oferecido com um clique.
+      if (error.response?.status === 409) {
+        setConflitoAgenda({
+          motivo: dados?.motivo || 'Canal ocupado nesse horário.',
+          proximoLivre: dados?.proximo_horario_livre || null,
+        });
+        showError(dados?.motivo || 'Canal ocupado nesse horário.');
+        return;
+      }
       if (dados?.erro) {
         // O servidor agora manda o motivo real junto: sem ele a tela dizia apenas
         // "não foi possível", e descobrir a causa exigia o log do container.
@@ -822,6 +845,21 @@ const limparBase64 = (base64ComPrefixo) => {
                   Este campo é obrigatório
                 </div>
               )}
+            </div>
+            {/* Modelo = receita reutilizável (mensagens + canais + intervalo). Alvo e
+                horário são escolhidos a cada uso: na importação de contatos ou no
+                botão "Usar modelo" da tela de Disparos. */}
+            <div className="mb-3 form-check form-switch">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                id="salvarComoModelo"
+                checked={salvarComoModelo}
+                onChange={(e) => setSalvarComoModelo(e.target.checked)}
+              />
+              <label className={`form-check-label card-subtitle-${theme}`} htmlFor="salvarComoModelo">
+                Salvar como modelo (sem agendamento — para usar nas importações)
+              </label>
             </div>
             {/* Número de Mensagens */}
             <div className="mb-3">
@@ -1014,6 +1052,7 @@ const limparBase64 = (base64ComPrefixo) => {
                   )}
                 </div>
                 {/* Tipo de Alvo com Seleção de Funil */}
+                {!salvarComoModelo && (
                 <div className="mb-3">
                   <label className={`form-label card-subtitle-${theme}`}>Tipo de Alvo</label>
                   <div className="d-flex gap-3 align-items-center">
@@ -1088,9 +1127,10 @@ const limparBase64 = (base64ComPrefixo) => {
                     </div>
                   )}
                 </div>
+                )}
 
                 {/* Seleção da lista + upload no mesmo lugar */}
-                {tipoAlvo === 'Lista' && (
+                {!salvarComoModelo && tipoAlvo === 'Lista' && (
                   <div className="mb-3">
                     <label className={`form-label card-subtitle-${theme}`}>Lista *</label>
                     <div className="d-flex gap-2">
@@ -1165,7 +1205,7 @@ const limparBase64 = (base64ComPrefixo) => {
                 )}
 
                 {/* Etapa ou Tag (dependendo do tipo de alvo) */}
-                {tipoAlvo !== 'Funil' && tipoAlvo !== 'Tag' ? null : tipoAlvo === 'Funil' ? (
+                {salvarComoModelo || (tipoAlvo !== 'Funil' && tipoAlvo !== 'Tag') ? null : tipoAlvo === 'Funil' ? (
                   <div className="mb-3">
                     <label htmlFor="etapa" className={`form-label card-subtitle-${theme}`}>
                       Etapa *
@@ -1257,7 +1297,7 @@ const limparBase64 = (base64ComPrefixo) => {
                 )}
                 
                 {/* Transferência de Contatos */}
-                {tipoAlvo === 'Funil' && (
+                {!salvarComoModelo && tipoAlvo === 'Funil' && (
                   <div className="mb-3">
                     <div className="form-check">
                       <input
@@ -1316,6 +1356,8 @@ const limparBase64 = (base64ComPrefixo) => {
               </div>
               {/* Coluna da Direita */}
               <div className="col-6">
+                {!salvarComoModelo && (
+                <>
                 {/* Data de Início */}
                 <div className="mb-3">
                   <label htmlFor="dataInicio" className={`form-label card-subtitle-${theme}`}>
@@ -1364,6 +1406,33 @@ const limparBase64 = (base64ComPrefixo) => {
                     </div>
                   )}
                 </div>
+
+                {/* Conflito de agenda: outro disparo ocupa o canal nesse horário */}
+                {conflitoAgenda && (
+                  <div className="alert alert-danger" role="alert">
+                    <i className="bi bi-exclamation-triangle me-2"></i>
+                    {conflitoAgenda.motivo}
+                    {conflitoAgenda.proximoLivre && (
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          className={`btn btn-sm btn-1-${theme}`}
+                          onClick={() => {
+                            const d = new Date(Number(conflitoAgenda.proximoLivre));
+                            const pad = (n) => String(n).padStart(2, '0');
+                            setDataInicio(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+                            setHoraInicio(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                            setConflitoAgenda(null);
+                          }}
+                        >
+                          Usar {new Date(Number(conflitoAgenda.proximoLivre)).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                </>
+                )}
                 {/* Intervalo */}
                 <div className="mb-3">
                   <label className={`form-label card-subtitle-${theme}`}>Intervalo</label>
