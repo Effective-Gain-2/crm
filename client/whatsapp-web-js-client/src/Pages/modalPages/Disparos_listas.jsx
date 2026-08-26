@@ -10,6 +10,17 @@ const formatarData = (timestamp) => {
   });
 };
 
+// Só apresentação: o dado guardado continua sendo dígitos puros com 55.
+const formatarNumero = (numero) => {
+  const d = String(numero || '');
+  if (d.startsWith('55') && (d.length === 12 || d.length === 13)) {
+    const ddd = d.slice(2, 4);
+    const resto = d.slice(4);
+    return `+55 (${ddd}) ${resto.slice(0, resto.length - 4)}-${resto.slice(-4)}`;
+  }
+  return d || '—';
+};
+
 // Listas de contatos para disparo: sobe a planilha aqui e escolhe a lista no disparo,
 // sem precisar passar pelo funil do Kanban. Subir a lista e agendar o disparo dela
 // sao o mesmo fluxo: quem acabou de subir uma lista quer marcar data e hora agora,
@@ -23,6 +34,10 @@ function ListasModal({ theme, show, onHide, onListasMudaram, onAgendarDisparo })
   const [erro, setErro] = useState('');
   const [resultado, setResultado] = useState('');
   const [listaCriada, setListaCriada] = useState(null);
+  // Visualizador: qual lista está aberta e os contatos já buscados (cache por id).
+  const [listaAberta, setListaAberta] = useState(null);
+  const [contatosPorLista, setContatosPorLista] = useState({});
+  const [carregandoContatos, setCarregandoContatos] = useState(false);
   const fileInputRef = useRef(null);
 
   const url = process.env.REACT_APP_URL;
@@ -100,6 +115,28 @@ function ListasModal({ theme, show, onHide, onListasMudaram, onAgendarDisparo })
       setErro(error.response?.data?.error || 'Erro ao subir a lista.');
     } finally {
       setEnviando(false);
+    }
+  };
+
+  // Abre/fecha os contatos de uma lista; busca uma vez e guarda no cache.
+  const alternarContatos = async (lista) => {
+    if (listaAberta === lista.id) {
+      setListaAberta(null);
+      return;
+    }
+    setListaAberta(lista.id);
+    if (contatosPorLista[lista.id]) return;
+
+    setCarregandoContatos(true);
+    try {
+      const { data } = await axios.get(`${url}/listas/${lista.id}/contatos`, { withCredentials: true });
+      setContatosPorLista((prev) => ({ ...prev, [lista.id]: Array.isArray(data.contatos) ? data.contatos : [] }));
+    } catch (error) {
+      console.error('Erro ao buscar contatos da lista:', error);
+      setErro('Não foi possível carregar os contatos desta lista.');
+      setListaAberta(null);
+    } finally {
+      setCarregandoContatos(false);
     }
   };
 
@@ -207,27 +244,71 @@ function ListasModal({ theme, show, onHide, onListasMudaram, onAgendarDisparo })
               </thead>
               <tbody>
                 {listas.map((lista) => (
-                  <tr key={lista.id}>
-                    <td className={`card-subtitle-${theme}`}>{lista.nome}</td>
-                    <td className={`card-subtitle-${theme}`}>{lista.total_contatos}</td>
-                    <td className={`card-subtitle-${theme}`}>{formatarData(lista.criada_em)}</td>
-                    <td>
-                      <div className="d-flex gap-2">
-                        {onAgendarDisparo && (
+                  <React.Fragment key={lista.id}>
+                    <tr>
+                      <td className={`card-subtitle-${theme}`}>{lista.nome}</td>
+                      <td className={`card-subtitle-${theme}`}>{lista.total_contatos}</td>
+                      <td className={`card-subtitle-${theme}`}>{formatarData(lista.criada_em)}</td>
+                      <td>
+                        <div className="d-flex gap-2">
                           <button
                             className={`btn btn-2-${theme} btn-sm`}
-                            onClick={() => onAgendarDisparo(lista.id)}
-                            title="Criar um disparo para esta lista"
+                            onClick={() => alternarContatos(lista)}
+                            title={listaAberta === lista.id ? 'Ocultar contatos' : 'Ver os contatos desta lista'}
                           >
-                            <i className="bi bi-calendar-event"></i>
+                            <i className={`bi ${listaAberta === lista.id ? 'bi-eye-slash' : 'bi-eye'}`}></i>
                           </button>
-                        )}
-                        <button className="btn delete-btn btn-sm" onClick={() => excluir(lista)} title="Excluir lista">
-                          <i className="bi bi-trash-fill"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                          {onAgendarDisparo && (
+                            <button
+                              className={`btn btn-2-${theme} btn-sm`}
+                              onClick={() => onAgendarDisparo(lista.id)}
+                              title="Criar um disparo para esta lista"
+                            >
+                              <i className="bi bi-calendar-event"></i>
+                            </button>
+                          )}
+                          <button className="btn delete-btn btn-sm" onClick={() => excluir(lista)} title="Excluir lista">
+                            <i className="bi bi-trash-fill"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {listaAberta === lista.id && (
+                      <tr>
+                        <td colSpan={4} className="p-0">
+                          {carregandoContatos && !contatosPorLista[lista.id] ? (
+                            <div className={`card-subtitle-${theme} p-3`}>Carregando contatos…</div>
+                          ) : (
+                            <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                              <table className="table table-sm m-0">
+                                <thead>
+                                  <tr>
+                                    <th className={`card-subtitle-${theme} ps-4`}>Nome</th>
+                                    <th className={`card-subtitle-${theme}`}>Número</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(contatosPorLista[lista.id] || []).map((contato) => (
+                                    <tr key={contato.number}>
+                                      <td className={`card-subtitle-${theme} ps-4`}>{contato.contact_name || '—'}</td>
+                                      <td className={`card-subtitle-${theme}`}>{formatarNumero(contato.number)}</td>
+                                    </tr>
+                                  ))}
+                                  {(contatosPorLista[lista.id] || []).length === 0 && (
+                                    <tr>
+                                      <td colSpan={2} className={`card-subtitle-${theme} ps-4`}>
+                                        Nenhum contato nesta lista.
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

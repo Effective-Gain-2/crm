@@ -1055,7 +1055,7 @@ const limparBase64 = (base64ComPrefixo) => {
                 {!salvarComoModelo && (
                 <div className="mb-3">
                   <label className={`form-label card-subtitle-${theme}`}>Tipo de Alvo</label>
-                  <div className="d-flex gap-3 align-items-center">
+                  <div className="d-flex gap-3 align-items-center flex-wrap">
                     <div className="form-check">
                       <input
                         type="radio"
@@ -1098,28 +1098,6 @@ const limparBase64 = (base64ComPrefixo) => {
                         Lista
                       </label>
                     </div>
-                    {/* Lista suspensa de Funis */}
-                    {tipoAlvo === 'Funil' && (
-                      <select
-                        className={`form-select input-${theme} ms-3 ${errors.funilSelecionado ? 'border-danger' : ''}`}
-                        value={funilSelecionado}
-                        onChange={(e) => {
-                          setFunilSelecionado(e.target.value);
-                          if (errors.funilSelecionado) {
-                            setErrors(prev => ({ ...prev, funilSelecionado: false }));
-                          }
-                        }}
-                        style={{ width: 'auto', minWidth: '200px' }}
-                        title={errors.funilSelecionado ? "Campo obrigatório" : ""}
-                      >
-                        <option value="" disabled>Selecione um funil</option>
-                        {funis.map((funil) => (
-                          <option key={funil.id} value={funil.id}>
-                            {funil.charAt(0).toUpperCase() + funil.slice(1)}
-                          </option>
-                        ))}
-                      </select>
-                    )}
                   </div>
                   {errors.tipoAlvo && (
                     <div className="text-danger small mt-1">
@@ -1127,6 +1105,41 @@ const limparBase64 = (base64ComPrefixo) => {
                     </div>
                   )}
                 </div>
+                )}
+
+                {/* Seletor de funil em bloco próprio: inline na linha dos radios, com
+                    largura mínima fixa, ele transbordava a coluna esquerda e cobria o
+                    "Intervalo" da coluna direita. */}
+                {!salvarComoModelo && tipoAlvo === 'Funil' && (
+                  <div className="mb-3">
+                    <label htmlFor="funilSelecionado" className={`form-label card-subtitle-${theme}`}>
+                      Funil *
+                    </label>
+                    <select
+                      id="funilSelecionado"
+                      className={`form-select input-${theme} ${errors.funilSelecionado ? 'border-danger' : ''}`}
+                      value={funilSelecionado}
+                      onChange={(e) => {
+                        setFunilSelecionado(e.target.value);
+                        if (errors.funilSelecionado) {
+                          setErrors(prev => ({ ...prev, funilSelecionado: false }));
+                        }
+                      }}
+                      title={errors.funilSelecionado ? "Campo obrigatório" : ""}
+                    >
+                      <option value="" disabled>Selecione um funil</option>
+                      {funis.map((funil) => (
+                        <option key={funil.id} value={funil.id}>
+                          {funil.charAt(0).toUpperCase() + funil.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.funilSelecionado && (
+                      <div className="text-danger small mt-1">
+                        Este campo é obrigatório
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Seleção da lista + upload no mesmo lugar */}
