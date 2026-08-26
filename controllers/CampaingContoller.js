@@ -1,4 +1,4 @@
-const { scheduleCampaingBlast, getCampaings, getCampaingById, createCampaing, startCampaing, deleteCampaing, getCampaingDetails, getCampaingMetrics, cancelCampaing } = require("../services/CampaingService");
+const { scheduleCampaingBlast, getCampaings, getCampaingById, createCampaing, startCampaing, deleteCampaing, getCampaingDetails, getCampaingMetrics, cancelCampaing, setCampaingTags } = require("../services/CampaingService");
 const { createMessageForBlast, getAllBlastMessages, deleteAllBlastMessages } = require("../services/MessageBlast");
 
 const startCampaingController = async (req, res) => {
@@ -39,7 +39,7 @@ const getCampaingByIdController = async (req, res) => {
 };
 
 const createCampaingController = async (req, res) => {
-  const {campaing_id, name, sector, kanban_stage, connection_id, start_date, schema, mensagem, intervalo, new_stage, lista_id } = req.body;
+  const {campaing_id, name, sector, kanban_stage, connection_id, start_date, schema, mensagem, intervalo, new_stage, lista_id, tags } = req.body;
   console.log(new_stage, 'new_stage');
   if (!schema) {
     return res.status(400).json({ erro: 'Schema não informado!' });
@@ -54,6 +54,10 @@ const createCampaingController = async (req, res) => {
       campaing = await createCampaing(null, name, sector, kanban_stage, connection_id, start_date, schema, intervalo, lista_id || null);
       console.log('Campanha criada:', campaing);
     }
+
+    // As tags precisam estar gravadas ANTES do agendamento: e delas que
+    // scheduleCampaingBlast tira os contatos quando o alvo e por tag.
+    await setCampaingTags(campaing.id, Array.isArray(tags) ? tags : [], schema);
 
     // Deletar todas as mensagens existentes da campanha antes de salvar as novas
     await deleteAllBlastMessages(campaing.id, schema);
