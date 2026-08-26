@@ -165,9 +165,20 @@ const getContatosPorTags = async (campaing_id, schema) => {
   return result.rows;
 };
 
+// start_date, timer, min e max sao BIGINT: numero quebrado ou NaN chegando neles
+// derruba o INSERT com "invalid input syntax for type bigint" — foi exatamente o
+// que aconteceu com o delay sorteado do intervalo dinamico. Tudo que e computado
+// antes de virar coluna inteira passa por aqui.
+const inteiroOuNull = (v) => (Number.isFinite(v) ? Math.round(v) : null);
+
 const createCampaing = async (campaing_id, campName, sector, kanbanStage, connectionId, startDate, schema, intervalo, listaId = null) => {
   try {
     const unixStartDate = parseLocalDateTime(startDate);
+    // Data invalida vira NaN, e NaN em BIGINT viraria outro erro criptico de banco.
+    // Melhor recusar aqui com uma frase que a tela consegue mostrar.
+    if (!Number.isFinite(unixStartDate)) {
+      throw new Error(`Data de início inválida: "${startDate}"`);
+    }
 
     // Converter o intervalo para segundos baseado na unidade
     let intervalEmSegundos;
@@ -213,6 +224,12 @@ const createCampaing = async (campaing_id, campName, sector, kanbanStage, connec
           break;
         }
     }
+
+    // Normaliza antes de gravar: timer/min/max fracionarios (ou invalidos) do corpo
+    // da requisicao nao podem alcancar as colunas BIGINT.
+    intervalEmSegundos = inteiroOuNull(Number(intervalEmSegundos));
+    intervalMinEmSegundos = inteiroOuNull(Number(intervalMinEmSegundos));
+    intervalMaxEmSegundos = inteiroOuNull(Number(intervalMaxEmSegundos));
 
     let result;
     let campaing;
@@ -389,6 +406,7 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
     }
 
     let jobCount = 0;
+    let primeiraFalha = null;
     const totalMessages = messageList.length;
     const totalContacts = contacts.length;
     const totalConnections = connections.length;
@@ -459,56 +477,77 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
         }
       }
       
-      // O delay é calculado por job
+      // O delay é calculado por job. Math.round porque o intervalo dinâmico é
+      // sorteado (Math.random) e produz fração de segundo — e scheduled_for é
+      // BIGINT: o Postgres recusava "…749.3203" e derrubava o salvamento inteiro
+      // do disparo com "invalid input syntax for type bigint".
       const messageDelay = accumulatedDelay;
-      accumulatedDelay += proximoIntervalo() * 1000;
+      accumulatedDelay += Math.round(proximoIntervalo() * 1000);
 
-      // Registra o contato como pendente ANTES de enfileirar, para a tela de métricas
-      // mostrar o total agendado mesmo antes de qualquer envio acontecer.
       const dispatchId = uuidv4();
-      await pool.query(
-        `INSERT INTO ${schema}.campaing_dispatch
-           (id, campaing_id, contact_number, contact_name, connection_id, chat_id, message_id, scheduled_for, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendente')
-         ON CONFLICT (campaing_id, contact_number) DO UPDATE SET
-           contact_name = EXCLUDED.contact_name,
-           connection_id = EXCLUDED.connection_id,
-           chat_id = EXCLUDED.chat_id,
-           message_id = EXCLUDED.message_id,
-           scheduled_for = EXCLUDED.scheduled_for,
-           status = 'pendente',
-           sent_at = NULL,
-           error = NULL`,
-        [dispatchId, campaing.id, contactPhone, contactName, instance.rows[0].id,
-         chatToUse.id, message.id, Date.now() + messageDelay]
-      );
+      try {
+        // Registra o contato como pendente ANTES de enfileirar, para a tela de métricas
+        // mostrar o total agendado mesmo antes de qualquer envio acontecer.
+        await pool.query(
+          `INSERT INTO ${schema}.campaing_dispatch
+             (id, campaing_id, contact_number, contact_name, connection_id, chat_id, message_id, scheduled_for, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendente')
+           ON CONFLICT (campaing_id, contact_number) DO UPDATE SET
+             contact_name = EXCLUDED.contact_name,
+             connection_id = EXCLUDED.connection_id,
+             chat_id = EXCLUDED.chat_id,
+             message_id = EXCLUDED.message_id,
+             scheduled_for = EXCLUDED.scheduled_for,
+             status = 'pendente',
+             sent_at = NULL,
+             error = NULL`,
+          [dispatchId, campaing.id, contactPhone, contactName, instance.rows[0].id,
+           chatToUse.id, message.id, Math.round(Date.now() + messageDelay)]
+        );
 
-      const job = await blastQueue.add('sendMessage', {
-        instance: instance.rows[0].id,
-        number: contactPhone,
-        chat_id: chatToUse.id,
-        message: message.value,
-        image: message.image,
-        schema: schema,
-        stage: new_stage || null,
-        dispatch_id: dispatchId,
-      }, { 
-        delay: messageDelay, 
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000
-        }
-      }); 
+        const job = await blastQueue.add('sendMessage', {
+          instance: instance.rows[0].id,
+          number: contactPhone,
+          chat_id: chatToUse.id,
+          message: message.value,
+          image: message.image,
+          schema: schema,
+          stage: new_stage || null,
+          dispatch_id: dispatchId,
+        }, {
+          delay: Math.round(messageDelay),
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 2000
+          }
+        });
         console.log(`Agendando mensagem ${messageIndex + 1}/${totalMessages} para conexão ${connectionIdx + 1}/${connections.length} (contato ${contactPhone}) para:`, new Date(Date.now() + messageDelay).toLocaleString());
         console.log(`Job ${job.id} agendado com sucesso, enviando pelo numero ${instance.rows[0].id}, para o ${contactPhone}`);
 
-      await pool.query(
-        `UPDATE ${schema}.campaing_dispatch SET job_id = $1 WHERE id = $2`,
-        [String(job.id), dispatchId]
-      );
+        await pool.query(
+          `UPDATE ${schema}.campaing_dispatch SET job_id = $1 WHERE id = $2`,
+          [String(job.id), dispatchId]
+        );
 
-      jobCount++;
+        jobCount++;
+      } catch (error) {
+        // Um contato problemático não pode abortar o agendamento dos outros: antes,
+        // o erro estourava o laço no meio — quem já entrou na fila ficava, quem vinha
+        // depois nunca era agendado, e a tela dizia que nada foi salvo.
+        console.error(`Erro ao agendar disparo para ${contactPhone}:`, error.message);
+        if (!primeiraFalha) primeiraFalha = error;
+        await pool.query(
+          `UPDATE ${schema}.campaing_dispatch SET status = 'falha', error = $1
+            WHERE campaing_id = $2 AND contact_number = $3 AND status = 'pendente'`,
+          [`Falha ao agendar: ${error.message}`, campaing.id, contactPhone]
+        ).catch(() => {});
+      }
+    }
+    // Falha total é erro de verdade: sem nenhum job na fila, o disparo não existe —
+    // o motivo tem de subir até a tela em vez de fingir sucesso.
+    if (jobCount === 0 && contacts.length > 0) {
+      throw new Error(`Nenhum contato pôde ser agendado. Primeiro erro: ${primeiraFalha ? primeiraFalha.message : 'desconhecido'}`);
     }
     // Reagendar limpa um cancelamento anterior: o status volta a ser deduzido dos envios.
     await pool.query(`UPDATE ${schema}.campaing SET status = NULL WHERE id = $1`, [campaing.id]);
