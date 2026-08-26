@@ -557,14 +557,39 @@ function ChatPage({ theme, chat_id} ) {
   }, 0);
 };
 
+// Auto-abrir a conversa pedida pelo Kanban. A lista desta tela exclui conversas
+// fechadas (e, para líder/operacional, o que está fora das filas dele): quando o
+// card clicado não está nela, o find devolvia undefined e handleChatClick
+// estourava em chat.id — a tela mudava para o Chats mas a conversa nunca abria.
+// Agora o chat ausente é buscado avulso e entra na lista.
+const buscaChatKanbanRef = useRef(null);
 useEffect(() => {
-  if (chat_id && chatList.length > 0) {
-    if (!selectedChat || selectedChat.id !== chat_id) {
-      const chat = chatList.find(c => c.id === chat_id);
-      handleChatClick(chat)
-      if (chat) setSelectedChat(chat);
-    }
+  if (!chat_id) return;
+  if (selectedChat && selectedChat.id === chat_id) return;
+
+  const daLista = chatList.find(c => c.id === chat_id);
+  if (daLista) {
+    handleChatClick(daLista);
+    return;
   }
+
+  // Uma tentativa por chat_id: sem isso, um fetch que falha reexecuta o efeito para sempre.
+  if (buscaChatKanbanRef.current === chat_id) return;
+  buscaChatKanbanRef.current = chat_id;
+  (async () => {
+    try {
+      const { data } = await axios.get(`${url}/chat/getChatById/${chat_id}/${schema}`, { withCredentials: true });
+      const encontrado = data?.chat;
+      if (!encontrado) throw new Error('resposta sem chat');
+      // A lista agrega tag_ids/is_favorite no backend; o chat avulso vem sem eles.
+      const normalizado = { ...encontrado, tag_ids: encontrado.tag_ids || [], is_favorite: !!encontrado.is_favorite };
+      setChats(prev => (prev.some(c => c.id === normalizado.id) ? prev : [normalizado, ...prev]));
+      handleChatClick(normalizado);
+    } catch (error) {
+      console.error('Erro ao abrir conversa vinda do Kanban:', error);
+      showError('Não foi possível abrir esta conversa.');
+    }
+  })();
 }, [chat_id, chatList, selectedChat]);
 
 const handleEditNameFinish = async () => {
