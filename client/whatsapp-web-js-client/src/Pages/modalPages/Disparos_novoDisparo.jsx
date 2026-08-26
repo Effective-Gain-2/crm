@@ -551,9 +551,34 @@ const limparBase64 = (base64ComPrefixo) => {
     };
     
     setErrors(newErrors);
-    return !Object.values(newErrors).some(error => 
-      Array.isArray(error) ? error.some(e => e) : error
-    );
+
+    // O aviso de campo obrigatorio e desenhado embaixo do proprio campo. Num modal
+    // que rola, o campo que faltou costuma estar fora da area visivel: o usuario
+    // clica em Salvar, nada acontece na tela e parece que o sistema travou. Aqui a
+    // lista do que falta vai para o toast, que aparece sempre.
+    const faltando = [];
+    if (newErrors.titulo) faltando.push('Título');
+    if (newErrors.mensagens.some(Boolean)) {
+      const quais = newErrors.mensagens
+        .map((vazia, i) => (vazia ? i + 1 : null))
+        .filter(Boolean);
+      faltando.push(`Modelo de mensagem ${quais.join(', ')}`);
+    }
+    if (newErrors.canais) faltando.push('Canais');
+    if (newErrors.tipoAlvo) faltando.push('Tipo de Alvo');
+    if (newErrors.funilSelecionado) faltando.push('Funil');
+    if (newErrors.etapa) faltando.push('Etapa');
+    if (newErrors.tagsSelecionadas) faltando.push('Tags');
+    if (newErrors.listaSelecionada) faltando.push('Lista');
+    if (newErrors.dataInicio) faltando.push('Data de Início');
+    if (newErrors.horaInicio) faltando.push('Hora de Início');
+    if (newErrors.etapaDestino) faltando.push('Etapa de Destino');
+
+    if (faltando.length > 0) {
+      showError(`Faltou preencher: ${faltando.join(', ')}.`);
+      return false;
+    }
+    return true;
   };
 
   const handleSave = async () => {
@@ -650,8 +675,11 @@ const limparBase64 = (base64ComPrefixo) => {
       showError('Erro inesperado ao criar disparo.');
     } catch (error) {
       setLoading(false);
-      if (error.response && error.response.data && error.response.data.erro) {
-        showError(error.response.data.erro);
+      const dados = error.response?.data;
+      if (dados?.erro) {
+        // O servidor agora manda o motivo real junto: sem ele a tela dizia apenas
+        // "não foi possível", e descobrir a causa exigia o log do container.
+        showError(dados.motivo ? `${dados.erro}: ${dados.motivo}` : dados.erro);
       } else {
         showError('Erro ao salvar disparo. Verifique os campos e tente novamente.');
       }

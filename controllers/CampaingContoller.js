@@ -80,9 +80,13 @@ const createCampaingController = async (req, res) => {
     return res.status(201).json(campaing);
     
   } catch (error) {
+    // O motivo real ficava so no log do servidor e a tela dizia "Erro ao salvar
+    // disparo" — quem estava usando nao tinha como saber o que corrigir, e quem
+    // dava suporte precisava do console do container para descobrir.
     console.error('Erro ao criar campanha:', error);
     res.status(500).json({
-      erro: 'Não foi possível criar a campanha',
+      erro: 'Não foi possível salvar o disparo',
+      motivo: error.message || 'erro desconhecido',
     });
   }
 };
