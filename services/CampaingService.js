@@ -1244,7 +1244,9 @@ const getCampaingMetrics = async (campaing_id, schema) => {
                  AND (
                    m.chat_id = d.chat_id
                    OR (
-                     ch.connection_id = d.connection_id
+                     -- chats.connection_id e TEXT; campaing_dispatch.connection_id e UUID.
+                     -- Sem o cast o Postgres recusa a comparacao e a tela de metricas cai.
+                     ch.connection_id = d.connection_id::text
                      AND ch.contact_phone LIKE '55%'
                      AND d.contact_number LIKE '55%'
                      AND SUBSTRING(ch.contact_phone FROM 3 FOR 2) = SUBSTRING(d.contact_number FROM 3 FOR 2)
