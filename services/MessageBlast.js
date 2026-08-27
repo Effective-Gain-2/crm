@@ -97,6 +97,20 @@ const confirmarEnvio = (resultado) => {
   return { ok: false, motivo: `WhatsApp nao confirmou o envio: ${texto}` };
 };
 
+// Envio confirmado tem de refletir no chat: sem mexer no updated_time a conversa
+// ficava com o carimbo da criacao (la atras) e afundava no fim da lista — o usuario
+// procurava a mensagem que o celular recebeu e nao achava a conversa no CRM.
+const marcarAtividadeDoChat = async (chat_id, schema) => {
+  try {
+    await pool.query(
+      `UPDATE ${schema}.chats SET updated_time = $1 WHERE id = $2`,
+      [getCurrentTimestamp(), chat_id]
+    );
+  } catch (e) {
+    console.error('Erro ao atualizar atividade do chat apos disparo:', e.message);
+  }
+};
+
 const sendBlastMessage = async (instanceId, messageValue, number, chat_id, schema) => {
   try {
     const instance = await searchConnById(instanceId, schema);
@@ -110,6 +124,7 @@ const sendBlastMessage = async (instanceId, messageValue, number, chat_id, schem
     if (confirmacao.ok) {
       const message = new Message(uuidv4(), processedMessage, true, chat_id, getCurrentTimestamp())
       await saveMessage(chat_id, message, schema)
+      await marcarAtividadeDoChat(chat_id, schema)
     }
 
     return confirmacao;
@@ -144,6 +159,7 @@ const sendMediaBlastMessage = async (instanceId, text, number, chat_id, image, s
     if (confirmacao.ok) {
       const message = new Message(uuidv4(), processedMessage, true, chat_id, getCurrentTimestamp())
       await saveMessage(chat_id, message, schema)
+      await marcarAtividadeDoChat(chat_id, schema)
     }
 
     return confirmacao;

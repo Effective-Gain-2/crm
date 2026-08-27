@@ -27,7 +27,7 @@ const ROTULO_STATUS = {
   cancelado: { texto: 'Cancelado', cor: 'warning' },
 };
 
-function DetalhesDisparoModal({ theme, show, onHide, disparoId }) {
+function DetalhesDisparoModal({ theme, show, onHide, disparoId, onAbrirConversa }) {
   const [detalhes, setDetalhes] = useState(null);
   const [metricas, setMetricas] = useState(null);
   const [carregando, setCarregando] = useState(false);
@@ -190,6 +190,7 @@ function DetalhesDisparoModal({ theme, show, onHide, disparoId }) {
                         <th className={`header-text-${theme}`} style={{ position: 'sticky', top: 0, zIndex: 2 }}>Status</th>
                         <th className={`header-text-${theme}`} style={{ position: 'sticky', top: 0, zIndex: 2 }}>Enviado em</th>
                         <th className={`header-text-${theme}`} style={{ position: 'sticky', top: 0, zIndex: 2 }}>Respondeu</th>
+                        <th className={`header-text-${theme}`} style={{ position: 'sticky', top: 0, zIndex: 2 }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -208,6 +209,23 @@ function DetalhesDisparoModal({ theme, show, onHide, disparoId }) {
                             </td>
                             <td className={`card-subtitle-${theme}`}>{formatarDataHora(c.sent_at)}</td>
                             <td className={`card-subtitle-${theme}`}>{c.respondeu ? 'Sim' : '—'}</td>
+                            <td className={`card-subtitle-${theme}`}>
+                              {/* A prova do envio é a própria conversa: daqui dá para
+                                  abri-la e ver a mensagem que saiu (e a resposta). */}
+                              {c.chat_id && onAbrirConversa && (
+                                <button
+                                  className={`btn btn-2-${theme} btn-sm`}
+                                  title="Ver a conversa deste contato"
+                                  onClick={() => onAbrirConversa({
+                                    chatId: c.chat_id,
+                                    nome: c.contact_name,
+                                    numero: c.contact_number,
+                                  })}
+                                >
+                                  <i className="bi bi-chat-text"></i>
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
