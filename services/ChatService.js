@@ -13,6 +13,21 @@ const { getGptResponse } = require('./ReportService');
 const bullConn = createRedisConnection()
 const messageQueue = new Queue('message', {connection: bullConn});
 
+// Celular BR tem duas grafias em circulação: com o nono dígito (55 DD 9XXXXXXXX)
+// e sem ele (55 DD XXXXXXXX) — o jid do WhatsApp usa uma, a planilha importada pode
+// usar a outra. Devolve o número como veio MAIS a grafia irmã, para consultas que
+// precisam reconhecer que os dois são a mesma pessoa.
+const variantesNumeroBR = (numero) => {
+  const d = String(numero || '');
+  const variantes = [d];
+  if (/^55\d{2}9[6-9]\d{7}$/.test(d)) {
+    variantes.push(d.slice(0, 4) + d.slice(5));       // com 9 → sem 9
+  } else if (/^55\d{2}[6-9]\d{7}$/.test(d)) {
+    variantes.push(d.slice(0, 4) + '9' + d.slice(4)); // sem 9 → com 9
+  }
+  return variantes;
+};
+
 const worker = new Worker(
   'message',
   async (job) => {
@@ -76,15 +91,22 @@ const createChat = async (chat, instance, message, etapa, io) => {
     const nomeNovo = chat.getContact();
     const nomeNovoEhBom = !ehNomeRuim(nomeNovo);
 
+    // Mesma pessoa, dois formatos: o jid do WhatsApp pode vir SEM o nono dígito do
+    // celular BR enquanto a lista importada guarda o número COM ele (ou vice-versa).
+    // Sem equiparar, a resposta do contato abria um SEGUNDO chat na mesma conexão —
+    // a conversa do disparo ficava sem a resposta e a métrica dizia que ninguém
+    // respondeu. O formato exato continua tendo preferência.
     const existingChat = await pool.query(
-      `SELECT * FROM ${schema}.chats WHERE contact_phone = $1 AND connection_id = $2 AND status <> 'closed' `,
-      [contactNumber, chat.getConnectionId()]
+      `SELECT * FROM ${schema}.chats WHERE contact_phone = ANY($1) AND connection_id = $2 AND status <> 'closed' `,
+      [variantesNumeroBR(contactNumber), chat.getConnectionId()]
     );
 
 
     if (existingChat.rowCount > 0) {
-      // Procura o chat mais recente que NÃO está 'closed'
-      const chatValido = existingChat.rows.find(c => c.status !== 'closed');
+      // Procura o chat mais recente que NÃO está 'closed' (formato exato primeiro)
+      const chatValido =
+        existingChat.rows.find(c => c.contact_phone === contactNumber && c.status !== 'closed') ||
+        existingChat.rows.find(c => c.status !== 'closed');
       if (chatValido) {
         // O nome ficava congelado no primeiro valor para sempre: se o atual é
         // número/UUID e chegou um nome real (pushName/agenda), atualiza.
@@ -870,6 +892,7 @@ const getAverageTimeToClose = async(schema)=>{
 
 module.exports = {
   createChat,
+  variantesNumeroBR,
   updateChatMessages,
   getMessages,
   getChatService,

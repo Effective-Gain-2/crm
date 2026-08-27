@@ -9,7 +9,7 @@ const { Queue, Worker } = require('bullmq');
 const { saveMessage } = require('./MessageService');
 const { Message } = require('../entities/Message');
 const { getCurrentTimestamp, parseLocalDateTime } = require('./getCurrentTimestamp');
-const { updateChatConnection, createNewChat } = require('./ChatService');
+const { updateChatConnection, createNewChat, variantesNumeroBR } = require('./ChatService');
 const { fetchInstance } = require('./ConnectionService');
 
 const bullConn = createRedisConnection();
@@ -686,10 +686,12 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
         continue;
       }
       
-      // Verificar se existe chat para o contato na conexão sorteada
+      // Verificar se existe chat para o contato na conexão sorteada. As variantes
+      // cobrem o nono dígito do celular BR: conversa aberta pelo WhatsApp pode estar
+      // gravada na grafia irmã do número da lista — é o mesmo contato.
       const existingChatQuery = await pool.query(
-        `SELECT * FROM ${schema}.chats WHERE contact_phone=$1 AND connection_id=$2 AND status<>'closed' LIMIT 1`,
-        [contactPhone, instance.rows[0].id]
+        `SELECT * FROM ${schema}.chats WHERE contact_phone = ANY($1) AND connection_id=$2 AND status<>'closed' LIMIT 1`,
+        [variantesNumeroBR(contactPhone), instance.rows[0].id]
       );
       
       let chatToUse = null;
@@ -1220,7 +1222,10 @@ const getCampaingMetrics = async (campaing_id, schema) => {
     [campaing_id]
   );
 
-  // Resposta = mensagem recebida no chat do contato depois do envio.
+  // Resposta = mensagem recebida do contato depois do envio. Não basta olhar o
+  // chat exato do disparo: o WhatsApp pode entregar a resposta com o número na
+  // grafia irmã (nono dígito do celular BR), que abre/usa OUTRO chat na mesma
+  // conexão — mesmo DDD e mesmos 8 dígitos finais é a mesma pessoa.
   const contatos = await pool.query(
     `SELECT d.contact_number,
             d.contact_name,
@@ -1230,11 +1235,22 @@ const getCampaingMetrics = async (campaing_id, schema) => {
             d.chat_id,
             c.name AS canal,
             EXISTS (
-              SELECT 1 FROM ${schema}.messages m
-               WHERE m.chat_id = d.chat_id
-                 AND m.from_me = false
+              SELECT 1
+                FROM ${schema}.messages m
+                JOIN ${schema}.chats ch ON ch.id = m.chat_id
+               WHERE m.from_me = false
                  AND d.sent_at IS NOT NULL
                  AND m.created_at > d.sent_at
+                 AND (
+                   m.chat_id = d.chat_id
+                   OR (
+                     ch.connection_id = d.connection_id
+                     AND ch.contact_phone LIKE '55%'
+                     AND d.contact_number LIKE '55%'
+                     AND SUBSTRING(ch.contact_phone FROM 3 FOR 2) = SUBSTRING(d.contact_number FROM 3 FOR 2)
+                     AND RIGHT(ch.contact_phone, 8) = RIGHT(d.contact_number, 8)
+                   )
+                 )
             ) AS respondeu
        FROM ${schema}.campaing_dispatch d
        LEFT JOIN ${schema}.connections c ON c.id = d.connection_id
