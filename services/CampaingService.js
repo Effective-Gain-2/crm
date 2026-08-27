@@ -721,11 +721,14 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
       const messageDelay = accumulatedDelay;
       accumulatedDelay += Math.round(proximoIntervalo() * 1000);
 
-      const dispatchId = uuidv4();
       try {
         // Registra o contato como pendente ANTES de enfileirar, para a tela de métricas
         // mostrar o total agendado mesmo antes de qualquer envio acontecer.
-        await pool.query(
+        // RETURNING id porque no reagendamento o ON CONFLICT REAPROVEITA a linha
+        // antiga: o id sorteado aqui é descartado pelo banco. Usar o id sorteado no
+        // job fazia o worker atualizar uma linha que não existe — a mensagem saía
+        // de verdade e a tela ficava "agendado, 0 enviados" para sempre.
+        const upsert = await pool.query(
           `INSERT INTO ${schema}.campaing_dispatch
              (id, campaing_id, contact_number, contact_name, connection_id, chat_id, message_id, scheduled_for, status)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendente')
@@ -737,10 +740,12 @@ const scheduleCampaingBlast = async (campaing, sector, schema, intervalo, new_st
              scheduled_for = EXCLUDED.scheduled_for,
              status = 'pendente',
              sent_at = NULL,
-             error = NULL`,
-          [dispatchId, campaing.id, contactPhone, contactName, instance.rows[0].id,
+             error = NULL
+           RETURNING id`,
+          [uuidv4(), campaing.id, contactPhone, contactName, instance.rows[0].id,
            chatToUse.id, message.id, Math.round(Date.now() + messageDelay)]
         );
+        const dispatchId = upsert.rows[0].id;
 
         const job = await blastQueue.add('sendMessage', {
           instance: instance.rows[0].id,
@@ -1222,6 +1227,7 @@ const getCampaingMetrics = async (campaing_id, schema) => {
             d.status,
             d.sent_at,
             d.error,
+            d.chat_id,
             c.name AS canal,
             EXISTS (
               SELECT 1 FROM ${schema}.messages m

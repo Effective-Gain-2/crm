@@ -9,6 +9,8 @@ import DeleteDisparoModal from './modalPages/Disparos_delete';
 import DetalhesDisparoModal from './modalPages/Disparos_detalhes';
 import ListasModal from './modalPages/Disparos_listas';
 import UsarModeloModal from './modalPages/Disparos_usarModelo';
+import VerListaModal from './modalPages/Disparos_verLista';
+import ChatPage from './Chats';
 import { useToast } from '../contexts/ToastContext';
 
 const userData = JSON.parse(localStorage.getItem('user'));
@@ -58,6 +60,8 @@ function DisparosPage({ theme }) {
   const { showError, showSuccess } = useToast();
   const [disparoSelecionado, setDisparoSelecionado] = useState(null);
   const [disparoDetalhado, setDisparoDetalhado] = useState(null);
+  const [listaVisivel, setListaVisivel] = useState(null);
+  const [conversaAberta, setConversaAberta] = useState(null);
   const [mostrarListas, setMostrarListas] = useState(false);
   const [listaParaDisparo, setListaParaDisparo] = useState('');
   const [modeloParaUsar, setModeloParaUsar] = useState(null);
@@ -289,6 +293,26 @@ function DisparosPage({ theme }) {
   const modelos = listaDisparos.filter((d) => d.is_modelo);
   const execucoes = listaDisparos.filter((d) => !d.is_modelo);
 
+  // Conversa aberta a partir das métricas do disparo: a mesma tela de Chats,
+  // completa, com barra de voltar — o mesmo padrão do funil (Kanban).
+  if (conversaAberta) {
+    return (
+      <div className="d-flex flex-column h-100 w-100" style={{ minHeight: 0 }}>
+        <div className={`d-flex align-items-center gap-2 px-3 py-2 border-bottom border-${theme}`} style={{ flex: '0 0 auto' }}>
+          <button className={`btn btn-sm btn-2-${theme}`} onClick={() => setConversaAberta(null)}>
+            <i className="bi bi-arrow-left me-2"></i>Voltar aos disparos
+          </button>
+          <span className={`card-subtitle-${theme}`} style={{ fontSize: '0.85rem' }}>
+            {conversaAberta.nome || conversaAberta.numero || ''}
+          </span>
+        </div>
+        <div style={{ flex: '1 1 auto', minHeight: 0 }}>
+          <ChatPage theme={theme} chat_id={conversaAberta.chatId} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-100 w-100 ms-2 py-3">
       <div className="d-flex justify-content-between align-items-center mb-3">
@@ -427,11 +451,22 @@ function DisparosPage({ theme }) {
                 </div>
                 <div className={`header-text-${theme} mb-1`}>
                   Alvo: <span className={`fw-bold`}>
-                    {disparo.lista_nome
-                      ? `Lista ${disparo.lista_nome}`
-                      : (Array.isArray(disparo.tag_nomes) && disparo.tag_nomes.length > 0
-                        ? `Tag ${disparo.tag_nomes.join(', ')}`
-                        : `Funil ${disparo.sector || '—'}`)}
+                    {disparo.lista_nome ? (
+                      // O nome da lista abre a lista: quem confere o alvo quer ver
+                      // os contatos, não só saber o nome do arquivo.
+                      <button
+                        type="button"
+                        className={`btn btn-link p-0 fw-bold header-text-${theme}`}
+                        style={{ textDecoration: 'underline', verticalAlign: 'baseline' }}
+                        title="Ver os contatos desta lista"
+                        onClick={() => setListaVisivel({ id: disparo.lista_id, nome: disparo.lista_nome })}
+                      >
+                        Lista {disparo.lista_nome}
+                        <i className="bi bi-eye ms-1"></i>
+                      </button>
+                    ) : (Array.isArray(disparo.tag_nomes) && disparo.tag_nomes.length > 0
+                      ? `Tag ${disparo.tag_nomes.join(', ')}`
+                      : `Funil ${disparo.sector || '—'}`)}
                   </span>
                 </div>
                 <div className={`header-text-${theme} mb-1`}>
@@ -561,6 +596,18 @@ function DisparosPage({ theme }) {
         show={!!disparoDetalhado}
         onHide={() => setDisparoDetalhado(null)}
         disparoId={disparoDetalhado}
+        onAbrirConversa={(contato) => {
+          setDisparoDetalhado(null);
+          setConversaAberta(contato);
+        }}
+      />
+
+      {/* Contatos da lista alvo (clique no nome da lista no card) */}
+      <VerListaModal
+        theme={theme}
+        show={!!listaVisivel}
+        onHide={() => setListaVisivel(null)}
+        lista={listaVisivel}
       />
     </div>
   );
